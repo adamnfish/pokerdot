@@ -1,20 +1,12 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{cardOrd, rankOrd}
+import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits, cardOrd, rankOrd}
 import io.adamnfish.pokerdot.models._
 import org.scalacheck.{Arbitrary, Gen}
 
 
 trait PokerGenerators {
-  private val allRanks = List(
-    Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace
-  )
-
-  private val allSuits = List(
-    Clubs, Diamonds, Spades, Hearts
-  )
-
   implicit val rankGen: Gen[Rank] =
     Gen.oneOf(allRanks)
 
@@ -440,6 +432,160 @@ trait PokerGenerators {
     gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
   }
 
+  // other hand generators
+  val twoTripsGen: Gen[List[Card]] = {
+    val gen = for {
+      trip1Rank <- rankGen
+      trip2Rank <- Gen.oneOf(
+        allRanks.filterNot(Set(trip1Rank).contains)
+      )
+      kickerRank <- Gen.oneOf(
+        allRanks.filterNot(Set(trip1Rank, trip2Rank).contains)
+      )
+      trip1Suit1 <- suitGen
+      trip1Suit2 <- Gen.oneOf(
+        allSuits.filterNot(Set(trip1Suit1).contains)
+      )
+      trip1Suit3 <- Gen.oneOf(
+        allSuits.filterNot(Set(trip1Suit1, trip1Suit2).contains)
+      )
+      trip2Suit1 <- suitGen
+      trip2Suit2 <- Gen.oneOf(
+        allSuits.filterNot(Set(trip2Suit1).contains)
+      )
+      trip2Suit3 <- Gen.oneOf(
+        allSuits.filterNot(Set(trip2Suit1, trip2Suit2).contains)
+      )
+      kickerSuit <- suitGen
+    } yield {
+      orderCards(List(
+        trip1Rank of trip1Suit1, trip1Rank of trip1Suit2, trip1Rank of trip1Suit3,
+        trip2Rank of trip2Suit1, trip2Rank of trip2Suit2, trip2Rank of trip2Suit3,
+        kickerRank of kickerSuit
+      ))
+    }
+    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+  }
+
+  val longStraightGenerator: Gen[List[Card]] = {
+    val gen = for {
+      (high, next1, next2, next3, next4, next5, low) <- Gen.oneOf(
+        (Ace, King, Queen, Jack, Ten, Nine, Eight),
+        (King, Queen, Jack, Ten, Nine, Eight, Seven),
+        (Queen, Jack, Ten, Nine, Eight, Seven, Six),
+        (Jack, Ten, Nine, Eight, Seven, Six, Five),
+        (Ten, Nine, Eight, Seven, Six, Five, Four),
+        (Nine, Eight, Seven, Six, Five, Four, Three),
+        (Eight, Seven, Six, Five, Four, Three, Two),
+        (Seven, Six, Five, Four, Three, Two, Ace),
+      )
+      suit1 <- suitGen
+      suit2 <- suitGen
+      suit3 <- suitGen
+      suit4 <- suitGen
+      suit5 <- Gen.oneOf(
+        allSuits.filterNot(
+          breakFlush(suit1, suit2, suit3, suit4).contains
+        )
+      )
+      suit6 <- Gen.oneOf(
+        allSuits.filterNot(
+          breakFlush(suit1, suit2, suit3, suit4, suit5)
+        )
+      )
+      suit7 <- Gen.oneOf(
+        allSuits.filterNot(
+          breakFlush(suit1, suit2, suit3, suit4, suit5, suit6)
+        )
+      )
+    } yield {
+      orderCards(List(
+        high of suit1, next1 of suit2, next2 of suit3, next3 of suit4,
+        next4 of suit5, next5 of suit6, low of suit7
+      ))
+    }
+    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+  }
+
+  val longStraightFlushGenerator: Gen[List[Card]] = {
+    val gen = for {
+      (high, next1, next2, next3, next4, next5, low) <- Gen.oneOf(
+        (Ace, King, Queen, Jack, Ten, Nine, Eight),
+        (King, Queen, Jack, Ten, Nine, Eight, Seven),
+        (Queen, Jack, Ten, Nine, Eight, Seven, Six),
+        (Jack, Ten, Nine, Eight, Seven, Six, Five),
+        (Ten, Nine, Eight, Seven, Six, Five, Four),
+        (Nine, Eight, Seven, Six, Five, Four, Three),
+        (Eight, Seven, Six, Five, Four, Three, Two),
+        (Seven, Six, Five, Four, Three, Two, Ace),
+      )
+      suit <- suitGen
+    } yield {
+      orderCards(List(
+        high of suit, next1 of suit, next2 of suit, next3 of suit,
+        next4 of suit, next5 of suit, low of suit
+      ))
+    }
+    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+  }
+
+  val aceLowStraightGenerator: Gen[List[Card]] = {
+    val gen = for {
+      suit1 <- suitGen
+      suit2 <- suitGen
+      suit3 <- suitGen
+      suit4 <- suitGen
+      suit5 <- Gen.oneOf(
+        allSuits.filterNot(
+          breakFlush(suit1, suit2, suit3, suit4).contains
+        )
+      )
+
+      kicker1Rank <- Gen.oneOf(
+        allRanks.filterNot(_ == Six)
+      )
+      kicker1Suit <- Gen.oneOf(
+        allSuits.filterNot(
+          breakFlush(suit1, suit2, suit3, suit4, suit5)
+        )
+      )
+      kicker2Rank <- Gen.oneOf(
+        allRanks.filterNot(_ == Six)
+      )
+      kicker2Suit <- Gen.oneOf(
+        allSuits.filterNot(
+          breakFlush(suit1, suit2, suit3, suit4, suit5, kicker1Suit)
+        )
+      )
+    } yield {
+      orderCards(List(
+        Ace of suit1, Two of suit2, Three of suit3, Four of suit4, Five of suit5,
+        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
+      ))
+    }
+    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+  }
+
+  val aceLowStraightFlushGenerator: Gen[List[Card]] = {
+    val gen = for {
+      suit <- suitGen
+      kicker1Rank <- Gen.oneOf(
+        allRanks.filterNot(_ == Six)
+      )
+      kicker1Suit <- suitGen
+      kicker2Rank <- Gen.oneOf(
+        allRanks.filterNot(_ == Six)
+      )
+      kicker2Suit <- suitGen
+    } yield {
+      orderCards(List(
+        Ace of suit, Two of suit, Three of suit, Four of suit, Five of suit,
+        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
+      ))
+    }
+    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+  }
+
   private def orderCards(cards: List[Card]): List[Card] = {
     cards.sortBy(cardOrd(acesHigh = true)).reverse
   }
@@ -541,21 +687,21 @@ trait PokerGenerators {
         case Five :: Four :: Three :: Ace :: _ =>
           Set(Two)
 
-        case Ace :: Four :: Three :: Two :: _ =>
+        case Four :: Three :: Two :: Ace :: _ =>
           Set(Five)
-        case Ace :: Five :: Three :: Two :: _ =>
-          Set(Four)
-        case Ace :: Five :: Four :: Two :: _ =>
-          Set(Three)
-        case Ace :: Five :: Four :: Three :: _ =>
-          Set(Two)
 
         case _ => Set.empty
       }
     }
 
-    (Seq(rank1, rank2, rank3, rank4) ++ otherRanks).toList
-      .distinct.sortBy(rankOrd(acesHigh = true)).reverse
+    val aceNormalisedRanks = (Seq(rank1, rank2, rank3, rank4) ++ otherRanks).toList
+      .distinct.sortBy(rankOrd(acesHigh = true)).reverse match {
+      case ranks @ Ace :: _ =>
+        ranks :+ Ace
+      case ranks =>
+        ranks
+    }
+    aceNormalisedRanks
       .sliding(4)
       .filterNot(_.length != 4)
       .foldLeft[Set[Rank]](Set.empty) { (banned, ranks) =>

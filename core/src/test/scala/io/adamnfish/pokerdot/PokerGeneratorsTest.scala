@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.logic.PokerHands.{findDuplicateSuits, findDuplicates, flush, pair, straight, threeOfAKind}
+import io.adamnfish.pokerdot.logic.PokerHands.{findDuplicateSuits, findDuplicates, flush, fourOfAKind, pair, straight, threeOfAKind}
 import io.adamnfish.pokerdot.models._
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -35,6 +35,33 @@ class PokerGeneratorsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
       banned shouldEqual Set(Six)
     }
 
+    "Ace-low straights" - {
+      "excludes an Ace from open-ended low straight draw" in {
+        val banned = breakStraight(King, Nine, Five, Four, Three, Two)
+        banned shouldEqual Set(Ace, Six)
+      }
+
+      "excludes gap 1" in {
+        val banned = breakStraight(Ace, King, Nine, Five, Four, Three)
+        banned shouldEqual Set(Two)
+      }
+
+      "excludes gap 2" in {
+        val banned = breakStraight(Ace, King, Nine, Five, Four, Two)
+        banned shouldEqual Set(Three)
+      }
+
+      "excludes gap 3" in {
+        val banned = breakStraight(Ace, King, Nine, Five, Three, Two)
+        banned shouldEqual Set(Four)
+      }
+
+      "excludes gap the Five at the top of a straight draw" in {
+        val banned = breakStraight(Ace, King, Nine, Four, Three, Two)
+        banned shouldEqual Set(Five)
+      }
+    }
+
     "example from (previously) failed test" in {
       val banned = breakStraight(Queen, Seven, Five, Ace, Jack, King)
       banned shouldEqual Set(Ten)
@@ -67,6 +94,11 @@ class PokerGeneratorsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
     "does not contain a flush" in {
       forAll(nothingConnectsCardsGen) { cards =>
         flush(cards, findDuplicateSuits(cards)) shouldEqual None
+      }
+    }
+    "does not contain a quad" in {
+      forAll(nothingConnectsCardsGen) { cards =>
+        fourOfAKind(cards, findDuplicates(cards)) shouldEqual None
       }
     }
   }

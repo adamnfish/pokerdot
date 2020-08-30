@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{cardOrd, findDuplicates, highCard, pair, rankOrd, straight, twoPair}
+import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
 import io.adamnfish.pokerdot.models._
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
@@ -40,7 +40,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           }
         }
 
-        "returns the highest three cards as kickers, with kicker1 highest" in {
+        "kickers are higher than the 2 discarded cards, with kicker1 highest" in {
           forAll(pairCardsGen) { cards =>
             val hand = pair(cards, findDuplicates(cards)).value
             // 2 lowest cards - exclude the pair, and drop the highest 3 that remain
@@ -63,6 +63,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         }
       }
 
+      // I don't feel strongly about whether or not this is a property that should be true,
+      // let alone one that really needs to be tested.
       "if there are two pairs, returns None (this is a 2-pair hand not a pair hand)" in {
         // this assumes the 2-pair function works properly!
         forAll(twoPairCardsGen) { cards =>
@@ -114,7 +116,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           Gen.oneOf(
             nothingConnectsCardsGen,
             // or irrelevant hand that cannot contain two pairs
-            threeOfAKindCardsGen,
+            pairCardsGen, threeOfAKindCardsGen,
           )
         ) { cards =>
           twoPair(cards, findDuplicates(cards)) shouldEqual None
@@ -122,11 +124,96 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       }
     }
 
-    "threeOfAKind" - {}
+    "threeOfAKind" - {
+      "if a trip exists" - {
+        "trip cards share the same rank" in {
+          forAll(threeOfAKindCardsGen) { cards =>
+            val hand = threeOfAKind(cards, findDuplicates(cards)).value
+            hand.trip1.rank should (equal (hand.trip2.rank) and equal (hand.trip3.rank))
+          }
+        }
+
+        "kickers are highest than the two discarded cards, with kicker 1 highest" in {
+          forAll(threeOfAKindCardsGen) { cards =>
+            val hand = threeOfAKind(cards, findDuplicates(cards)).value
+            // 2 lowest cards - exclude the pair, and drop the highest 3 that remain
+            cards.filterNot(_.rank == hand.trip1.rank).drop(2) match {
+              case low :: lowest :: Nil =>
+                rankOrd(true)(hand.kicker1.rank) should be >= rankOrd(true)(hand.kicker2.rank)
+                rankOrd(true)(hand.kicker2.rank) should be >= rankOrd(true)(low.rank)
+                rankOrd(true)(hand.kicker2.rank) should be >= rankOrd(true)(lowest.rank)
+              case _ =>
+                fail("it should be possible to get the two lowest cards?!")
+            }
+          }
+        }
+      }
+
+      "returns None if there is no trip present" in {
+        forAll(
+          Gen.oneOf(
+            nothingConnectsCardsGen,
+            // or irrelevant hand that cannot contain three of a kind
+            pairCardsGen, twoPairCardsGen,
+          )
+        ) { cards =>
+          threeOfAKind(cards, findDuplicates(cards)) shouldEqual None
+        }
+      }
+    }
 
     "straight" - {
       "if a straight exists" - {
-        "card one higher than top card is not present (that would mean there's a higher straight)" ignore {}
+        "card ranks are adjacent (i.e. this is a straight)" in {
+          forAll(straightCardsGen) { cards =>
+            val hand = straight(cards).value
+            val highRank = rankOrd(acesHigh = true)(hand.high.rank)
+            val next1Rank = rankOrd(acesHigh = true)(hand.next1.rank)
+            val next2Rank = rankOrd(acesHigh = true)(hand.next2.rank)
+            val next3Rank = rankOrd(acesHigh = true)(hand.next3.rank)
+            val lowRank = rankOrd(acesHigh = false)(hand.low.rank)
+
+            highRank shouldEqual (next1Rank + 1)
+            next1Rank shouldEqual (next2Rank + 1)
+            next2Rank shouldEqual (next3Rank + 1)
+            next3Rank shouldEqual (lowRank + 1)
+          }
+        }
+
+        "in a long straight, uses the highest card as the top (unless it is an ace-low straight)" in {
+          forAll(longStraightGenerator) { cards =>
+            val hand = straight(cards).value
+            val top = cards match {
+              // Ace-low straight matches the non-ace highest
+              case Card(Ace, _) :: next :: Card(Six, _) :: Card(Five, _) :: Card(Four, _) :: Card(Three, _) :: Card(Two, _) :: Nil =>
+                next
+              // typically we match the highest card
+              case top :: _ =>
+                top
+              case _ =>
+                fail("No cards generated?!")
+            }
+            hand.high shouldEqual top
+          }
+        }
+
+        "correctly identifies an Ace-low straight" in {
+          forAll(aceLowStraightGenerator) { cards =>
+            val hand = straight(cards).value
+            hand.low.rank shouldEqual Ace
+          }
+        }
+      }
+
+      "edge cases that used to fail" - {
+        "straight with a pair" in {
+          val cards = List(
+            Ace of Diamonds, Queen of Diamonds,
+            Five of Hearts, Four of Hearts, Three of Clubs, Two of Hearts,
+            Two of Diamonds,
+          )
+          straight(cards) should not be empty
+        }
       }
 
       "returns None if no straight exists" in {
@@ -143,16 +230,210 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       }
     }
 
-    "flush" - {}
+    "flush" - {
+      "if a flush exists" - {
+        "all cards are the same suit" in {
+          forAll(flushCardsGen) { cards =>
+            val hand = flush(cards, findDuplicateSuits(cards)).value
+            hand.high.suit should (
+              equal (hand.next1.suit) and
+                equal (hand.next2.suit) and
+                equal (hand.next3.suit) and
+                equal (hand.low.suit))
+          }
+        }
 
-    "full house" - {
-      // if there are two trips, uses the lower for the pair
+        "cards are arranged by rank" in {
+          forAll(flushCardsGen) { cards =>
+            val hand = flush(cards, findDuplicateSuits(cards)).value
+
+            val highRank = rankOrd(acesHigh = true)(hand.high.rank)
+            val next1Rank = rankOrd(acesHigh = true)(hand.next1.rank)
+            val next2Rank = rankOrd(acesHigh = true)(hand.next2.rank)
+            val next3Rank = rankOrd(acesHigh = true)(hand.next3.rank)
+            val lowRank = rankOrd(acesHigh = true)(hand.low.rank)
+
+            highRank should be > next1Rank
+            next1Rank should be > next2Rank
+            next2Rank should be > next3Rank
+            next3Rank should be > lowRank
+          }
+        }
+      }
+
+      "returns None if no flush exists" in {
+        forAll(
+          Gen.oneOf(
+            nothingConnectsCardsGen,
+            // or irrelevant hand that cannot contain a flush
+            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
+            straightCardsGen, fullHouseCardsGen, fourOfAKindCardsGen,
+          )
+        ) { cards =>
+          flush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
+      }
     }
 
-    "fourOfAKind" - {}
+    "full house" - {
+      "if a full house exists" - {
+        "trips have the same rank" in {
+          forAll(fullHouseCardsGen) { cards =>
+            val hand = fullHouse(cards, findDuplicates(cards)).value
+            hand.trip1.rank should (equal (hand.trip2.rank) and equal (hand.trip3.rank))
+          }
+        }
+
+        "pair have the same rank" in {
+          forAll(fullHouseCardsGen) { cards =>
+            val hand = fullHouse(cards, findDuplicates(cards)).value
+            hand.pair1.rank shouldEqual hand.pair2.rank
+          }
+        }
+
+        "if two trips are present, use the lower as the pair" in {
+          forAll(twoTripsGen) { cards =>
+            val hand = fullHouse(cards, findDuplicates(cards)).value
+            val tripRank = rankOrd(acesHigh = true)(hand.trip1.rank)
+            val pairRank = rankOrd(acesHigh = true)(hand.pair1.rank)
+            tripRank should be > pairRank
+          }
+        }
+      }
+
+      "returns None if no full house exists" in {
+        forAll(
+          Gen.oneOf(nothingConnectsCardsGen,
+            // or irrelevant hand that cannot contain a flush
+            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
+            straightCardsGen, flushCardsGen, straightFlushCardsGen
+          )
+        ) { cards =>
+          fullHouse(cards, findDuplicates(cards)) shouldEqual None
+        }
+      }
+    }
+
+    "fourOfAKind" - {
+      "if a four-of-a-kind exists" - {
+        "quads all have same rank" in {
+          forAll(fourOfAKindCardsGen) { cards =>
+            val hand = fourOfAKind(cards, findDuplicates(cards)).value
+            hand.quad1.rank should (
+              equal (hand.quad2.rank) and
+              equal (hand.quad3.rank) and
+              equal (hand.quad4.rank)
+            )
+          }
+        }
+
+        "kicker is higher than the discarded two cards" in {
+          forAll(fourOfAKindCardsGen) { cards =>
+            val hand = fourOfAKind(cards, findDuplicates(cards)).value
+            // 2 lowest cards - exclude the quad, and drop the highest card that remains
+            cards.filterNot(_.rank == hand.quad1.rank).drop(1) match {
+              case low :: lowest :: Nil =>
+                rankOrd(true)(hand.kicker.rank) should be >= rankOrd(true)(low.rank)
+                rankOrd(true)(hand.kicker.rank) should be >= rankOrd(true)(lowest.rank)
+              case _ =>
+                fail("it should be possible to get the two lowest cards?!")
+            }
+          }
+        }
+      }
+
+      "returns None if there is no four-of-a-kind present" in {
+        forAll(
+          Gen.oneOf(
+            nothingConnectsCardsGen,
+            // or irrelevant hand with no quads
+            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
+            straightCardsGen, flushCardsGen, fullHouseCardsGen,
+            straightFlushCardsGen,
+          )
+        ) { cards =>
+          fourOfAKind(cards, findDuplicates(cards)) shouldEqual None
+        }
+      }
+    }
 
     "straightFlush" - {
+      "if a straight flush is present" - {
+        "all cards have the same suit" in {
+          forAll(straightFlushCardsGen) { cards =>
+            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+            hand.high.suit should (
+              equal(hand.next1.suit) and
+                equal(hand.next2.suit) and
+                equal(hand.next3.suit) and
+                equal(hand.low.suit))
+          }
+        }
 
+        "in a long straight, uses the highest card as the top" in {
+          forAll(longStraightFlushGenerator) { cards =>
+            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+            val top = cards match {
+              // Ace-low straight matches the non-ace highest
+              case Card(Ace, _) :: next :: Card(Six, _) :: Card(Five, _) :: Card(Four, _) :: Card(Three, _) :: Card(Two, _) :: Nil =>
+                next
+              // typically we match the highest card
+              case top :: _ =>
+                top
+              case _ =>
+                fail("No cards generated?!")
+            }
+            hand.high shouldEqual top
+          }
+        }
+
+        "works for an Ace-low straight flush" in {
+          forAll(aceLowStraightFlushGenerator) { cards =>
+            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+            hand.low.rank shouldEqual Ace
+          }
+        }
+
+        "ranks are all adjacent" in {
+          forAll(straightFlushCardsGen) { cards =>
+            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+            val highRank = rankOrd(acesHigh = true)(hand.high.rank)
+            val next1Rank = rankOrd(acesHigh = true)(hand.next1.rank)
+            val next2Rank = rankOrd(acesHigh = true)(hand.next2.rank)
+            val next3Rank = rankOrd(acesHigh = true)(hand.next3.rank)
+            val lowRank = rankOrd(acesHigh = false)(hand.low.rank)
+
+            highRank shouldEqual (next1Rank + 1)
+            next1Rank shouldEqual (next2Rank + 1)
+            next2Rank shouldEqual (next3Rank + 1)
+            next3Rank shouldEqual (lowRank + 1)
+          }
+        }
+      }
+
+      "useful cases that used to fail" - {
+        "ace-low straight flush" in {
+          val cards = List(
+            Ace of Hearts, Jack of Spades, Nine of Diamonds,
+            Five of Hearts, Four of Hearts, Three of Hearts, Two of Hearts,
+          )
+          straightFlush(cards, findDuplicateSuits(cards)) should not be empty
+        }
+      }
+
+      "returns None if no straight flush is present" in {
+        forAll(
+          Gen.oneOf(
+            nothingConnectsCardsGen,
+            // or irrelevant hand with no straight flush
+            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
+            straightCardsGen, flushCardsGen, fullHouseCardsGen,
+            fourOfAKindCardsGen,
+          )
+        ) { cards =>
+          straightFlush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
+      }
     }
   }
 

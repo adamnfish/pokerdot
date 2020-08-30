@@ -4,6 +4,14 @@ import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Fl
 
 
 object PokerHands {
+  val allRanks = List(
+    Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace
+  )
+
+  val allSuits = List(
+    Clubs, Diamonds, Spades, Hearts
+  )
+
   /**
    * Calculate the winnings for each player.
    *
@@ -214,15 +222,23 @@ object PokerHands {
         case (c1 @ Card(Six, _)) :: (c2 @ Card(Five, _)) :: (c3 @ Card(Four, _)) :: (c4 @ Card(Three, _)) :: (c5 @ Card(Two, _)) :: _ =>
           Some(Straight(c1, c2, c3, c4, c5))
         // Ace-low straight so Ace goes at the end
-        case (c5 @ Card(Ace, _)) :: (c1 @ Card(Five, _)) :: (c2 @ Card(Four, _)) :: (c3 @ Card(Three, _)) :: (c4 @ Card(Two, _)) :: _ =>
+        case (c1 @ Card(Five, _)) :: (c2 @ Card(Four, _)) :: (c3 @ Card(Three, _)) :: (c4 @ Card(Two, _)) :: (c5 @ Card(Ace, _)) ::  _ =>
           Some(Straight(c1, c2, c3, c4, c5))
         case _ =>
           None
       }
     }
+
+    val aceHighAndLowCards = upToSevenCards.distinctBy(_.rank) match {
+      case cards @ (c @ Card(Ace, _)) :: _ =>
+        cards :+ c
+      case cards =>
+        cards
+    }
+
     // run through each set of 5 cards searching for straights
-    // first one found will be highest
-    upToSevenCards.sliding(5).filterNot(_.length < 5).foldLeft[Option[Straight]](None) { (hand, cards) =>
+    // first straight found will be highest (correct)
+    aceHighAndLowCards.sliding(5).filterNot(_.length < 5).foldLeft[Option[Straight]](None) { (hand, cards) =>
       hand orElse check5(cards)
     }
   }
@@ -248,10 +264,6 @@ object PokerHands {
       case (overRank, trip1 :: trip2 :: trip3 :: Nil) :: _ =>
         val remainingDuplicates = sevenCards.filterNot(card => card.rank == overRank)
           .groupBy(_.rank).toList
-          .sortBy { case (rank, _) =>
-            rankOrd(acesHigh = true)(rank)
-          }
-          .reverse
         remainingDuplicates.filter { case (_, cards) =>
           // we could make a full house from two triplets, so need to consider more than just `== 2` here
           cards.size >= 2
@@ -264,7 +276,6 @@ object PokerHands {
             // we found a triplet, but no pairs after that
             None
         }
-        None
       case _ =>
         // no triplets means no full house
         None
