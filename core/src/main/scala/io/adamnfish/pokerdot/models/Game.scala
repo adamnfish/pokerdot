@@ -35,7 +35,7 @@ case class Player(
 )
 
 /**
- * Spectators are not part of the game and do not actually play Poker.
+ * Spectators are not part of the game and do not actually play PokerHands.
  * However they do have keys and can make non-game requests:
  *   - advancing the round
  *   - updating the timer

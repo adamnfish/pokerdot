@@ -14,4 +14,5 @@ trait TestHelpers extends Matchers {
       Symbol(propertyName) (propertyValue)
     }
   }
+
 }

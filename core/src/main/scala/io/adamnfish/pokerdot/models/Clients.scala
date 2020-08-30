@@ -42,6 +42,12 @@ case class SelfSummary(
   hole: Option[Hole],
 )
 
+case class ResultSummary(
+  player: PlayerSummary,
+  hand: Hand,
+  winnings: Int,
+)
+
 
 sealed trait RoundSummary extends Product
 case class PreFlopSummary(

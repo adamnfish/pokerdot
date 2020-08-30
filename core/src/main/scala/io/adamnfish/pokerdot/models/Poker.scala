@@ -1,10 +1,14 @@
 package io.adamnfish.pokerdot.models
 
+import io.adamnfish.pokerdot.logic.Cards
+
 
 case class Card(
   rank: Rank,
   suit: Suit,
-)
+) {
+  override def toString: String = Cards.cardStr(this)
+}
 
 case class Hole(
   card1: Card,
@@ -31,7 +35,9 @@ case object Turn     extends Phase
 case object River    extends Phase
 case object Showdown extends Phase
 
-sealed trait Rank
+sealed trait Rank extends Product {
+  override def toString: String = Cards.rankStr(this)
+}
 case object Two   extends Rank
 case object Three extends Rank
 case object Four  extends Rank
@@ -46,10 +52,12 @@ case object Queen extends Rank
 case object King  extends Rank
 case object Ace   extends Rank
 
-sealed trait Suit
+sealed trait Suit extends Product {
+  override def toString: String = Cards.suitStr(this)
+}
 case object Clubs    extends Suit
-case object Spades   extends Suit
 case object Diamonds extends Suit
+case object Spades   extends Suit
 case object Hearts   extends Suit
 
 case class Result(
@@ -84,19 +92,19 @@ case class ThreeOfAKind(
   trip1: Card,
   trip2: Card,
   trip3: Card,
-  kicker: Card,
+  kicker1: Card,
   kicker2: Card,
 ) extends Hand
 case class Straight(
   high: Card,
-  next: Card,
+  next1: Card,
   next2: Card,
   next3: Card,
   low: Card,
 ) extends Hand
 case class Flush(
   high: Card,
-  next: Card,
+  next1: Card,
   next2: Card,
   next3: Card,
   low: Card,
@@ -117,7 +125,7 @@ case class FourOfAKind(
 ) extends Hand
 case class StraightFlush(
   high: Card,
-  next: Card,
+  next1: Card,
   next2: Card,
   next3: Card,
   low: Card,
