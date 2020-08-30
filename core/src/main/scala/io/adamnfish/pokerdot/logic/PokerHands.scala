@@ -28,7 +28,15 @@ object PokerHands {
       for {
         player <- players
         hole <- player.hole
-      } yield (player, bestHand(round, hole))
+      } yield (player, bestHand(
+        round.flop1,
+        round.flop2,
+        round.flop3,
+        round.turn,
+        round.river,
+        hole.card1,
+        hole.card2,
+      ))
 
     val playerHandsByStrength = playerHands
       // equal strengths are clumped together
@@ -76,15 +84,9 @@ object PokerHands {
    *
    * Note that "royal flush" is a special case of "straight flush" (high card is an Ace).
    */
-  def bestHand(round: Round, hole: Hole): Hand = {
+  def bestHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card, card6: Card, card7: Card): Hand = {
     val sevenCards = List(
-      round.flop1,
-      round.flop2,
-      round.flop3,
-      round.turn,
-      round.river,
-      hole.card1,
-      hole.card2,
+      card1, card2, card3, card4, card5, card6, card7,
     ).sortBy(cardOrd(acesHigh = true)).reverse
 
     // We'll need to call these over and over, let's do it once here

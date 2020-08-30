@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
+import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits, bestHand, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
 import io.adamnfish.pokerdot.models._
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
@@ -14,8 +14,99 @@ import scala.util.Random
 
 
 class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with OptionValues with PokerGenerators {
+  "bestHand" - {
+    "returns 'high card' when nothing better exists" in {
+      forAll(nothingConnectsCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [HighCard]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
 
-  "hand assessments" - {
+    "returns 'pair' for cards containing a pair" in {
+      forAll(pairCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [Pair]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'two pair' for cards containing two pairs" in {
+      forAll(twoPairCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [TwoPair]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'three of a kind' for cards containing a trip" in {
+      forAll(threeOfAKindCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [ThreeOfAKind]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'straight' for cards containing a straight" in {
+      forAll(straightCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [Straight]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'flush' for cards containing a flush" in {
+      forAll(flushCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [Flush]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'full house' for cards containing a full house" in {
+      forAll(fullHouseCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [FullHouse]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'four of a kind' for cards containing a quad" in {
+      forAll(fourOfAKindCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [FourOfAKind]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+
+    "returns 'straight flush' for cards containing a straight flush" in {
+      forAll(straightFlushCardsGen) {
+        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
+          hand shouldBe a [StraightFlush]
+        case _ =>
+          fail("generator did not provide 7 cards")
+      }
+    }
+  }
+
+  "specific hand assessments" - {
     "highCard" - {
       "returns a hand containing the first five of the provided cards" in {
         forAll(nothingConnectsCardsGen) { cards =>
