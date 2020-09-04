@@ -81,6 +81,9 @@ case class ShowdownSummary(
 
 
 sealed trait ActionSummary extends Product
+case class PlayerJoinedSummary(
+  playerSummary: PlayerSummary,
+) extends ActionSummary
 case class BetSummary(
   playerSummary: PlayerSummary,
 ) extends ActionSummary
@@ -148,6 +151,12 @@ case class Ping(
 case class Wake(
 ) extends Request
 
+
+case class Response[M <: Message](
+  messages: Map[PlayerAddress, M],
+  statuses: Map[PlayerAddress, GameStatus],
+)
+
 // Data sent to clients
 sealed trait Message extends Product
 case class Welcome(
@@ -165,7 +174,7 @@ case class GameStatus(
 case class RoundWinnings(
   self: SelfSummary,
   game: GameSummary,
-  results: List[Result],
+  results: List[ResultSummary],
 ) extends Message
 case class Status(
   message: String

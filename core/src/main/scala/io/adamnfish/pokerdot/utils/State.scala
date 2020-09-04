@@ -1,5 +1,6 @@
 package io.adamnfish.pokerdot.utils
 
+import java.security.SecureRandom
 import java.util.UUID
 
 import io.adamnfish.pokerdot.logic.Cards
@@ -23,10 +24,14 @@ object Rng {
     val newSeed = new Random(seed).nextLong()
     (newSeed, newSeed)
   }
+
+  def randomSeed(): Long = {
+    new SecureRandom().nextLong()
+  }
 }
 
 /**
- * Saves having to thread RNG seeds through functions by hole.
+ * Saves having to thread RNG seeds through functions by hand.
  */
 case class State[S, A](run: S => (S, A)) {
   def map[B](f: A => B): State[S, B] = State { s =>

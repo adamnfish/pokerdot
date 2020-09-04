@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.Utils.eTraverse
-import io.adamnfish.pokerdot.models.{Failure, Flop, FlopSummary, Game, GameDb, GameId, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.logic.Utils.RichList
+import io.adamnfish.pokerdot.models.{ActionSummary, Failure, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
 
 
 object Representations {
@@ -52,8 +52,8 @@ object Representations {
 
   def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failure, Game] = {
     for {
-      playerDbs <- eTraverse(gameDb.playerIds)(lookupPlayerDb(gameDb.gameId, playerDbs))
-      spectatorDbs <- eTraverse(gameDb.spectatorIds)(lookupPlayerDb(gameDb.gameId, playerDbs))
+      playerDbs <- gameDb.playerIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
+      spectatorDbs <- gameDb.spectatorIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       inTurn <- gameDb.inTurn
         .fold[Either[Failure, Option[PlayerDb]]](Right(None)) { playerId =>
           lookupPlayerDb(gameDb.gameId, playerDbs)(playerId).map(Some(_))
@@ -116,7 +116,7 @@ object Representations {
       }
   }
 
-  def summarizeRound(round: Round, players: List[Player]): RoundSummary = {
+  def summariseRound(round: Round, players: List[Player]): RoundSummary = {
     round.phase match {
       case PreFlop =>
         PreFlopSummary()
@@ -153,13 +153,21 @@ object Representations {
     }
   }
 
-  def summarizeGame(game: Game): GameSummary = {
+  def gameStatus(game: Game, player: Player, actionSummary: ActionSummary): GameStatus = {
+    GameStatus(
+      self = summariseSelf(player),
+      game = summariseGame(game),
+      action = actionSummary,
+    )
+  }
+
+  def summariseGame(game: Game): GameSummary = {
     GameSummary(
       gameId = game.gameId,
       gameName = game.gameName,
       players = game.players.map(summarisePlayer),
       spectators = game.spectators.map(summariseSpectator),
-      round = summarizeRound(game.round, game.players),
+      round = summariseRound(game.round, game.players),
       inTurn = game.inTurn.map(summarisePlayer),
       button = game.button,
       started = game.started,

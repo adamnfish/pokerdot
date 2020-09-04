@@ -1,5 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
+import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits}
 import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Four, Hearts, Jack, King, Nine, Queen, Rank, Seven, Six, Spades, Suit, Ten, Three, Two}
 
 
@@ -12,12 +13,8 @@ object Cards {
 
   val deck =
     for {
-      suit <- List(
-        Clubs, Spades, Diamonds, Hearts,
-      )
-      rank <- List(
-        Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace,
-      )
+      suit <- allSuits
+      rank <- allRanks
     } yield rank of suit
 
   def rankStr(rank: Rank): String = {

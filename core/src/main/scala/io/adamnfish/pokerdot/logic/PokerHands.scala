@@ -27,6 +27,8 @@ object PokerHands {
     val playerHands =
       for {
         player <- players
+          .filterNot(_.folded)
+          .filterNot(_.busted)
         hole <- player.hole
       } yield (player, bestHand(
         round.flop1,
@@ -42,7 +44,7 @@ object PokerHands {
       // equal strengths are clumped together
       .groupBy { case (_, hand) => handOrd(hand) }
       .toList
-      // and then sorted by strength
+      // and then sorted by strength (strongest first)
       .sortBy { case (handStrength, _) => handStrength }
       .map { case (_, playerHands) => playerHands }
       .reverse
@@ -52,6 +54,7 @@ object PokerHands {
       // playerHands is all the hands of with the next strength (more than 1 of there is a tie)
       case ((winningPlayers, paidPlayers), playerHands) =>
         playerHands match {
+            // this is a special case of the below and will probably go away
           case (winningPlayer, winningHand) :: Nil =>
             val (winningsHere, updatedPaidPlayers) =
               paidPlayers.foldRight[(Int, List[Player])]((0, Nil)) { case (paidPlayer, (winnings, newPaidPlayers)) =>
@@ -70,7 +73,6 @@ object PokerHands {
               .groupBy(_._1.pot)
               .toList
               .sortBy(_._1)
-              .map(_._2)
               // no reverse - we want the smallest contribution first (side-pot)
 
             ???

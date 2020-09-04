@@ -33,6 +33,7 @@ lazy val core = (project in file("core"))
     name := "core",
     libraryDependencies ++=
       Seq(
+        "dev.zio" %% "zio" % "1.0.1",
         "io.circe" %% "circe-core" % circeVersion,
         "io.circe" %% "circe-generic" % circeVersion,
         "io.circe" %% "circe-parser" % circeVersion,

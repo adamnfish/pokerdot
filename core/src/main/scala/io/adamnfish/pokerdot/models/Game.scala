@@ -2,6 +2,9 @@ package io.adamnfish.pokerdot.models
 
 import java.time.ZonedDateTime
 
+import io.adamnfish.pokerdot.Messaging
+import io.adamnfish.pokerdot.persistence.Database
+
 
 case class Game(
   gameId: GameId,
@@ -54,3 +57,10 @@ case class GameId(gid: String)
 case class PlayerId(pid: String)
 case class PlayerAddress(address: String)
 case class PlayerKey(key: String)
+
+
+case class AppContext(
+  playerAddress: PlayerAddress,
+  db: Database,
+  messaging: Messaging,
+)

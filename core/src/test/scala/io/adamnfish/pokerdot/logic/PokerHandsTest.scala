@@ -106,6 +106,33 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
   }
 
+  "winning" - {
+    // The simple cases are the vast majority of games.
+    // The edge cases get box-of-birds-mad, and need to be handled as well.
+
+    "for simple cases" - {
+      "two players involved, clear winner" ignore {}
+      "three players involved, clear winner" ignore {}
+      "some players folded" ignore {}
+      "some players out the game (busted)" ignore {}
+    }
+
+    "for split pots" - {
+      "two players split a pot" ignore {}
+      "two players split a pot that doesn't divide by 2 (balance goes left of dealer)" ignore {}
+      "three players split a pot" ignore {}
+      "three players split a pot that doesn't divide by 3 (balance goes left of dealer)" ignore {}
+    }
+
+    "when a player is all-in" - {
+      "all-in player loses, another player can win whole balance" ignore {}
+      "winning player was all-in, second place gets the balance" ignore {}
+      "side-pot gets split between 2 players, balance goes to a lesser winner" ignore {}
+      "side-pot gets split between 2 players, balance is split between 2 tied lesser players" ignore {}
+      "smallest all-in wins, next-smallest all-in is second, third-smallest all-in is third, fourth smallest all-in gets balance" ignore {}
+    }
+  }
+
   "specific hand assessments" - {
     "highCard" - {
       "returns a hand containing the first five of the provided cards" in {
