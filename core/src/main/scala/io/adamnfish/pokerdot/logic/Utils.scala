@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models.{Attempt, Failures}
+import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures}
 import zio.IO
 
 
@@ -17,6 +17,21 @@ object Utils {
 
     def ioTraverse[B](f: A => Attempt[B]): Attempt[List[B]] = {
       as.foldRight[Attempt[List[B]]](IO.succeed(Nil))((a, acc) => IO.mapParN(f(a), acc)(_ :: _))
+    }
+  }
+
+  implicit class RichAttempt[A](attempt: Attempt[A]) {
+    def |!|(attempt2: Attempt[A]): Attempt[Unit] = {
+      IO.partition(List(attempt, attempt2))(identity).flatMap { case (failedResults, _) =>
+        if (failedResults.isEmpty) {
+          IO.unit
+        } else {
+          val allFailures = failedResults.foldLeft[List[Failure]](Nil) { case (acc, failures) =>
+            acc ++ failures.failures
+          }
+          IO.fail(Failures(allFailures))
+        }
+      }
     }
   }
 

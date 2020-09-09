@@ -1,7 +1,6 @@
 package io.adamnfish.pokerdot.utils
 
 import java.security.SecureRandom
-import java.util.UUID
 
 import io.adamnfish.pokerdot.logic.Cards
 import io.adamnfish.pokerdot.models.Card

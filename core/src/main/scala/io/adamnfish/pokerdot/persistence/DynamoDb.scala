@@ -3,7 +3,7 @@ package io.adamnfish.pokerdot.persistence
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import io.adamnfish.pokerdot.logic.Games
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{Attempt, Failure, GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
 import org.scanamo._
 import org.scanamo.syntax._
 import org.scanamo.generic.auto._
@@ -71,14 +71,14 @@ class DynamoDb(client: AmazonDynamoDBAsync, gameTableName: String, playerTableNa
     IO.fromFuture { implicit ec =>
       ScanamoAsync(client).exec(op)
     }.mapError { err =>
-      Failure("Uncaught DB error", "I had a problem saving the game", None, Some(err)).asFailures
+      Failures("Uncaught DB error", "I had a problem saving the game", None, Some(err))
     }
   }
 
   private def resultToAttempt[A](result: Either[DynamoReadError, A]): Attempt[A] = {
     IO.fromEither {
       result.left.map { dre =>
-        Failure(s"DynamoReadError: $dre", "Error with saved data", None, None).asFailures
+        Failures(s"DynamoReadError: $dre", "Error with saved data", None, None)
       }
     }
   }

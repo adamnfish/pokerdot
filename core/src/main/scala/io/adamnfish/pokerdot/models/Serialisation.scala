@@ -19,12 +19,12 @@ object Serialisation {
   def parse(jsonStr: String, userMessage: String, context: Option[String]): Attempt[Json] = {
     IO.fromEither {
       parser.parse(jsonStr).left.map { parsingFailure =>
-        Failure(
+        Failures(
           s"Failed to parse request body JSON: ${parsingFailure.message}",
           userMessage,
           context,
           Some(parsingFailure)
-        ).asFailures
+        )
       }
     }
   }
@@ -32,12 +32,12 @@ object Serialisation {
   def asAttempt[A](json: Json, userMessage: String)(implicit decoder: Decoder[A]): Attempt[A] = {
     IO.fromEither {
       json.as[A].left.map { decodingFailure =>
-        Failure(
+        Failures(
           s"Failed to parse JSON as expected type: ${decodingFailure.message}",
           userMessage,
           Some(decodingFailure.history.mkString("|")),
           Some(decodingFailure)
-        ).asFailures
+        )
       }
     }
   }

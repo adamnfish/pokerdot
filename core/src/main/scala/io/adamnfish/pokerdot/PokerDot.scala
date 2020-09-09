@@ -1,22 +1,21 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.logic.{Play, Representations, Responses}
-import io.adamnfish.pokerdot.models.{AppContext, Attempt, Failure, Failures, GameStatus, Message, Response, ResultSummary, RoundWinnings, Serialisation, Welcome}
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichList}
+import io.adamnfish.pokerdot.logic.{Play, Representations, Responses}
 import io.adamnfish.pokerdot.models.Serialisation.parseCreateGameRequest
+import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.Rng
+import io.adamnfish.pokerdot.validation.Validation.validate
 import io.circe.Json
 import zio._
 
 
 object PokerDot {
-  val runtime = Runtime.default
-
-  def pokerdot(requestBody: String, appContext: AppContext): Exit[Failures, Unit] = {
-    val program  = (for {
+  def pokerdot(requestBody: String, appContext: AppContext): Attempt[String] = {
+    (for {
       requestJson <- Serialisation.parse(requestBody, "could not understand the request", None)
       operationJson <- IO.fromOption(requestJson.hcursor.downField("operation").focus).mapError(_ =>
-        Failure("Request did not include operation field", "Could not understand the request").asFailures
+        Failures("Request did not include operation field", "Could not understand the request")
       )
       operation <- Serialisation.asAttempt[String](operationJson, "Unexpected operation")
       response <- operation match {
@@ -40,31 +39,31 @@ object PokerDot {
           ping(requestJson, appContext)
         case _ =>
           Attempt.failAs[Response[GameStatus]](
-            Failure(
+            Failures(
               s"Unexpected operation: $operation",
               "The request wasn't something I understand"
-            ).asFailures
+            )
           )
       }
       // send messages
-      _ <- response.messages.toList.ioTraverse { case (address, msg) =>
+      _ <- response.messages.toList.ioTraverse { case (address, msg: Message) =>
         appContext.messaging.sendMessage(address, msg)
       }
       // send status messages
       _ <- response.statuses.toList.ioTraverse { case (address, statusMsg) =>
         appContext.messaging.sendMessage(address, statusMsg)
       }
-    } yield ()).tapError { failures =>
-      appContext.messaging.sendError(appContext.playerAddress, failures)
-    }
-    runtime.unsafeRunSync(program)
+    } yield operation)
+      .tapError { failures =>
+        appContext.messaging.sendError(appContext.playerAddress, failures)
+      }
   }
 
+  // OPERATIONS
 
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
-      // TODO: and validate
-      createGame <- parseCreateGameRequest(requestJson)
+      createGame <- parseCreateGameRequest(requestJson) >>= validate
       (_, game) = Play.newGame(createGame.gameName, trackStacks = true).run(initialSeed)
       creator = Play.newPlayer(game.gameId, createGame.screenName, isCreator = true, appContext.playerAddress)
       gameDb = Representations.gameToDb(game)

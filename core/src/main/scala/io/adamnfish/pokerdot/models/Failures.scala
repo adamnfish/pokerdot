@@ -20,6 +20,15 @@ object Failures {
   def apply(errors: Seq[Failure]): Failures = {
     Failures(errors.toList)
   }
+
+  def apply(
+    logMessage: String,
+    userMessage: String,
+    context: Option[String] = None,
+    exception: Option[Throwable] = None
+  ): Failures = {
+    Failures(Failure(logMessage, userMessage, context, exception))
+  }
 }
 
 case class Failure(
