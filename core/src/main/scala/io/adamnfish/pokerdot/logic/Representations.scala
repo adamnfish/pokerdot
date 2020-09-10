@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{ActionSummary, Failure, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.models.{ActionSummary, Failure, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
 
 
 object Representations {
@@ -50,12 +50,12 @@ object Representations {
     )
   }
 
-  def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failure, Game] = {
+  def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failures, Game] = {
     for {
       playerDbs <- gameDb.playerIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       spectatorDbs <- gameDb.spectatorIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       inTurn <- gameDb.inTurn
-        .fold[Either[Failure, Option[PlayerDb]]](Right(None)) { playerId =>
+        .fold[Either[Failures, Option[PlayerDb]]](Right(None)) { playerId =>
           lookupPlayerDb(gameDb.gameId, playerDbs)(playerId).map(Some(_))
         }
       round = Play.generateRound(gameDb.phase).value(gameDb.seed)
@@ -104,14 +104,13 @@ object Representations {
     )
   }
 
-  private def lookupPlayerDb(gameId: String, playerDbs: List[PlayerDb])(playerId: String): Either[Failure, PlayerDb] = {
+  private def lookupPlayerDb(gameId: String, playerDbs: List[PlayerDb])(playerId: String): Either[Failures, PlayerDb] = {
     playerDbs
       .find(_.playerId == playerId)
       .toRight {
-        Failure(
+        Failures(
           s"Player $playerId not found in database for game $gameId",
           s"Could not load all players",
-          None
         )
       }
   }

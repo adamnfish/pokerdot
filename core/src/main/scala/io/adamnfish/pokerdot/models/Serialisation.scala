@@ -56,8 +56,8 @@ object Serialisation {
     asAttempt[StartGame](json, "Could not understand the start game request")
   }
 
-  def parseUpdateTimeRequest(json: Json): Attempt[UpdateTime] = {
-    asAttempt[UpdateTime](json, "Could not understand the update time request")
+  def parseUpdateTimeRequest(json: Json): Attempt[UpdateTimer] = {
+    asAttempt[UpdateTimer](json, "Could not understand the update time request")
   }
 
   def parseBidRequest(json: Json): Attempt[Bid] = {
@@ -294,7 +294,7 @@ object Serialisation {
   private implicit val createGameDecoder: Decoder[CreateGame] = deriveDecoder[CreateGame]
   private implicit val joinGameDecoder: Decoder[JoinGame] = deriveDecoder[JoinGame]
   private implicit val startGameDecoder: Decoder[StartGame] = deriveDecoder[StartGame]
-  private implicit val updateTimeDecoder: Decoder[UpdateTime] = deriveDecoder[UpdateTime]
+  private implicit val updateTimeDecoder: Decoder[UpdateTimer] = deriveDecoder[UpdateTimer]
   private implicit val bidDecoder: Decoder[Bid] = deriveDecoder[Bid]
   private implicit val checkDecoder: Decoder[Check] = deriveDecoder[Check]
   private implicit val foldDecoder: Decoder[Fold] = deriveDecoder[Fold]

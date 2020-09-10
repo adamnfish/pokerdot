@@ -35,10 +35,20 @@ object Utils {
     }
   }
 
+  implicit class RichEither[A](efa: Either[Failures, A]) {
+    def attempt: Attempt[A] = {
+      IO.fromEither(efa)
+    }
+  }
+
   object Attempt {
     def failAs[A](failures: Failures): Attempt[A] = {
       val failed: Attempt[A] = IO.fail(failures)
       failed
+    }
+
+    def fromOption[A](ao: Option[A], ifEmpty: Failures): Attempt[A] = {
+      ao.fold[Attempt[A]](IO.fail(ifEmpty))(a => IO.succeed(a))
     }
   }
 }

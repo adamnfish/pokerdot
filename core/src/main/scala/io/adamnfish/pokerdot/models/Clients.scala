@@ -112,9 +112,11 @@ case class StartGame(
   gameId: GameId,
   playerId: PlayerId,
   playerKey: PlayerKey,
+  startingStack: Option[Int],
+  timerConfig: Option[List[TimerLevel]],
   playerOrder: List[PlayerId],
 ) extends Request
-case class UpdateTime(
+case class UpdateTimer(
   gameId: GameId,
   playerId: PlayerId,
   playerKey: PlayerKey,
