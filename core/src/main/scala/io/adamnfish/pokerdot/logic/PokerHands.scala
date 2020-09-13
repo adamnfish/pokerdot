@@ -233,6 +233,8 @@ object PokerHands {
       }
     }
 
+    // if there's an Ace at the start, duplicate it to the end
+    // so we can can catch Ace-low straights
     val aceHighAndLowCards = upToSevenCards.distinctBy(_.rank) match {
       case cards @ (c @ Card(Ace, _)) :: _ =>
         cards :+ c
@@ -365,16 +367,13 @@ object PokerHands {
           aceHighRankOrd(kicker2.rank),
         )
       case Straight(high, next1, next2, next3, low) =>
-        // aces can be low in a straight
-        val lowCardOrd =
-          if (low.rank == Ace) rankOrd(acesHigh = false)(low.rank)
-          else aceHighRankOrd(low.rank)
         (4,
           aceHighRankOrd(high.rank),
           aceHighRankOrd(next1.rank),
           aceHighRankOrd(next2.rank),
           aceHighRankOrd(next3.rank),
-          lowCardOrd,
+          // aces can be low in a straight
+          rankOrd(acesHigh = false)(low.rank),
         )
       case Flush(high, next1, next2, next3, low) =>
         (5,
@@ -401,16 +400,13 @@ object PokerHands {
           aceHighRankOrd(kicker.rank),
         )
       case StraightFlush(high, next1, next2, next3, low) =>
-        // aces can be low in a straight
-        val lowCardOrd =
-          if (low.rank == Ace) rankOrd(acesHigh = false)(low.rank)
-          else aceHighRankOrd(low.rank)
         (8,
           aceHighRankOrd(high.rank),
           aceHighRankOrd(next1.rank),
           aceHighRankOrd(next2.rank),
           aceHighRankOrd(next3.rank),
-          lowCardOrd,
+          // aces can be low in a straight
+          rankOrd(acesHigh = false)(low.rank),
         )
     }
   }
