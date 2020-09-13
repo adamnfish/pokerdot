@@ -95,6 +95,8 @@ case class FoldSummary(
 ) extends ActionSummary
 case class AdvancePhaseSummary(
 ) extends ActionSummary
+case class NoOpSummary(
+) extends ActionSummary
 
 
 // Data received from clients

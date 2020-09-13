@@ -8,6 +8,9 @@ import io.adamnfish.pokerdot.utils.Rng
 import io.adamnfish.pokerdot.utils.Rng.Seed
 
 
+/**
+ * Poker functionality.
+ */
 object Play {
   def newGame(gameName: String, trackStacks: Boolean): Seed[Game] = {
     val now = ZonedDateTime.now()

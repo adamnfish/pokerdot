@@ -5,7 +5,7 @@ import zio.IO
 
 
 object Utils {
-  implicit class RichList[A](as: List[A]) {
+  implicit class RichList[A](val as: List[A]) extends AnyVal {
     def eTraverse[L, R](f: A => Either[L, R]): Either[L, List[R]] = {
       as.foldRight[Either[L, List[R]]](Right(Nil)) { (a, eAcc) =>
         for {
@@ -20,7 +20,7 @@ object Utils {
     }
   }
 
-  implicit class RichAttempt[A](attempt: Attempt[A]) {
+  implicit class RichAttempt[A](val attempt: Attempt[A]) extends AnyVal {
     def |!|(attempt2: Attempt[A]): Attempt[Unit] = {
       IO.partition(List(attempt, attempt2))(identity).flatMap { case (failedResults, _) =>
         if (failedResults.isEmpty) {
@@ -35,7 +35,7 @@ object Utils {
     }
   }
 
-  implicit class RichEither[A](efa: Either[Failures, A]) {
+  implicit class RichEither[A](val efa: Either[Failures, A]) extends AnyVal {
     def attempt: Attempt[A] = {
       IO.fromEither(efa)
     }

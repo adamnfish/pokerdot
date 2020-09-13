@@ -53,10 +53,10 @@ case class Spectator(
   playerKey: PlayerKey,
 )
 
-case class GameId(gid: String)
-case class PlayerId(pid: String)
-case class PlayerAddress(address: String)
-case class PlayerKey(key: String)
+case class GameId(gid: String) extends AnyVal
+case class PlayerId(pid: String) extends AnyVal
+case class PlayerAddress(address: String) extends AnyVal
+case class PlayerKey(key: String) extends AnyVal
 
 
 case class AppContext(

@@ -1,8 +1,8 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichList, RichEither}
+import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
 import io.adamnfish.pokerdot.logic.{Games, Play, Representations, Responses}
-import io.adamnfish.pokerdot.models.Serialisation.{parseCreateGameRequest, parseJoinGameRequest}
+import io.adamnfish.pokerdot.models.Serialisation.{parseCreateGameRequest, parseJoinGameRequest, parsePingRequest}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.Rng
 import io.adamnfish.pokerdot.validation.Validation.validate
@@ -156,7 +156,23 @@ object PokerDot {
    * Only available for valid connected players.
    */
   def ping(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
-    ???
+    for {
+      pingRequest <- parsePingRequest(requestJson) >>= validate
+      // fetch player / game data
+      gameDbOpt <- appContext.db.getGame(pingRequest.gameId)
+      gameDb <- Games.requireGame(gameDbOpt, pingRequest.gameId.gid)
+      playerDbs <- appContext.db.getPlayers(pingRequest.gameId)
+      game <- Representations.gameFromDb(gameDb, playerDbs).attempt
+      // TODO: handle players or spectators here
+      // check player
+      player <- Games.ensurePlayerKey(game, pingRequest.playerId, pingRequest.playerKey)
+      // logic
+      updatedPlayer = Games.updatePlayerAddress(player, appContext.playerAddress)
+      // create and save updated player for DB
+      updatedPlayerDb = Representations.playerToDb(updatedPlayer)
+      message = Representations.gameStatus(game, updatedPlayer, NoOpSummary())
+      _ <- appContext.db.writePlayer(updatedPlayerDb)
+    } yield Responses.justRespond(message, appContext.playerAddress)
   }
 
   /**

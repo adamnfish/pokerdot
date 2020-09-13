@@ -1,9 +1,54 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models.{Attempt, Failures, Game, GameDb, GameId, JoinGame, Player, PlayerAddress, PlayerDb}
+import io.adamnfish.pokerdot.models.{Attempt, Failures, Game, GameDb, GameId, JoinGame, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey}
+import zio.IO
 
 
+/**
+ * Game implementation functionality.
+ */
 object Games {
+  def updatePlayerAddress(player: Player, playerAddress: PlayerAddress): Player = {
+    player.copy(
+      playerAddress = playerAddress
+    )
+  }
+
+  def ensurePlayerKey(game: Game, playerId: PlayerId, playerKey: PlayerKey): Attempt[Player] = {
+    game.players.find(_.playerId == playerId) match {
+      case None =>
+        IO.fail(
+          Failures(
+            "Couldn't validate key for player that does not exist",
+            "Couldn't find you in the game",
+          )
+        )
+      case Some(player) if player.playerKey == playerKey =>
+        IO.succeed(player)
+      case _ =>
+        IO.fail {
+          Failures(
+            "Invalid player key",
+            "Couldn't authenticate you for this game",
+          )
+        }
+    }
+  }
+
+  def requireGame(gameDbOpt: Option[GameDb], gid: String): Attempt[GameDb] = {
+    gameDbOpt match {
+      case Some(gameDb) =>
+        IO.succeed(gameDb)
+      case None =>
+        IO.fail {
+          Failures(
+            s"Game not found for lookup $gid",
+            "Couldn't find game. If it's old it may have been automatically deleted?",
+          )
+        }
+    }
+  }
+
   def gameCode(gameId: GameId): String = {
     gameId.gid.take(4)
   }

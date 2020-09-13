@@ -254,6 +254,7 @@ object Serialisation {
   private implicit val checkSummaryEncoder: Encoder[CheckSummary] = deriveEncoder[CheckSummary]
   private implicit val foldSummaryEncoder: Encoder[FoldSummary] = deriveEncoder[FoldSummary]
   private implicit val advancePhaseSummaryEncoder: Encoder[AdvancePhaseSummary] = deriveEncoder[AdvancePhaseSummary]
+  private implicit val noOpSummaryEncoder: Encoder[NoOpSummary] = deriveEncoder[NoOpSummary]
   private implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
     case playerJoinedSummary: PlayerJoinedSummary =>
       playerJoinedSummaryEncoder.apply(playerJoinedSummary)
@@ -265,6 +266,8 @@ object Serialisation {
       foldSummaryEncoder.apply(foldSummary)
     case advancePhaseSummary: AdvancePhaseSummary =>
       advancePhaseSummaryEncoder.apply(advancePhaseSummary)
+    case noOpSummary: NoOpSummary =>
+      noOpSummaryEncoder.apply(noOpSummary)
   }
 
   private implicit val playerSummaryEncoder: Encoder[PlayerSummary] = deriveEncoder[PlayerSummary]
