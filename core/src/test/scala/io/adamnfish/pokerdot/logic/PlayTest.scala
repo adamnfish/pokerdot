@@ -3,71 +3,80 @@ package io.adamnfish.pokerdot.logic
 import io.adamnfish.pokerdot.TestHelpers
 import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
-import io.adamnfish.pokerdot.models.PreFlop
+import io.adamnfish.pokerdot.logic.Cards.RichRank
+import io.adamnfish.pokerdot.models.{Ace, Clubs, Diamonds, GameId, Hole, PlayerAddress, PreFlop, Three, Two}
+import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 
-class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers {
-  "newGame" - {
-    "initialises the basic fields correctly" in {
-      forAll { (gameName: String, trackStacks: Boolean, seed: Long) =>
-        newGame(gameName, trackStacks).value(seed) should have(
-          "gameName" as gameName,
-          "players" as Nil,
-          "spectators" as Nil,
-          "inTurn" as None,
-          "button" as 0,
-          "started" as false,
-          "trackStacks" as trackStacks,
-          "timer" as None,
-        )
-      }
-    }
-
-    "sets roundType to pre-flop" in {
-      val game = newGame("gameName", true).value(12345L)
-      game.round.phase shouldEqual PreFlop
-    }
-
-    "cards used for this round are equal if the seed is equal" in {
+class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues {
+  "generateRound" - {
+    "generates different cards for different seeds" in {
       forAll { (seed: Long) =>
-        val game1 = newGame("gameName", false).value(seed)
-        val game2 = newGame("gameName", false).value(seed)
-        game1.round should have(
-          "burn1" as game2.round.burn1,
-          "flop1" as game2.round.flop1,
-          "flop2" as game2.round.flop2,
-          "flop3" as game2.round.flop3,
-          "burn2" as game2.round.burn2,
-          "turn" as game2.round.turn,
-          "burn3" as game2.round.burn3,
-          "river" as game2.round.river,
-        )
+        val round1 = generateRound(PreFlop).value(seed)
+        val round2 = generateRound(PreFlop).value(seed + 1)
+        round1 should not equal round2
       }
     }
 
-    "cards used for this round are (probably) different if the seed is different" in {
-      // less likely to have clashing cards from multiple distinct seeds
-      // this helps prevent intermittent failures when the generator happens to stumble across a clash
-      forAll { (seed1: Long, seed2: Long, seed3: Long) =>
-        whenever(Set(seed1, seed2, seed3).size == 3) {
-          val game1 = newGame("gameName", false).value(seed1)
-          val game2 = newGame("gameName", false).value(seed2)
-          val game3 = newGame("gameName", false).value(seed3)
-          val game4 = newGame("gameName", false).value(seed1 + 1)
-          val distinctRounds = Set(game1.round, game2.round, game3.round, game4.round)
-          distinctRounds.size > 1
-        }
+    "generates the same cards from the same seeds" in {
+      forAll { seed: Long =>
+        val round1 = generateRound(PreFlop).value(seed)
+        val round2 = generateRound(PreFlop).value(seed)
+        round1 shouldEqual round2
       }
     }
 
-    "cards can be regenerated from the current game seed" in {
-      forAll { (seed: Long) =>
-        val game = newGame("gameName", false).value(seed)
-        val regeneratedRound = generateRound(PreFlop).value(game.seed)
-        game.round shouldEqual regeneratedRound
+    "there are no duplicate cards in a generated round" in {
+      forAll { seed: Long =>
+        val round = generateRound(PreFlop).value(seed)
+        val cards = List(round.burn1, round.flop1, round.flop2, round.flop3, round.burn2, round.turn, round.burn3, round.river)
+        cards shouldEqual cards.distinct
       }
+    }
+  }
+
+  "hands" - {
+    val player1 =
+      Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"))
+        .copy(hole = Some(Hole(Ace of Clubs, Ace of Diamonds)))
+    val player2 =
+      Games.newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("address-2"))
+        .copy(hole = Some(Hole(Two of Clubs, Two of Diamonds)))
+    val player3 =
+      Games.newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("address-3"))
+        .copy(hole = Some(Hole(Three of Clubs, Three of Diamonds)))
+
+    "returns player IDs with their cards" in {
+      val players = List(
+        player1, player2, player3
+      )
+      hands(players) shouldEqual List(
+        player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
+        player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
+        player3.playerId -> Hole(Three of Clubs, Three of Diamonds),
+      )
+    }
+
+    "excludes busted players" in {
+      val players = List(
+        player1, player2, player3.copy(busted = true)
+      )
+      hands(players) shouldEqual List(
+        player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
+        player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
+      )
+    }
+
+    "excludes folded players" in {
+      val players = List(
+        player1, player2, player3.copy(folded = true)
+      )
+      hands(players) shouldEqual List(
+        player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
+        player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
+      )
     }
   }
 }

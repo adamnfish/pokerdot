@@ -6,6 +6,8 @@ import io.adamnfish.pokerdot.validation.Validators._
 import zio.IO
 
 object Validation {
+  // TODO: Either rather than Attempt for all of these
+
   private[validation] def validate[A](a: A, context: String, validator: Validator[A]): Attempt[Unit] = {
     val failures = validator(a, context)
     if (failures.isEmpty) IO.unit

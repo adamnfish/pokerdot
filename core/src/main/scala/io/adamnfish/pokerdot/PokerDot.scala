@@ -66,8 +66,8 @@ object PokerDot {
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
       createGame <- parseCreateGameRequest(requestJson) >>= validate
-      (_, game) = Play.newGame(createGame.gameName, trackStacks = false).run(initialSeed)
-      creator = Play.newPlayer(game.gameId, createGame.screenName, isCreator = true, appContext.playerAddress)
+      (_, game) = Games.newGame(createGame.gameName, trackStacks = false).run(initialSeed)
+      creator = Games.newPlayer(game.gameId, createGame.screenName, isCreator = true, appContext.playerAddress)
       gameDb = Representations.gameToDb(game)
       creatorDb = Representations.playerToDb(creator)
       response = Responses.welcome(game, creator)
@@ -97,7 +97,7 @@ object PokerDot {
       _ <- Games.ensureNotStarted(game).attempt
       _ <- Games.ensureNotAlreadyPlaying(game, appContext.playerAddress).attempt
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName).attempt
-      player = Play.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress)
+      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress)
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player)
       playerDb = Representations.playerToDb(player)
@@ -160,12 +160,12 @@ object PokerDot {
       pingRequest <- parsePingRequest(requestJson) >>= validate
       // fetch player / game data
       gameDbOpt <- appContext.db.getGame(pingRequest.gameId)
-      gameDb <- Games.requireGame(gameDbOpt, pingRequest.gameId.gid)
+      gameDb <- Games.requireGame(gameDbOpt, pingRequest.gameId.gid).attempt
       playerDbs <- appContext.db.getPlayers(pingRequest.gameId)
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       // TODO: handle players or spectators here
       // check player
-      player <- Games.ensurePlayerKey(game, pingRequest.playerId, pingRequest.playerKey)
+      player <- Games.ensurePlayerKey(game, pingRequest.playerId, pingRequest.playerKey).attempt
       // logic
       updatedPlayer = Games.updatePlayerAddress(player, appContext.playerAddress)
       // create and save updated player for DB
