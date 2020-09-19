@@ -1,11 +1,10 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{Games, Play, Representations, Responses}
-import io.adamnfish.pokerdot.models.Serialisation.{parseCreateGameRequest, parseJoinGameRequest, parsePingRequest}
+import io.adamnfish.pokerdot.logic.{Games, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.Rng
-import io.adamnfish.pokerdot.validation.Validation.validate
+import io.adamnfish.pokerdot.validation.Validation.{extractCreateGame, extractJoinGame, extractPing}
 import io.circe.Json
 import zio._
 
@@ -13,11 +12,11 @@ import zio._
 object PokerDot {
   def pokerdot(requestBody: String, appContext: AppContext): Attempt[String] = {
     (for {
-      requestJson <- Serialisation.parse(requestBody, "could not understand the request", None)
+      requestJson <- Serialisation.parse(requestBody, "could not understand the request", None).attempt
       operationJson <- IO.fromOption(requestJson.hcursor.downField("operation").focus).mapError(_ =>
         Failures("Request did not include operation field", "Could not understand the request")
       )
-      operation <- Serialisation.asAttempt[String](operationJson, "Unexpected operation")
+      operation <- Serialisation.extractJson[String](operationJson, "Unexpected operation").attempt
       response <- operation match {
         case "create-game" =>
           createGame(requestJson, appContext, initialSeed = Rng.randomSeed())
@@ -65,7 +64,7 @@ object PokerDot {
 
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
-      createGame <- parseCreateGameRequest(requestJson) >>= validate
+      createGame <- extractCreateGame(requestJson).attempt
       (_, game) = Games.newGame(createGame.gameName, trackStacks = false).run(initialSeed)
       creator = Games.newPlayer(game.gameId, createGame.screenName, isCreator = true, appContext.playerAddress)
       gameDb = Representations.gameToDb(game)
@@ -83,7 +82,7 @@ object PokerDot {
    */
   def joinGame(requestJson: Json, appContext: AppContext): Attempt[Response[Welcome]] = {
     for {
-      rawJoinGame <- parseJoinGameRequest(requestJson) >>= validate
+      rawJoinGame <- extractJoinGame(requestJson).attempt
       joinGame = Games.normaliseGameCode(rawJoinGame)
       maybeGame <- appContext.db.lookupGame(joinGame.gameCode)
       // player IDs aren't persisted until the game starts
@@ -157,7 +156,7 @@ object PokerDot {
    */
   def ping(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
-      pingRequest <- parsePingRequest(requestJson) >>= validate
+      pingRequest <- extractPing(requestJson).attempt
       // fetch player / game data
       gameDbOpt <- appContext.db.getGame(pingRequest.gameId)
       gameDb <- Games.requireGame(gameDbOpt, pingRequest.gameId.gid).attempt

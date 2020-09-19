@@ -35,6 +35,12 @@ object Utils {
     }
   }
 
+  implicit class RichFailureList(val failures: List[Failure]) extends AnyVal {
+    def |!|(otherFailures: List[Failure]): List[Failure] = {
+      failures ++ otherFailures
+    }
+  }
+
   implicit class RichEither[A](val efa: Either[Failures, A]) extends AnyVal {
     def attempt: Attempt[A] = {
       IO.fromEither(efa)

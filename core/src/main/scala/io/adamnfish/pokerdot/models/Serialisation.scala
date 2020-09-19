@@ -16,68 +16,64 @@ object Serialisation {
     failures.asJson.noSpaces
   }
 
-  def parse(jsonStr: String, userMessage: String, context: Option[String]): Attempt[Json] = {
-    IO.fromEither {
-      parser.parse(jsonStr).left.map { parsingFailure =>
-        Failures(
-          s"Failed to parse request body JSON: ${parsingFailure.message}",
-          userMessage,
-          context,
-          Some(parsingFailure)
-        )
-      }
+  def parse(jsonStr: String, userMessage: String, context: Option[String]): Either[Failures, Json] = {
+    parser.parse(jsonStr).left.map { parsingFailure =>
+      Failures(
+        s"Failed to parse request body JSON: ${parsingFailure.message}",
+        userMessage,
+        context,
+        Some(parsingFailure)
+      )
     }
   }
 
-  def asAttempt[A](json: Json, userMessage: String)(implicit decoder: Decoder[A]): Attempt[A] = {
-    IO.fromEither {
-      json.as[A].left.map { decodingFailure =>
-        Failures(
-          s"Failed to parse JSON as expected type: ${decodingFailure.message}",
-          userMessage,
-          Some(decodingFailure.history.mkString("|")),
-          Some(decodingFailure)
-        )
-      }
+  def extractJson[A](json: Json, userMessage: String)(implicit decoder: Decoder[A]): Either[Failures, A] = {
+    json.as[A].left.map { decodingFailure =>
+      Failures(
+        s"Failed to parse JSON as expected type: ${decodingFailure.message}",
+        userMessage,
+        Some(decodingFailure.history.mkString("|")),
+        Some(decodingFailure)
+      )
     }
   }
 
   // REQUEST PARSERS
 
-  def parseCreateGameRequest(json: Json): Attempt[CreateGame] = {
-    asAttempt[CreateGame](json, "Could not understand the create game request")
+  def parseCreateGameRequest(json: Json): Either[Failures, CreateGame] = {
+    extractJson[CreateGame](json, "Could not understand the create game request")
   }
 
-  def parseJoinGameRequest(json: Json): Attempt[JoinGame] = {
-    asAttempt[JoinGame](json, "Could not understand the join game request")
+  def parseJoinGameRequest(json: Json): Either[Failures, JoinGame] = {
+    extractJson[JoinGame](json, "Could not understand the join game request")
   }
 
-  def parseStartGameRequest(json: Json): Attempt[StartGame] = {
-    asAttempt[StartGame](json, "Could not understand the start game request")
+  def parseStartGameRequest(json: Json): Either[Failures, StartGame] = {
+    extractJson[StartGame](json, "Could not understand the start game request")
   }
 
-  def parseUpdateTimeRequest(json: Json): Attempt[UpdateTimer] = {
-    asAttempt[UpdateTimer](json, "Could not understand the update time request")
+  def parseUpdateTimeRequest(json: Json): Either[Failures, UpdateTimer] = {
+    extractJson[UpdateTimer](json, "Could not understand the update time request")
   }
 
-  def parseBidRequest(json: Json): Attempt[Bid] = {
-    asAttempt[Bid](json, "Could not understand the bid request")
+  def parseBidRequest(json: Json): Either[Failures, Bid] = {
+    extractJson[Bid](json, "Could not understand the bid request")
   }
 
-  def parseCheckRequest(json: Json): Attempt[Check] = {
-    asAttempt[Check](json, "Could not understand the check request")
+  def parseCheckRequest(json: Json): Either[Failures, Check] = {
+    extractJson[Check](json, "Could not understand the check request")
   }
 
-  def parseFoldRequest(json: Json): Attempt[Fold] = {
-    asAttempt[Fold](json, "Could not understand the fold request")
+  def parseFoldRequest(json: Json): Either[Failures, Fold] = {
+    extractJson[Fold](json, "Could not understand the fold request")
   }
 
-  def parseAdvancePhaseRequest(json: Json): Attempt[AdvancePhase] = {
-    asAttempt[AdvancePhase](json, "Could not understand the advance phase request")
+  def parseAdvancePhaseRequest(json: Json): Either[Failures, AdvancePhase] = {
+    extractJson[AdvancePhase](json, "Could not understand the advance phase request")
   }
 
-  def parsePingRequest(json: Json): Attempt[Ping] = {
-    asAttempt[Ping](json, "Could not understand the ping request")
+  def parsePingRequest(json: Json): Either[Failures, Ping] = {
+    extractJson[Ping](json, "Could not understand the ping request")
   }
 
 
