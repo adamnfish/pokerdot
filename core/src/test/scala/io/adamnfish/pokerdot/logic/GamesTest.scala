@@ -73,6 +73,38 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
   }
 
+  "newPlayer" - {
+    "initialises basic fields correctly" in {
+      forAll { (gid: String, screenName: String, isCreator: Boolean, address: String) =>
+        val player = newPlayer(GameId(gid), screenName, isCreator, PlayerAddress(address))
+        player should have(
+          "gameId" as gid,
+          "playerAddress" as address,
+          "screenName" as screenName,
+          "stack" as 0,
+          "pot" as 0,
+          "bid" as 0,
+          "folded" as false,
+          "busted" as false,
+          "hole" as None,
+          "isCreator" as isCreator,
+        )
+      }
+    }
+
+    "produces a different player ID each time it is called" in {
+      val player1 = newPlayer(GameId("gid"), "screenName1", false, PlayerAddress("address1"))
+      val player2 = newPlayer(GameId("gid"), "screenName2", false, PlayerAddress("address2"))
+      player1.playerId should not equal player2.playerId
+    }
+
+    "produces a different player key each time it is called" in {
+      val player1 = newPlayer(GameId("gid"), "screenName1", false, PlayerAddress("address1"))
+      val player2 = newPlayer(GameId("gid"), "screenName2", false, PlayerAddress("address2"))
+      player1.playerKey should not equal player2.playerKey
+    }
+  }
+
   "addPlayerIds" - {
     val game = newGame("game name", false).value(123L)
     val gameDb = Representations.gameToDb(game)

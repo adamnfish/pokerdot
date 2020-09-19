@@ -7,7 +7,7 @@ import io.adamnfish.pokerdot.models.{ActionSummary, Failure, Failures, Flop, Flo
 object Representations {
   def gameToDb(game: Game): GameDb = {
     GameDb(
-      gameCode = game.gameId.gid.take(4),
+      gameCode = Games.gameCode(game.gameId),
       gameId = game.gameId.gid,
       gameName = game.gameName,
       playerIds = game.players.map(_.playerId.pid),
@@ -52,8 +52,10 @@ object Representations {
 
   def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failures, Game] = {
     for {
+      // checks we have a player db for each player / spectator ID in the game
       playerDbs <- gameDb.playerIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       spectatorDbs <- gameDb.spectatorIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
+      // make sure the current player exists
       inTurn <- gameDb.inTurn
         .fold[Either[Failures, Option[PlayerDb]]](Right(None)) { playerId =>
           lookupPlayerDb(gameDb.gameId, playerDbs)(playerId).map(Some(_))
@@ -115,6 +117,14 @@ object Representations {
       }
   }
 
+  def gameStatus(game: Game, player: Player, actionSummary: ActionSummary): GameStatus = {
+    GameStatus(
+      self = summariseSelf(player),
+      game = summariseGame(game),
+      action = actionSummary,
+    )
+  }
+
   def summariseRound(round: Round, players: List[Player]): RoundSummary = {
     round.phase match {
       case PreFlop =>
@@ -150,14 +160,6 @@ object Representations {
           hands = Play.hands(players)
         )
     }
-  }
-
-  def gameStatus(game: Game, player: Player, actionSummary: ActionSummary): GameStatus = {
-    GameStatus(
-      self = summariseSelf(player),
-      game = summariseGame(game),
-      action = actionSummary,
-    )
   }
 
   def summariseGame(game: Game): GameSummary = {
