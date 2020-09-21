@@ -317,4 +317,16 @@ object Serialisation {
     }
   }
   private implicit val failuresEncoder: Encoder[Failures] = deriveEncoder
+
+  object RequestEncoders {
+    implicit val createGameEncoder: Encoder[CreateGame] = deriveEncoder[CreateGame]
+    implicit val joinGameEncoder: Encoder[JoinGame] = deriveEncoder[JoinGame]
+    implicit val startGameEncoder: Encoder[StartGame] = deriveEncoder[StartGame]
+    implicit val updateTimeEncoder: Encoder[UpdateTimer] = deriveEncoder[UpdateTimer]
+    implicit val bidEncoder: Encoder[Bid] = deriveEncoder[Bid]
+    implicit val checkEncoder: Encoder[Check] = deriveEncoder[Check]
+    implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
+    implicit val advancePhaseEncoder: Encoder[AdvancePhase] = deriveEncoder[AdvancePhase]
+    implicit val pingEncoder: Encoder[Ping] = deriveEncoder[Ping]
+  }
 }
