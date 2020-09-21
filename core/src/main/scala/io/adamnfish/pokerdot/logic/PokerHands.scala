@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, Queen, Rank, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
+import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, Queen, Rank, Result, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
 
 
 object PokerHands {
@@ -20,7 +20,7 @@ object PokerHands {
    *   - split pots
    *   - rounds where one or more players are all-in
    */
-  def winnings(round: Round, players: List[Player]): List[(Player, Hand, Int)] = {
+  def winnings(round: Round, players: List[Player]): List[Result] = {
     // order hands by strength - ensuring ties are considered at the same time
     // from strongest to weakest, distribute winning shares of pot until pot is empty
 
@@ -49,7 +49,7 @@ object PokerHands {
       .map { case (_, playerHands) => playerHands }
       .reverse
 
-    val (results, _) = playerHandsByStrength.foldLeft[(List[(Player, Hand, Int)], List[Player])]((Nil, players)) {
+    val (results, _) = playerHandsByStrength.foldLeft[(List[Result], List[Player])]((Nil, players)) {
       // we keep track of calculated winnings and the current state of the pot (via paidPlayers)
       // playerHands is all the hands of with the next strength (more than 1 of there is a tie)
       case ((winningPlayers, paidPlayers), playerHands) =>
@@ -63,7 +63,7 @@ object PokerHands {
               }
 
             (
-              (winningPlayer, winningHand, winningsHere) :: winningPlayers,
+              Result(winningPlayer, winningHand, winningsHere) :: winningPlayers,
               updatedPaidPlayers
             )
           case tiedWinners =>

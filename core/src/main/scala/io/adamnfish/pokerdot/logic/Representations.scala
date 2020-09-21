@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{ActionSummary, Failure, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.models.{ActionSummary, Failure, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PreFlop, PreFlopSummary, Result, ResultSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
 
 
 object Representations {
@@ -125,6 +125,14 @@ object Representations {
     )
   }
 
+  def roundWinnings(game: Game, player: Player, results: List[Result]): RoundWinnings = {
+    RoundWinnings(
+      self = summariseSelf(player),
+      game = summariseGame(game),
+      results = results.map(summariseResult)
+    )
+  }
+
   def summariseRound(round: Round, players: List[Player]): RoundSummary = {
     round.phase match {
       case PreFlop =>
@@ -206,6 +214,14 @@ object Representations {
   def summariseSpectator(spectator: Spectator): SpectatorSummary = {
     SpectatorSummary(
       playerId = spectator.playerId,
+    )
+  }
+
+  def summariseResult(result: Result): ResultSummary = {
+    ResultSummary(
+      player = summarisePlayer(result.player),
+      hand = result.hand,
+      winnings = result.winnings,
     )
   }
 }

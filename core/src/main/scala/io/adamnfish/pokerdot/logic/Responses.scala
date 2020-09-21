@@ -21,6 +21,15 @@ object Responses {
     )
   }
 
+  def roundWinnings(game: Game, results: List[Result]): Response[RoundWinnings] = {
+    Response(
+      game.players.map { player =>
+        player.playerAddress -> Representations.roundWinnings(game, player, results)
+      }.toMap,
+      Map.empty,
+    )
+  }
+
   def messageAndStatuses[A <: Message](message: A, playerAddress: PlayerAddress, game: Game, actionSummary: ActionSummary): Response[A] = {
     val response = gameStatuses(game, actionSummary)
     response.copy(

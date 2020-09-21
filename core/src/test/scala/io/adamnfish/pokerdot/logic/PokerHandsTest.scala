@@ -106,8 +106,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
   }
 
-  "winning" - {
-    // The simple cases are the vast majority of games.
+  "winnings" - {
+    // The simple cases handle the vast majority of games.
     // The edge cases get box-of-birds-mad, and need to be handled as well.
 
     "for simple cases" - {
