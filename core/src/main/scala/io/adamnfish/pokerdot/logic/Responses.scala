@@ -5,7 +5,14 @@ import io.adamnfish.pokerdot.models._
 
 object Responses {
   def welcome(game: Game, newPlayer: Player): Response[Welcome] = {
-    val welcomeMessage = Welcome(newPlayer.playerKey, newPlayer.playerId, game.gameId, game.gameName, newPlayer.screenName)
+    val welcomeMessage = Welcome(
+      newPlayer.playerKey,
+      newPlayer.playerId,
+      game.gameId,
+      game.gameName,
+      newPlayer.screenName,
+      spectator = false
+    )
     val action = PlayerJoinedSummary(
       Representations.summarisePlayer(newPlayer)
     )

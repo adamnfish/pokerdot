@@ -17,8 +17,8 @@ case class TimerStatus(
 
 sealed trait TimerLevel
 case class RoundPhase(
-  smallBlind: Int,
   durationSeconds: Int,
+  smallBlind: Int,
 ) extends TimerLevel
 case class Break(
   durationSeconds: Int,

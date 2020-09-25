@@ -169,6 +169,7 @@ case class Welcome(
   gameId: GameId,
   gameName: String,
   screenName: String,
+  spectator: Boolean,
 ) extends Message
 case class GameStatus(
   self: SelfSummary,
