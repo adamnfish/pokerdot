@@ -40,4 +40,5 @@ case class SpectatorDb(
   playerId: String, // sort
   playerAddress: String,
   playerKey: String,
+  screenName: String,
 )

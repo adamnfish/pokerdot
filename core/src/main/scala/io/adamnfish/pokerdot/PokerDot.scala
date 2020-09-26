@@ -169,7 +169,7 @@ object PokerDot {
       updatedPlayer = Games.updatePlayerAddress(player, appContext.playerAddress)
       // create and save updated player for DB
       updatedPlayerDb = Representations.playerToDb(updatedPlayer)
-      message = Representations.gameStatus(game, updatedPlayer, NoOpSummary())
+      message = Representations.gameStatus(game, updatedPlayer, NoActionSummary())
       _ <- appContext.db.writePlayer(updatedPlayerDb)
     } yield Responses.justRespond(message, appContext.playerAddress)
   }

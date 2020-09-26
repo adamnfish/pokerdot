@@ -27,9 +27,12 @@ case class PlayerSummary(
   busted: Boolean,
 )
 
+sealed trait Self
+
 case class SpectatorSummary(
   playerId: PlayerId,
-)
+  screenName: String,
+) extends Self
 
 case class SelfSummary(
   playerId: PlayerId,
@@ -40,7 +43,7 @@ case class SelfSummary(
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],
-)
+) extends Self
 
 case class ResultSummary(
   player: PlayerSummary,
@@ -76,26 +79,26 @@ case class ShowdownSummary(
   flop3: Card,
   turn: Card,
   river: Card,
-  hands: List[(PlayerId, Hole)],
+  holes: List[(PlayerId, Hole)],
 ) extends RoundSummary
 
 
 sealed trait ActionSummary extends Product
 case class PlayerJoinedSummary(
-  playerSummary: PlayerSummary,
+  player: PlayerSummary,
 ) extends ActionSummary
 case class BetSummary(
-  playerSummary: PlayerSummary,
+  player: PlayerSummary,
 ) extends ActionSummary
 case class CheckSummary(
-  playerSummary: PlayerSummary,
+  player: PlayerSummary,
 ) extends ActionSummary
 case class FoldSummary(
-  playerSummary: PlayerSummary,
+  player: PlayerSummary,
 ) extends ActionSummary
 case class AdvancePhaseSummary(
 ) extends ActionSummary
-case class NoOpSummary(
+case class NoActionSummary(
 ) extends ActionSummary
 
 
@@ -115,7 +118,7 @@ case class StartGame(
   playerId: PlayerId,
   playerKey: PlayerKey,
   startingStack: Option[Int],
-  timerConfig: Option[List[TimerLevel]],
+  timerConfig: List[TimerLevel],
   playerOrder: List[PlayerId],
 ) extends Request
 case class UpdateTimer(
@@ -172,12 +175,12 @@ case class Welcome(
   spectator: Boolean,
 ) extends Message
 case class GameStatus(
-  self: SelfSummary,
+  self: Self,
   game: GameSummary,
   action: ActionSummary,
 ) extends Message
 case class RoundWinnings(
-  self: SelfSummary,
+  self: Self,
   game: GameSummary,
   results: List[ResultSummary],
 ) extends Message

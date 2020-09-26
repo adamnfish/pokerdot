@@ -51,6 +51,7 @@ case class Spectator(
   playerId: PlayerId,
   playerAddress: PlayerAddress,
   playerKey: PlayerKey,
+  screenName: String,
 )
 
 case class GameId(gid: String) extends AnyVal

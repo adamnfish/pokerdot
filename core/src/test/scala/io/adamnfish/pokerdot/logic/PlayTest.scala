@@ -37,7 +37,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
   }
 
-  "hands" - {
+  "holes" - {
     val player1 =
       Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"))
         .copy(hole = Some(Hole(Ace of Clubs, Ace of Diamonds)))
@@ -52,7 +52,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       val players = List(
         player1, player2, player3
       )
-      hands(players) shouldEqual List(
+      holes(players) shouldEqual List(
         player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
         player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
         player3.playerId -> Hole(Three of Clubs, Three of Diamonds),
@@ -63,7 +63,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       val players = List(
         player1, player2, player3.copy(busted = true)
       )
-      hands(players) shouldEqual List(
+      holes(players) shouldEqual List(
         player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
         player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
       )
@@ -73,7 +73,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       val players = List(
         player1, player2, player3.copy(folded = true)
       )
-      hands(players) shouldEqual List(
+      holes(players) shouldEqual List(
         player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
         player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
       )

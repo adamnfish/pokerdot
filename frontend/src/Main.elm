@@ -5,8 +5,9 @@ import Browser.Dom
 import Browser.Events
 import Html exposing (Html, div, h1, img, text)
 import Html.Attributes exposing (src)
-import Messages exposing (update)
+import Messages exposing (sendWake, update)
 import Model exposing (..)
+import Ports exposing (receiveMessage, socketConnect, socketDisconnect)
 import Task
 import Time
 import Views.UI exposing (view)
@@ -37,6 +38,7 @@ init =
                 }
             , peeking = False
             , loadingStatus = NotLoading
+            , errors = []
             , library = []
             }
     in
@@ -44,6 +46,7 @@ init =
     , Cmd.batch
         [ Task.perform Tick Time.now
         , Task.perform Resized Browser.Dom.getViewport
+        , sendWake ()
         ]
     )
 
@@ -51,7 +54,10 @@ init =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ Time.every 1000 Tick
+        [ receiveMessage ServerMessage
+        , socketConnect <| always SocketConnect
+        , socketDisconnect <| always SocketDisconnect
+        , Time.every 1000 Tick
         , Browser.Events.onResize (\_ _ -> OnResize)
         ]
 

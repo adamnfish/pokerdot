@@ -1,0 +1,18 @@
+{
+  "name": "pokerdot-web-frontend",
+  "version": "0.0.1",
+  "description": "Web UI for playing PokerDot.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "elm-app test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "",
+  "devDependencies": {
+    "reconnecting-websocket": "^4.4.0"
+  }
+}

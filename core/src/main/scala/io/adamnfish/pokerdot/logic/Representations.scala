@@ -47,6 +47,7 @@ object Representations {
       playerId = spectator.playerId.pid,
       playerAddress = spectator.playerAddress.address,
       playerKey = spectator.playerKey.key,
+      screenName = spectator.screenName,
     )
   }
 
@@ -103,6 +104,7 @@ object Representations {
       playerId = PlayerId(playerDb.playerId),
       playerAddress = PlayerAddress(playerDb.playerAddress),
       playerKey = PlayerKey(playerDb.playerKey),
+      screenName = playerDb.screenName,
     )
   }
 
@@ -120,6 +122,14 @@ object Representations {
   def gameStatus(game: Game, player: Player, actionSummary: ActionSummary): GameStatus = {
     GameStatus(
       self = summariseSelf(player),
+      game = summariseGame(game),
+      action = actionSummary,
+    )
+  }
+
+  def gameStatus(game: Game, spectator: Spectator, actionSummary: ActionSummary): GameStatus = {
+    GameStatus(
+      self = summariseSelf(spectator),
       game = summariseGame(game),
       action = actionSummary,
     )
@@ -165,7 +175,7 @@ object Representations {
           flop3 = round.flop3,
           turn = round.turn,
           river = round.river,
-          hands = Play.hands(players)
+          holes = Play.hands(players)
         )
     }
   }
@@ -199,6 +209,13 @@ object Representations {
     )
   }
 
+  def summariseSelf(spectator: Spectator): SpectatorSummary = {
+    SpectatorSummary(
+      playerId = spectator.playerId,
+      screenName = spectator.screenName,
+    )
+  }
+
   def summarisePlayer(player: Player): PlayerSummary = {
     PlayerSummary(
       playerId = player.playerId,
@@ -214,6 +231,7 @@ object Representations {
   def summariseSpectator(spectator: Spectator): SpectatorSummary = {
     SpectatorSummary(
       playerId = spectator.playerId,
+      screenName = spectator.screenName,
     )
   }
 

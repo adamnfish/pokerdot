@@ -33,7 +33,7 @@ object Play {
     }
   }
 
-  def hands(players: List[Player]): List[(PlayerId, Hole)] = {
+  def holes(players: List[Player]): List[(PlayerId, Hole)] = {
     for {
       activePlayer <- players
         .filterNot(_.busted)

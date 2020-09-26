@@ -1,6 +1,7 @@
 package io.adamnfish.pokerdot.models
 
 import cats.Functor.ops.toAllFunctorOps
+import io.circe.Json.JString
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder, Json, JsonObject, KeyEncoder, parser}
 import io.circe.syntax._
@@ -191,38 +192,47 @@ object Serialisation {
   private implicit val handEncoder: Encoder[Hand] = Encoder.instance {
     case highCard: HighCard =>
       highCardEncoder.apply(highCard)
+        .mapObject(o => o.add("hand", Json.fromString("high-card")))
     case pair: Pair =>
       pairEncoder.apply(pair)
+        .mapObject(o => o.add("hand", Json.fromString("pair")))
     case twoPair: TwoPair =>
       twoPairEncoder.apply(twoPair)
+        .mapObject(o => o.add("hand", Json.fromString("two-pair")))
     case threeOfAKind: ThreeOfAKind =>
       threeOfAKindEncoder.apply(threeOfAKind)
+        .mapObject(o => o.add("hand", Json.fromString("three-of-a-kind")))
     case straight: Straight =>
       straightEncoder.apply(straight)
+        .mapObject(o => o.add("hand", Json.fromString("straight")))
     case flush: Flush =>
       flushEncoder.apply(flush)
+        .mapObject(o => o.add("hand", Json.fromString("flush")))
     case fullHouse: FullHouse =>
       fullHouseEncoder.apply(fullHouse)
+        .mapObject(o => o.add("hand", Json.fromString("full-house")))
     case fourOfAKind: FourOfAKind =>
       fourOfAKindEncoder.apply(fourOfAKind)
+        .mapObject(o => o.add("hand", Json.fromString("four-of-a-kind")))
     case straightFlush: StraightFlush =>
       straightFlushEncoder.apply(straightFlush)
+        .mapObject(o => o.add("hand", Json.fromString("straight-flush")))
   }
 
   private implicit val TimerStatusEncoder: Encoder[TimerStatus] = deriveEncoder[TimerStatus]
   private implicit val TimerStatusDecoder: Decoder[TimerStatus] = deriveDecoder[TimerStatus]
-  private implicit val roundPhaseEncoder: Encoder[RoundPhase] = deriveEncoder[RoundPhase]
-  private implicit val roundPhaseDecoder: Decoder[RoundPhase] = deriveDecoder[RoundPhase]
-  private implicit val breakEncoder: Encoder[Break] = deriveEncoder[Break]
-  private implicit val breakDecoder: Decoder[Break] = deriveDecoder[Break]
+  private implicit val roundPhaseEncoder: Encoder[RoundLevel] = deriveEncoder[RoundLevel]
+  private implicit val roundPhaseDecoder: Decoder[RoundLevel] = deriveDecoder[RoundLevel]
+  private implicit val breakEncoder: Encoder[BreakLevel] = deriveEncoder[BreakLevel]
+  private implicit val breakDecoder: Decoder[BreakLevel] = deriveDecoder[BreakLevel]
   private implicit val timerLevelEncoder: Encoder[TimerLevel] = Encoder.instance {
-    case roundPhase: RoundPhase =>
+    case roundPhase: RoundLevel =>
       roundPhaseEncoder.apply(roundPhase)
-    case break: Break =>
+    case break: BreakLevel =>
       breakEncoder.apply(break)
   }
   private implicit val timerLevelDecoder: Decoder[TimerLevel] = {
-    Decoder[RoundPhase].widen or Decoder[Break].widen
+    Decoder[RoundLevel].widen or Decoder[BreakLevel].widen
   }
 
 
@@ -250,20 +260,26 @@ object Serialisation {
   private implicit val checkSummaryEncoder: Encoder[CheckSummary] = deriveEncoder[CheckSummary]
   private implicit val foldSummaryEncoder: Encoder[FoldSummary] = deriveEncoder[FoldSummary]
   private implicit val advancePhaseSummaryEncoder: Encoder[AdvancePhaseSummary] = deriveEncoder[AdvancePhaseSummary]
-  private implicit val noOpSummaryEncoder: Encoder[NoOpSummary] = deriveEncoder[NoOpSummary]
+  private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
   private implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
     case playerJoinedSummary: PlayerJoinedSummary =>
       playerJoinedSummaryEncoder.apply(playerJoinedSummary)
+        .mapObject(o => o.add("action", Json.fromString("player-joined")))
     case betSummary: BetSummary =>
       betSummaryEncoder.apply(betSummary)
+        .mapObject(o => o.add("action", Json.fromString("bet")))
     case checkSummary: CheckSummary =>
       checkSummaryEncoder.apply(checkSummary)
+        .mapObject(o => o.add("action", Json.fromString("check")))
     case foldSummary: FoldSummary =>
       foldSummaryEncoder.apply(foldSummary)
+        .mapObject(o => o.add("action", Json.fromString("fold")))
     case advancePhaseSummary: AdvancePhaseSummary =>
       advancePhaseSummaryEncoder.apply(advancePhaseSummary)
-    case noOpSummary: NoOpSummary =>
-      noOpSummaryEncoder.apply(noOpSummary)
+        .mapObject(o => o.add("action", Json.fromString("advance-phase")))
+    case noActionSummary: NoActionSummary =>
+      noActionSummaryEncoder.apply(noActionSummary)
+        .mapObject(o => o.add("action", Json.fromString("no-action")))
   }
 
   private implicit val playerSummaryEncoder: Encoder[PlayerSummary] = deriveEncoder[PlayerSummary]
@@ -271,6 +287,13 @@ object Serialisation {
   private implicit val selfSummaryEncoder: Encoder[SelfSummary] = deriveEncoder[SelfSummary]
   private implicit val resultSummaryEncoder: Encoder[ResultSummary] = deriveEncoder[ResultSummary]
   private implicit val gameSummaryEncoder: Encoder[GameSummary] = deriveEncoder[GameSummary]
+
+  private implicit val selfEncoder: Encoder[Self] = Encoder.instance {
+    case self: SelfSummary =>
+      selfSummaryEncoder.apply(self)
+    case self: SpectatorSummary =>
+      spectatorSummaryEncoder.apply(self)
+  }
 
   // MESSAGES
   private implicit val welcomeEncoder: Encoder[Welcome] = deriveEncoder
