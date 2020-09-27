@@ -96,6 +96,8 @@ lazy val devServer = (project in file("devserver"))
     // start DynamoDB on run
     dynamoDBLocalDownloadDir := file(".dynamodb-local"),
     dynamoDBLocalPort := 8042,
+    // allows browsing from http://localhost:8042/shell/
+    dynamoDBLocalSharedDB := true,
     startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Compile).value,
     (run in Compile) := (run in Compile).dependsOn(startDynamoDBLocal).evaluated,
   )

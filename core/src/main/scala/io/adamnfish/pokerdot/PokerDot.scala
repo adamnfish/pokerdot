@@ -67,9 +67,10 @@ object PokerDot {
       createGame <- extractCreateGame(requestJson).attempt
       (_, game) = Games.newGame(createGame.gameName, trackStacks = false).run(initialSeed)
       creator = Games.newPlayer(game.gameId, createGame.screenName, isCreator = true, appContext.playerAddress)
-      gameDb = Representations.gameToDb(game)
+      gameWithCreator = Games.addPlayer(game, creator)
+      gameDb = Representations.gameToDb(gameWithCreator)
       creatorDb = Representations.playerToDb(creator)
-      response = Responses.welcome(game, creator)
+      response = Responses.welcome(gameWithCreator, creator)
       _ <- appContext.db.writeGame(gameDb)
       _ <- appContext.db.writePlayer(creatorDb)
     } yield response
@@ -85,12 +86,12 @@ object PokerDot {
       rawJoinGame <- extractJoinGame(requestJson).attempt
       joinGame = Games.normaliseGameCode(rawJoinGame)
       maybeGame <- appContext.db.lookupGame(joinGame.gameCode)
-      // player IDs aren't persisted until the game starts
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
         s"Game not found for code ${joinGame.gameCode}",
         "Couldn't find game, is the code correct?",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
+      // player IDs aren't persisted until the game starts
       gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureNotStarted(game).attempt

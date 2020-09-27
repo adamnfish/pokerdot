@@ -2,7 +2,7 @@ module Messages exposing (..)
 
 import Browser.Dom
 import Json.Decode
-import Model exposing (CreateGameRequest, Failure, LoadingStatus(..), Model, Msg(..), PingRequest, UI(..), Welcome, createGameRequestEncoder, messageDecoder, pingRequestEncoder, wakeRequestEncoder)
+import Model exposing (CreateGameRequest, Failure, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, UI(..), Welcome, createGameRequestEncoder, getGameCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, wakeRequestEncoder)
 import Ports exposing (sendMessage)
 import Task
 import Time
@@ -52,26 +52,73 @@ update msg model =
                     Json.Decode.decodeValue messageDecoder json
             in
             case parsedMessage of
-                Ok (Model.WelcomeMessage welcome) ->
+                Ok (WelcomeMessage welcome) ->
+                    let
+                        newLibrary =
+                            if List.member welcome model.library then
+                                model.library
+
+                            else
+                                welcome :: model.library
+                    in
+                    case model.ui of
+                        CreateGameScreen gameName _ ->
+                            if gameName == welcome.gameName then
+                                ( { model
+                                    | library = newLibrary
+                                    , ui = LobbyScreen [] Nothing welcome
+                                  }
+                                , Cmd.none
+                                )
+
+                            else
+                                -- different game, background update
+                                ( { model | library = newLibrary }
+                                , Cmd.none
+                                )
+
+                        JoinGameScreen gameCode _ ->
+                            if gameCode == getGameCode welcome.gameId then
+                                ( { model
+                                    | library = newLibrary
+                                    , ui = LobbyScreen [] Nothing welcome
+                                  }
+                                , Cmd.none
+                                )
+
+                            else
+                                -- different game, background update
+                                ( { model | library = newLibrary }
+                                , Cmd.none
+                                )
+
+                        -- TODO: handle the lobby case where status message arrives before welcome
+                        _ ->
+                            ( { model | library = newLibrary }
+                            , Cmd.none
+                            )
+
+                Ok (PlayerGameStatusMessage self game action) ->
                     ( model, Cmd.none )
 
-                Ok (Model.PlayerGameStatusMessage self game action) ->
+                Ok (PlayerRoundWinningsMessage self game results) ->
                     ( model, Cmd.none )
 
-                Ok (Model.PlayerRoundWinningsMessage self game results) ->
+                Ok (SpectatorGameStatusMessage spectator game action) ->
                     ( model, Cmd.none )
 
-                Ok (Model.SpectatorGameStatusMessage spectator game action) ->
+                Ok (SpectatorRoundWinningsMessage spectator game results) ->
                     ( model, Cmd.none )
 
-                Ok (Model.SpectatorRoundWinningsMessage spectator game results) ->
+                Ok (StatusMessage string) ->
                     ( model, Cmd.none )
 
-                Ok (Model.StatusMessage string) ->
-                    ( model, Cmd.none )
-
-                Ok (Model.FailureMessage failures) ->
-                    ( model, Cmd.none )
+                Ok (FailureMessage failures) ->
+                    let
+                        updatedModel =
+                            displayFailures model failures
+                    in
+                    ( updatedModel, Cmd.none )
 
                 Err error ->
                     ( model, Cmd.none )
@@ -158,8 +205,8 @@ update msg model =
         SubmitCreateGame gameName screenName ->
             let
                 request =
-                    { screenName = gameName
-                    , gameName = screenName
+                    { gameName = gameName
+                    , screenName = screenName
                     }
             in
             ( { model | loadingStatus = AwaitingMessage }
@@ -177,7 +224,15 @@ update msg model =
             )
 
         SubmitJoinGame gameCode screenName ->
-            ( model, Cmd.none )
+            let
+                request =
+                    { gameCode = gameCode
+                    , screenName = screenName
+                    }
+            in
+            ( { model | loadingStatus = AwaitingMessage }
+            , sendJoinGame request
+            )
 
         InputReorderPlayers players ->
             ( model, Cmd.none )
@@ -186,7 +241,9 @@ update msg model =
             ( model, Cmd.none )
 
         TogglePeek ->
-            ( model, Cmd.none )
+            ( { model | peeking = not model.peeking }
+            , Cmd.none
+            )
 
         Check ->
             ( model, Cmd.none )
@@ -223,6 +280,11 @@ displayFailures model failures =
 sendCreateGame : CreateGameRequest -> Cmd Msg
 sendCreateGame createGameRequest =
     sendMessage <| createGameRequestEncoder createGameRequest
+
+
+sendJoinGame : JoinGameRequest -> Cmd Msg
+sendJoinGame joinGameRequest =
+    sendMessage <| joinGameRequestEncoder joinGameRequest
 
 
 sendPing : Welcome -> Cmd Msg

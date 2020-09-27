@@ -2,7 +2,7 @@ module Model exposing (..)
 
 import Browser.Dom exposing (Viewport)
 import Json.Decode
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode
 import Time exposing (Posix(..))
 
@@ -84,6 +84,11 @@ type alias Failure =
 
 type GameId
     = Gid String
+
+
+getGameCode : GameId -> String
+getGameCode (Gid gid) =
+    String.left 4 gid
 
 
 type PlayerId
@@ -708,8 +713,8 @@ gameIdDecoder =
 failureDecoder : Json.Decode.Decoder Failure
 failureDecoder =
     Json.Decode.succeed Failure
-        |> required "userMessage" Json.Decode.string
-        |> required "context" (Json.Decode.nullable Json.Decode.string)
+        |> required "message" Json.Decode.string
+        |> optional "context" (Json.Decode.nullable Json.Decode.string) Nothing
 
 
 playerGameStatusMessageDecoder : Json.Decode.Decoder Message

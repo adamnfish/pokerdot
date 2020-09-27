@@ -175,7 +175,7 @@ object Representations {
           flop3 = round.flop3,
           turn = round.turn,
           river = round.river,
-          holes = Play.hands(players)
+          holes = Play.holes(players)
         )
     }
   }
@@ -190,7 +190,7 @@ object Representations {
       inTurn = game.inTurn.map(summarisePlayer),
       button = game.button,
       started = game.started,
-      startTime = game.startTime,
+      startTime = game.startTime.toEpochSecond,
       trackStacks = game.trackStacks,
       timer = game.timer,
     )

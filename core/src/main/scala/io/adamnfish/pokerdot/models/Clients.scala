@@ -1,7 +1,5 @@
 package io.adamnfish.pokerdot.models
 
-import java.time.ZonedDateTime
-
 
 case class GameSummary(
   gameId: GameId,
@@ -12,7 +10,7 @@ case class GameSummary(
   inTurn: Option[PlayerSummary],
   button: Int,
   started: Boolean,
-  startTime: ZonedDateTime,
+  startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus]
 )

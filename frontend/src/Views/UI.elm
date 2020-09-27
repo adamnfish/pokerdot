@@ -12,48 +12,77 @@ import FontAwesome.Attributes as Icon
 import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
-import Model exposing (ActSelection, Game, Model, Msg(..), Player, PlayerId, Self, TimerStatus, UI(..), Welcome)
+import Model exposing (ActSelection, Game, Model, Msg(..), Player, PlayerId, Self, TimerStatus, UI(..), Welcome, getGameCode)
+import Views.Elements exposing (pdButton, pdButtonSmall, pdText, zWidths)
+
+
+type alias Page =
+    { body : Element Msg
+    , title : String
+    }
 
 
 view : Model -> Browser.Document Msg
 view model =
     let
-        body =
+        page =
             case model.ui of
                 WelcomeScreen ->
-                    welcomeScreen model
+                    { body = welcomeScreen model
+                    , title = "PokerDot"
+                    }
 
                 HelpScreen ->
-                    helpScreen model
+                    { body = helpScreen model
+                    , title = "Help"
+                    }
 
                 CreateGameScreen gameName screenName ->
-                    createGameScreen model gameName screenName
+                    { body = createGameScreen model gameName screenName
+                    , title = "New game"
+                    }
 
                 JoinGameScreen gameCode screenName ->
-                    joinGameScreen model gameCode screenName
+                    { body = joinGameScreen model gameCode screenName
+                    , title = "Join game"
+                    }
 
                 LobbyScreen players maybeGameStatus welcome ->
-                    lobbyScreen model players maybeGameStatus welcome
+                    { body = lobbyScreen model players maybeGameStatus welcome
+                    , title = welcome.gameName ++ " | Waiting..."
+                    }
 
                 RejoinScreen welcome ->
-                    rejoinScreen model welcome
+                    { body = rejoinScreen model welcome
+                    , title = welcome.gameName ++ " | Waiting..."
+                    }
 
                 WaitingGameScreen activePlayer self game welcome ->
-                    waitingGameScreen model activePlayer self game welcome
+                    { body = waitingGameScreen model activePlayer self game welcome
+                    , title = welcome.gameName ++ " | Waiting..."
+                    }
 
                 ActingGameScreen currentAct self game welcome ->
-                    actingGameScreen model currentAct self game welcome
+                    { body = actingGameScreen model currentAct self game welcome
+                    , title = welcome.gameName ++ " | Your turn"
+                    }
 
                 CommunityCardsScreen game welcome ->
-                    communityCardsScreen model game welcome
+                    { body = communityCardsScreen model game welcome
+                    , title = welcome.gameName
+                    }
 
                 TimerScreen timerStatus game welcome ->
-                    timerScreen model timerStatus game welcome
+                    { body = timerScreen model timerStatus game welcome
+                    , title = welcome.gameName
+                    }
 
                 ChipSummaryScreen game welcome ->
-                    chipSummaryScreen model game welcome
+                    { body = chipSummaryScreen model game welcome
+                    , title = welcome.gameName
+                    }
     in
-    { title = "pokerdot"
+    { title = page.title
     , body =
         [ layout
             [ Font.family
@@ -70,26 +99,23 @@ view model =
                 [ -- header
                   row
                     [ width fill ]
-                    [ Input.button
-                        [ Border.rounded 40
-                        , width <| px 80
-                        , height <| px 80
-                        , Border.solid
-                        , Border.width 2
-                        , Border.color <| rgb255 60 60 60
-                        ]
-                        { onPress = Just NavigateHome
-                        , label = text "home"
-                        }
+                    [ pdButtonSmall NavigateHome [ "home" ]
                     ]
+                , if List.isEmpty model.errors then
+                    Element.none
+
+                  else
+                    column
+                        [ width fill ]
+                    <|
+                        List.map
+                            (\error ->
+                                Element.text error.failure.message
+                            )
+                            model.errors
 
                 -- body
-                , body
-
-                -- footer
-                , row
-                    [ width fill ]
-                    [ text "footer" ]
+                , page.body
                 ]
         ]
     }
@@ -101,36 +127,8 @@ welcomeScreen model =
         [ width fill
         , spacing 8
         ]
-        [ Input.button
-            [ Border.rounded 50
-            , width <| px 100
-            , height <| px 100
-            , Border.solid
-            , Border.width 2
-            , Border.color <| rgb255 60 60 60
-            ]
-            { onPress = Just NavigateCreateGame
-            , label =
-                paragraph []
-                    [ text "Create "
-                    , text " game"
-                    ]
-            }
-        , Input.button
-            [ Border.rounded 50
-            , width <| px 100
-            , height <| px 100
-            , Border.solid
-            , Border.width 2
-            , Border.color <| rgb255 60 60 60
-            ]
-            { onPress = Just NavigateJoinGame
-            , label =
-                paragraph []
-                    [ text "Join "
-                    , text " game"
-                    ]
-            }
+        [ pdButton NavigateCreateGame [ "Create", "game" ]
+        , pdButton NavigateJoinGame [ "Join", "game" ]
         ]
 
 
@@ -145,61 +143,30 @@ createGameScreen model gameName screenName =
         [ width fill
         , spacing 8
         ]
-        [ Input.text
-            [ Font.alignLeft
-            , paddingXY 10 8
-            , Border.solid
-            , Border.color <| rgb255 60 60 60
-            , Border.widthEach { zWidths | bottom = 2 }
-            , Border.rounded 0
-            , Background.color <| rgb255 200 200 200
-            ]
-            { onChange = \newGameName -> InputCreateGame newGameName screenName
-            , text = gameName
-            , placeholder = Nothing
-            , label = labelLeft [] <| text "Game name"
-            }
-        , Input.text
-            [ Font.alignLeft
-            , paddingXY 10 8
-            , Border.solid
-            , Border.width 2
-            , Border.color <| rgb255 60 60 60
-            , Border.widthEach { zWidths | bottom = 2 }
-            , Border.rounded 0
-            , Background.color <| rgb255 200 200 200
-            ]
-            { onChange = InputCreateGame gameName
-            , text = screenName
-            , placeholder = Nothing
-            , label = labelLeft [] <| text "Your name"
-            }
-        , Input.button
-            [ Border.rounded 50
-            , width <| px 100
-            , height <| px 100
-            , Border.solid
-            , Border.width 2
-            , Border.color <| rgb255 60 60 60
-            ]
-            { onPress = Just <| SubmitCreateGame gameName screenName
-            , label =
-                paragraph []
-                    [ text "Create "
-                    , text " game"
-                    ]
-            }
+        [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "Game name"
+        , pdText (InputCreateGame gameName) screenName "Your name"
+        , pdButton (SubmitCreateGame gameName screenName) [ "Create", "game" ]
         ]
 
 
 joinGameScreen : Model -> String -> String -> Element Msg
 joinGameScreen model gameCode screenName =
-    Element.none
+    column
+        [ width fill
+        , spacing 8
+        ]
+        [ pdText (\newGameCode -> InputJoinGame newGameCode screenName) gameCode "Game code"
+        , pdText (InputJoinGame gameCode) screenName "Your name"
+        , pdButton (SubmitJoinGame gameCode screenName) [ "Join", "game" ]
+        ]
 
 
 lobbyScreen : Model -> List Player -> Maybe ( Self, Game ) -> Welcome -> Element Msg
 lobbyScreen model players maybeGameDetails welcome =
-    Element.none
+    column
+        [ width fill
+        ]
+        [ Element.text <| getGameCode welcome.gameId ]
 
 
 rejoinScreen : Model -> Welcome -> Element Msg
@@ -230,12 +197,3 @@ timerScreen model timerStatus game welcome =
 chipSummaryScreen : Model -> Game -> Welcome -> Element Msg
 chipSummaryScreen model game welcome =
     Element.none
-
-
-zWidths : { bottom : Int, left : Int, right : Int, top : Int }
-zWidths =
-    { bottom = 0
-    , left = 0
-    , right = 0
-    , top = 0
-    }

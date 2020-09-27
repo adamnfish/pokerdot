@@ -5,6 +5,9 @@ import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDb
 import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
+import zio.IO
+
+import scala.util.control.NonFatal
 
 
 object DevServer {
@@ -32,17 +35,22 @@ object DevServer {
       ws.onMessage { wctx =>
         println(s"Message: ${displayId(wctx.getSessionId)} <- ${wctx.message}")
         val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging)
-        val program = PokerDot.pokerdot(wctx.message, appContext)
-        val result = runtime.unsafeRunSync(program)
-        result.fold(
+        val program = PokerDot.pokerdot(wctx.message, appContext).catchAll { failures =>
+          IO {
+            println(s"[ERROR] Failures: ${failures.logString}")
+            "FAILURE"
+          }
+        }
+
+        runtime.unsafeRunSync(program).fold(
           { cause =>
             println(s"[ERROR] ${cause.prettyPrint}")
-            cause.failures.foreach { failures =>
-              println(s"[ERROR] Failure: ${failures.logString}")
+            cause.failures.foreach { e =>
+              println(s"[ERROR] Unhandled exception: ${e.printStackTrace()}")
             }
           },
           { operation =>
-            println(s"Operation $operation successfully completed")
+            println(s"[INFO] Operation $operation completed")
           }
         )
       }
