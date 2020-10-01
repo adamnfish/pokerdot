@@ -20,6 +20,11 @@ type Msg
     | NavigateHome
     | NavigateHelp
     | NavigateGame Welcome
+      -- library management
+    | UpdateLibrary Json.Decode.Value
+    | PersistGame Welcome
+    | DeletePersistedGame Welcome
+    | RequestPersistedGames
       -- create game
     | NavigateCreateGame
     | InputCreateGame String String
@@ -690,8 +695,8 @@ holeDecoder =
         |> required "card2" cardDecoder
 
 
-decodeWelcomeMessage : Json.Decode.Decoder Message
-decodeWelcomeMessage =
+decodeWelcome : Json.Decode.Decoder Message
+decodeWelcome =
     Json.Decode.map WelcomeMessage welcomeDecoder
 
 
@@ -764,7 +769,7 @@ failureMessageDecoder =
 messageDecoder : Json.Decode.Decoder Message
 messageDecoder =
     Json.Decode.oneOf
-        [ decodeWelcomeMessage
+        [ decodeWelcome
         , playerGameStatusMessageDecoder
         , spectatorGameStatusMessageDecoder
         , playerRoundWinningsMessageDecoder
@@ -818,6 +823,18 @@ encodeTimerStatus timerStatus =
         [ ( "timerStartTime", encodePosix timerStatus.timerStartTime )
         , ( "pausedTime", (Maybe.map encodePosix >> Maybe.withDefault Json.Encode.null) timerStatus.pausedTime )
         , ( "levels", Json.Encode.list encodeTimerLevel timerStatus.levels )
+        ]
+
+
+welcomeEncoder : Welcome -> Json.Encode.Value
+welcomeEncoder welcome =
+    Json.Encode.object <|
+        [ ( "playerKey", encodePlayerKey welcome.playerKey )
+        , ( "playerId", encodePlayerId welcome.playerId )
+        , ( "gameId", encodeGameId welcome.gameId )
+        , ( "gameName", Json.Encode.string welcome.gameName )
+        , ( "screenName", Json.Encode.string welcome.screenName )
+        , ( "spectator", Json.Encode.bool welcome.spectator )
         ]
 
 

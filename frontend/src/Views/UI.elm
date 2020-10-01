@@ -13,7 +13,7 @@ import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
 import Model exposing (ActSelection, Game, Model, Msg(..), Player, PlayerId, Self, TimerStatus, UI(..), Welcome, getGameCode)
-import Views.Elements exposing (pdButton, pdButtonSmall, pdText, zWidths)
+import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdText, zWidths)
 
 
 type alias Page =
@@ -98,8 +98,29 @@ view model =
                 ]
                 [ -- header
                   row
-                    [ width fill ]
-                    [ pdButtonSmall NavigateHome [ "home" ]
+                    [ width fill
+                    ]
+                    [ case model.ui of
+                        WelcomeScreen ->
+                            Element.none
+
+                        _ ->
+                            pdButtonSmall NavigateHome [ "home" ]
+                    , el
+                        [ alignRight
+                        ]
+                      <|
+                        dotContainer model.viewport 80 <|
+                            el
+                                [ centerY
+                                , centerX
+                                ]
+                            <|
+                                if model.connected then
+                                    text "1"
+
+                                else
+                                    text "0"
                     ]
                 , if List.isEmpty model.errors then
                     Element.none
@@ -123,13 +144,48 @@ view model =
 
 welcomeScreen : Model -> Element Msg
 welcomeScreen model =
-    row
-        [ width fill
-        , spacing 8
-        ]
-        [ pdButton NavigateCreateGame [ "Create", "game" ]
-        , pdButton NavigateJoinGame [ "Join", "game" ]
-        ]
+    let
+        radius =
+            max 300 <|
+                min 400 <|
+                    round model.viewport.viewport.width
+                        - 20
+    in
+    dotContainer model.viewport radius <|
+        column
+            [ width fill
+            , height fill
+            , centerX
+            , spacing 48
+            ]
+            [ el
+                [ centerX
+                , paddingEach { zWidths | top = 100 }
+                ]
+              <|
+                text "PokerDot"
+            , row
+                [ spacing 24
+                , centerX
+                ]
+                [ pdButton NavigateCreateGame [ "Create", "game" ]
+                , pdButton NavigateJoinGame [ "Join", "game" ]
+                , row [] <|
+                    List.map
+                        (\welcomeMessage ->
+                            row []
+                                [ pdButton
+                                    (NavigateGame welcomeMessage)
+                                    [ welcomeMessage.screenName ++ " in " ++ welcomeMessage.gameName
+                                    ]
+                                , pdButton
+                                    (DeletePersistedGame welcomeMessage)
+                                    [ "x" ]
+                                ]
+                        )
+                        model.library
+                ]
+            ]
 
 
 helpScreen : Model -> Element Msg
@@ -139,21 +195,40 @@ helpScreen model =
 
 createGameScreen : Model -> String -> String -> Element Msg
 createGameScreen model gameName screenName =
-    column
-        [ width fill
-        , spacing 8
-        ]
-        [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "Game name"
-        , pdText (InputCreateGame gameName) screenName "Your name"
-        , pdButton (SubmitCreateGame gameName screenName) [ "Create", "game" ]
-        ]
+    let
+        radius =
+            max 550 <|
+                min 400 <|
+                    round model.viewport.viewport.width
+                        - 20
+
+        tmp =
+            minimum (round model.viewport.viewport.x - 100) <| px 400
+    in
+    dotContainer model.viewport radius <|
+        column
+            [ width fill
+            , spacing 16
+            , width <| maximum (round model.viewport.viewport.width - 24) <| px 400
+            , paddingEach { zWidths | top = 150 }
+            , centerX
+            ]
+            [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "Game name"
+            , pdText (InputCreateGame gameName) screenName "Your name"
+            , el
+                [ alignRight
+                , paddingEach { zWidths | top = 24 }
+                ]
+              <|
+                pdButton (SubmitCreateGame gameName screenName) [ "Create", "game" ]
+            ]
 
 
 joinGameScreen : Model -> String -> String -> Element Msg
 joinGameScreen model gameCode screenName =
     column
         [ width fill
-        , spacing 8
+        , spacing 16
         ]
         [ pdText (\newGameCode -> InputJoinGame newGameCode screenName) gameCode "Game code"
         , pdText (InputJoinGame gameCode) screenName "Your name"

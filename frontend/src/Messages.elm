@@ -1,9 +1,10 @@
 module Messages exposing (..)
 
 import Browser.Dom
-import Json.Decode
-import Model exposing (CreateGameRequest, Failure, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, UI(..), Welcome, createGameRequestEncoder, getGameCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, wakeRequestEncoder)
-import Ports exposing (sendMessage)
+import Json.Decode exposing (errorToString)
+import List.Extra
+import Model exposing (CreateGameRequest, Failure, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, UI(..), Welcome, createGameRequestEncoder, getGameCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
 
@@ -182,7 +183,10 @@ update msg model =
             )
 
         NavigateHome ->
-            ( { model | ui = WelcomeScreen }
+            ( { model
+                | ui = WelcomeScreen
+                , errors = []
+              }
             , Cmd.none
             )
 
@@ -190,7 +194,50 @@ update msg model =
             ( model, Cmd.none )
 
         NavigateGame welcome ->
-            ( model, Cmd.none )
+            ( { model | ui = RejoinScreen welcome }
+            , sendPing welcome
+            )
+
+        UpdateLibrary json ->
+            let
+                ( newLibrary, parseLibraryCmd ) =
+                    parsePersistedGames json
+            in
+            ( { model | library = newLibrary }
+            , parseLibraryCmd
+            )
+
+        PersistGame welcomeMessage ->
+            let
+                json =
+                    welcomeEncoder welcomeMessage
+            in
+            ( model
+            , persistNewGame json
+            )
+
+        DeletePersistedGame welcome ->
+            let
+                json =
+                    welcomeEncoder welcome
+
+                filteredLibrary =
+                    List.Extra.filterNot
+                        (\game ->
+                            game.gameId == welcome.gameId && game.playerKey == welcome.playerKey
+                        )
+                        model.library
+            in
+            ( { model
+                | library = filteredLibrary
+              }
+            , deletePersistedGame json
+            )
+
+        RequestPersistedGames ->
+            ( model
+            , requestPersistedGames ()
+            )
 
         NavigateCreateGame ->
             ( { model | ui = CreateGameScreen "" "" }
@@ -271,6 +318,23 @@ displayFailure failure model =
 displayFailures : Model -> List Failure -> Model
 displayFailures model failures =
     List.foldl displayFailure model failures
+
+
+parsePersistedGames : Json.Decode.Value -> ( List Welcome, Cmd msg )
+parsePersistedGames json =
+    let
+        persistedGamesResult =
+            Json.Decode.decodeValue (Json.Decode.list welcomeDecoder) json
+    in
+    case persistedGamesResult of
+        Ok persistedGames ->
+            ( persistedGames, Cmd.none )
+
+        Err decodeError ->
+            ( []
+            , reportError <|
+                errorToString decodeError
+            )
 
 
 

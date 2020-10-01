@@ -1,10 +1,11 @@
-module Views.Elements exposing (pdButton, pdButtonSmall, pdText, zWidths)
+module Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdText, zWidths)
 
+import Browser.Dom exposing (Viewport)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (labelLeft)
+import Element.Input as Input exposing (labelAbove, labelLeft)
 import Element.Region as Region
 import Model exposing (Msg)
 
@@ -28,9 +29,30 @@ internalButton diameter msg lines =
         , Border.solid
         , Border.width 2
         , Border.color <| rgb255 60 60 60
+        , Border.shadow
+            { offset = ( 1, 1 )
+            , size = 1
+            , blur = 1
+            , color = rgb255 120 120 120
+            }
+        , focused
+            [ Background.color <| rgb255 220 220 230
+            , Border.color <| rgb255 120 120 240
+            ]
         ]
         { onPress = Just msg
-        , label = paragraph [] <| List.map (\s -> text <| s ++ " ") lines
+        , label =
+            column
+                [ width fill ]
+            <|
+                List.map
+                    (\s ->
+                        el
+                            [ centerX ]
+                        <|
+                            text (s ++ " ")
+                    )
+                    lines
         }
 
 
@@ -45,11 +67,19 @@ pdText msg value labelStr =
         , Border.widthEach { zWidths | bottom = 2 }
         , Border.rounded 0
         , Background.color <| rgb255 200 200 200
+        , focused
+            [ Background.color <| rgb255 220 220 230
+            , Border.color <| rgb255 120 120 240
+            ]
         ]
         { onChange = msg
         , text = value
         , placeholder = Nothing
-        , label = labelLeft [] <| text labelStr
+        , label =
+            Input.labelAbove
+                [ alignLeft ]
+            <|
+                text labelStr
         }
 
 
@@ -60,3 +90,28 @@ zWidths =
     , right = 0
     , top = 0
     }
+
+
+dotContainer : Viewport -> Int -> Element Msg -> Element Msg
+dotContainer viewport radius content =
+    el
+        [ width fill
+        ]
+    <|
+        el
+            [ width <| px radius
+            , height <| px radius
+            , centerX
+            , Background.color <| rgb255 180 180 230
+            , Border.rounded radius
+            ]
+        <|
+            el
+                [ width <|
+                    maximum (radius - 24) <|
+                        px <|
+                            round (viewport.viewport.width - 24)
+                , height <| px radius
+                , centerX
+                ]
+                content
