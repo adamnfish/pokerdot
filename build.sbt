@@ -4,11 +4,12 @@ ThisBuild / organization     := "io.adamnfish"
 ThisBuild / organizationName := "adamnfish"
 
 ThisBuild / scalacOptions ++= Seq(
-  "-deprecation",
   "-Xfatal-warnings",
   "-encoding", "UTF-8",
   "-target:jvm-1.8",
-  "-Ywarn-dead-code"
+  "-Ywarn-dead-code",
+  "-deprecation",
+  "-explaintypes",
 )
 
 
@@ -58,6 +59,26 @@ lazy val lambda = (project in file("lambda"))
     topLevelDirectory in Universal := None,
     packageName in Universal := "pokerdot-lambda",
     mappings in (Compile, packageDoc) := Seq(),
+  )
+  .dependsOn(core)
+
+lazy val nativeLambda = (project in file("native-lambda"))
+  .enablePlugins(NativeImagePlugin)
+  .settings(
+    name := "native-lambda",
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "com.lihaoyi" %% "requests" % "0.6.5",
+      "com.amazonaws" % "aws-java-sdk-apigatewaymanagementapi" % awsJavaSdkVersion,
+    ),
+    Compile / mainClass := Some("io.adamnfish.pokerdot.Main"),
+    nativeImageOptions ++= Seq(
+      "--enable-http",
+      "--enable-https",
+      "--no-fallback",
+    ),
   )
   .dependsOn(core)
 
