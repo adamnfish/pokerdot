@@ -6,9 +6,9 @@ import Model exposing (GameId(..), Message(..), PlayerId(..), PlayerKey(..), mes
 import Test exposing (..)
 
 
-messageDeocders : Test
-messageDeocders =
-    describe "message deocders"
+messageDecoders : Test
+messageDecoders =
+    describe "message decoders"
         [ describe "Failure messages"
             [ test "parses an example" <|
                 \_ ->
