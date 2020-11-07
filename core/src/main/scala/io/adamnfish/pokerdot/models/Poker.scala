@@ -60,12 +60,6 @@ case object Diamonds extends Suit
 case object Spades   extends Suit
 case object Hearts   extends Suit
 
-case class Result(
-  player: Player,
-  hand: Hand,
-  winnings: Int,
-)
-
 sealed trait Hand extends Product
 case class HighCard(
   highCard: Card,
@@ -130,3 +124,20 @@ case class StraightFlush(
   next3: Card,
   low: Card,
 ) extends Hand
+
+case class PlayerHand(
+  player: Player,
+  hand: Hand,
+)
+
+case class PlayerWinnings(
+  playerId: PlayerId,
+  hand: Hand,
+  winnings: Int,
+)
+
+case class PotWinnings(
+  potSize: Int,
+  participants: Set[PlayerId],
+  winners: Set[PlayerId],
+)

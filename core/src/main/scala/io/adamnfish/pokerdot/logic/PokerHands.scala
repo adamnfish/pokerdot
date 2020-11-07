@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, Queen, Rank, Result, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
+import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, PlayerHand, PlayerId, PotWinnings, Queen, Rank, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
 
 
 object PokerHands {
@@ -19,18 +19,18 @@ object PokerHands {
    * complex in some situations:
    *   - split pots
    *   - rounds where one or more players are all-in
+   *   - both of the above
+   *
+   * We check for results on a pot-by-pot basis, at each level selecting the
+   * strongest hand that is eligible.
    */
-  def winnings(round: Round, players: List[Player]): List[Result] = {
-    // order hands by strength - ensuring ties are considered at the same time
-    // from strongest to weakest, distribute winning shares of pot until pot is empty
-
+  def winnings(round: Round, players: List[Player]): List[PotWinnings] = {
     val playerHands =
       for {
         player <- players
-          .filterNot(_.folded)
           .filterNot(_.busted)
         hole <- player.hole
-      } yield (player, bestHand(
+      } yield PlayerHand(player, bestHand(
         round.flop1,
         round.flop2,
         round.flop3,
@@ -40,45 +40,99 @@ object PokerHands {
         hole.card2,
       ))
 
-    val playerHandsByStrength = playerHands
+    // All players, arranged by hand strength.
+    // It's List[List[...]] because equal hand strengths should be tied
+    val playersByStrength = playerHands
       // equal strengths are clumped together
-      .groupBy { case (_, hand) => handOrd(hand) }
+      .groupBy(ph => handOrd(ph.hand))
       .toList
-      // and then sorted by strength (strongest first)
+      // and then sorted by strength (strongest last for foldRight)
       .sortBy { case (handStrength, _) => handStrength }
-      .map { case (_, playerHands) => playerHands }
+      .map { case (_, playerHands) => playerHands.map(_.player) }
+
+    // distinct player contributions in ascending order give the side pots with the main (largest) pot last
+    // typically there will only be a single entry here, which is the main pot.
+    // If one or more players are all in then their pot contribution will differ, creating side pots.
+    val potLevels = players
+      .map(_.pot)
+      .filter(_ > 0)
+      .distinct
+      // sorted by contribution (descending for foldRight)
+      .sorted
       .reverse
 
-    val (results, _) = playerHandsByStrength.foldLeft[(List[Result], List[Player])]((Nil, players)) {
-      // we keep track of calculated winnings and the current state of the pot (via paidPlayers)
-      // playerHands is all the hands of with the next strength (more than 1 of there is a tie)
-      case ((winningPlayers, paidPlayers), playerHands) =>
-        playerHands match {
-            // this is a special case of the below and will probably go away
-          case (winningPlayer, winningHand) :: Nil =>
-            val (winningsHere, updatedPaidPlayers) =
-              paidPlayers.foldRight[(Int, List[Player])]((0, Nil)) { case (paidPlayer, (winnings, newPaidPlayers)) =>
-                val winningsFromThisPlayer = math.min(paidPlayer.pot, winningPlayer.pot)
-                (winnings + winningsFromThisPlayer, paidPlayer.copy(pot = paidPlayer.pot - winningsFromThisPlayer) :: newPaidPlayers)
-              }
+    // run through pots, determined by distinct player contributions (pot level)
+    // also accumulate player hands to keep track of remaining stakes
+    // and the sum of potLevels up to now, for how much players should have already paid
+    val (potWinnings, _, _) = potLevels.foldRight[(List[PotWinnings], List[List[Player]], Int)](
+      (Nil, playersByStrength, 0)
+    ) { case (potLevel, (paidPots, paidPlayersByStrength, paidSoFar)) =>
+      // run through all players (in strength order) with each contributing to this pot, if able
+      // first (by strength) eligible players are the winner(s)
+      val (updatedPlayersByStrength, participants, winners, potSize) =
+        paidPlayersByStrength.foldRight[(List[List[Player]], List[PlayerId], List[PlayerId], Int)](
+          (Nil, Nil, Nil, 0)
+        ) { case (playersAtThisStrength, (accPaidPlayersByStrength, accParticipants, accWinnerIds, accPotSize)) =>
+          val eligiblePlayerIdsAtThisStrength = playersAtThisStrength.filter(_.pot > 0).map(_.playerId)
 
-            (
-              Result(winningPlayer, winningHand, winningsHere) :: winningPlayers,
-              updatedPaidPlayers
-            )
-          case tiedWinners =>
-            val winnersByPotContribution = tiedWinners
-              // grouped by how much they contributed to the pot
-              // less than the max is a side-pot, and needs to be addressed first
-              .groupBy(_._1.pot)
-              .toList
-              .sortBy(_._1)
-              // no reverse - we want the smallest contribution first (side-pot)
+          // run through the players at this strength, paying into pot winnings
+          val (paidPlayersAtThisStrength, potContributions) = playersAtThisStrength
+            .foldRight[(List[Player], Int)](
+              (Nil, 0)
+            ) { case (player, (accPaidPlayers, accContributions)) =>
+              val payment = math.min(player.pot, potLevel - paidSoFar)
+              val paidPlayer = player.copy(pot = player.pot - payment)
 
-            ???
+              // Return value (accumulator) is:
+              // - players at this strength adjusted so that they have paid into the pot winnings
+              // - total amount contributed into the pot by players at this strength
+              (
+                paidPlayer :: accPaidPlayers,
+                payment + accContributions,
+              )
+            }
+
+          val winners = accWinnerIds match {
+            case Nil =>
+              playersAtThisStrength
+                .filter(_.pot > 0)  // have to be in it to win it
+                .filterNot(_.folded)  // folded players can't win
+                .map(_.playerId)
+            case existingWinners =>
+              existingWinners
+          }
+
+          // return value (accumulator) is:
+          // - accumulate players at this strength with their pot amount adjusted by the winnings
+          // - add player IDs at this strength to participants, if they are eligible
+          // - if any players at this strength are eligible then we have our winners
+          // - increase pot size by these players' contributions
+
+          (
+            paidPlayersAtThisStrength :: accPaidPlayersByStrength,
+            eligiblePlayerIdsAtThisStrength ++ accParticipants,
+            winners,
+            accPotSize + potContributions,
+          )
         }
+
+      val winningPlayerIds = playerHands
+        .filter(ph => winners.contains(ph.player.playerId))
+        .map(_.player.playerId)
+      val thisPotWinnings = PotWinnings(potSize, participants.toSet, winningPlayerIds.toSet)
+
+      // return value (accumulator) is:
+      // - new player hands list (with player pot contributions reduced by winnings)
+      // - the results extended to include this pot (a PotWinnings instance)
+      // - sum of the pot levels we've had so far (i.e. what each player should have already paid out)
+      (
+        thisPotWinnings :: paidPots,
+        updatedPlayersByStrength,
+        paidSoFar + potLevel,
+      )
     }
-    results
+
+    potWinnings
   }
 
   /**

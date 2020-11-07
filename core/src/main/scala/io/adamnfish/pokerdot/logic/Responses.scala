@@ -28,10 +28,15 @@ object Responses {
     )
   }
 
-  def roundWinnings(game: Game, results: List[Result]): Response[RoundWinnings] = {
+  /**
+   * Winnings needs to be provided:
+   * - potWinnings (1 entry per side pot and one entry for the main pot)
+   * - playerWinnings (1 entry per player)
+   */
+  def roundWinnings(game: Game, potWinnings: List[PotWinnings], playerWinnings: List[PlayerWinnings]): Response[RoundWinnings] = {
     Response(
       game.players.map { player =>
-        player.playerAddress -> Representations.roundWinnings(game, player, results)
+        player.playerAddress -> Representations.roundWinnings(game, player, potWinnings, playerWinnings)
       }.toMap,
       Map.empty,
     )

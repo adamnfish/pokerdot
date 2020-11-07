@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits, bestHand, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
+import io.adamnfish.pokerdot.logic.PokerHands.{allRanks, allSuits, bestHand, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, rankOrd, straight, straightFlush, threeOfAKind, twoPair, winnings}
 import io.adamnfish.pokerdot.models._
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
@@ -109,11 +109,55 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
   "winnings" - {
     // The simple cases handle the vast majority of games.
     // The edge cases get box-of-birds-mad, and need to be handled as well.
+    // There are some detailed comments in the code
+
+    val gameId = GameId("game-id")
+    val round = Round(
+      Showdown, Ace of Hearts, // burnt
+      King of Clubs, Queen of Diamonds, Jack of Spades, // flop
+        Ten of Hearts, // burnt
+      Nine of Clubs, // turn
+        Eight of Diamonds, // burnt
+      Seven of Hearts, // river
+    )
+
+    def testPlayer(pot: Int, card1: Card, card2: Card, id: String): Player = {
+      Player(
+        gameId, PlayerId(s"player-$id"), PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
+        pot, 0, false, false,
+        Some(Hole(card1, card2)), false
+      )
+    }
 
     "for simple cases" - {
-      "two players involved, clear winner" ignore {}
-      "three players involved, clear winner" ignore {}
+      "two players involved, clear winner" in {
+        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "1")
+        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "2")
+
+        winnings(round, List(playerPair, playerHighCard)) shouldEqual List(
+          PotWinnings(
+            potSize = 100,
+            participants = Set(playerPair.playerId, playerHighCard.playerId),
+            winners = Set(playerPair.playerId)
+          )
+        )
+      }
+
+      "three players involved, clear winner" in {
+        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayer(50, Seven of Clubs, Seven of Hearts, "3")
+
+        winnings(round, List(playerPair, playerHighCard, playerTrips)) shouldEqual List(
+          PotWinnings(
+            potSize = 150,
+            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
+            winners = Set(playerTrips.playerId)
+          )
+        )
+      }
       "some players folded" ignore {}
+      "if player with strongest hand folds, they do not win" ignore {}
       "some players out the game (busted)" ignore {}
     }
 
@@ -124,12 +168,16 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       "three players split a pot that doesn't divide by 3 (balance goes left of dealer)" ignore {}
     }
 
-    "when a player is all-in" - {
+    "when a player is all-in (side-pots)" - {
       "all-in player loses, another player can win whole balance" ignore {}
       "winning player was all-in, second place gets the balance" ignore {}
       "side-pot gets split between 2 players, balance goes to a lesser winner" ignore {}
       "side-pot gets split between 2 players, balance is split between 2 tied lesser players" ignore {}
       "smallest all-in wins, next-smallest all-in is second, third-smallest all-in is third, fourth smallest all-in gets balance" ignore {}
+    }
+
+    "property tests" - {
+      "amount paid out always equals amount paid in" ignore {}
     }
   }
 

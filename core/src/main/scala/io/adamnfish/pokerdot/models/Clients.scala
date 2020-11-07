@@ -43,13 +43,6 @@ case class SelfSummary(
   hole: Option[Hole],
 ) extends Self
 
-case class ResultSummary(
-  player: PlayerSummary,
-  hand: Hand,
-  winnings: Int,
-)
-
-
 sealed trait RoundSummary extends Product
 case class PreFlopSummary(
 ) extends RoundSummary
@@ -180,7 +173,8 @@ case class GameStatus(
 case class RoundWinnings(
   self: Self,
   game: GameSummary,
-  results: List[ResultSummary],
+  pots: List[PotWinnings],
+  players: List[PlayerWinnings],
 ) extends Message
 case class Status(
   message: String

@@ -236,6 +236,9 @@ object Serialisation {
   }
 
 
+  private implicit val playerWinningsEncoder: Encoder[PlayerWinnings] = deriveEncoder
+  private implicit val potWinningsEncoder: Encoder[PotWinnings] = deriveEncoder
+
   // SUMMARY TYPES
   private implicit val preflopSummaryEncoder: Encoder[PreFlopSummary] = deriveEncoder[PreFlopSummary]
   private implicit val flopSummaryEncoder: Encoder[FlopSummary] = deriveEncoder[FlopSummary]
@@ -285,7 +288,6 @@ object Serialisation {
   private implicit val playerSummaryEncoder: Encoder[PlayerSummary] = deriveEncoder[PlayerSummary]
   private implicit val spectatorSummaryEncoder: Encoder[SpectatorSummary] = deriveEncoder[SpectatorSummary]
   private implicit val selfSummaryEncoder: Encoder[SelfSummary] = deriveEncoder[SelfSummary]
-  private implicit val resultSummaryEncoder: Encoder[ResultSummary] = deriveEncoder[ResultSummary]
   private implicit val gameSummaryEncoder: Encoder[GameSummary] = deriveEncoder[GameSummary]
 
   private implicit val selfEncoder: Encoder[Self] = Encoder.instance {
