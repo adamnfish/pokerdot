@@ -287,11 +287,113 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
 
     "when a player is all-in (side-pots)" - {
-      "winning player was all-in, second place gets the balance" ignore {}
-      "all-in player loses, another player can win whole balance" ignore {}
-      "side-pot gets split between 2 players, balance goes to a lesser winner" ignore {}
-      "side-pot gets split between 2 players, balance is split between 2 tied lesser players" ignore {}
-      "smallest all-in wins, next-smallest all-in is second, third-smallest all-in is third, fourth smallest all-in gets balance" ignore {}
+      "winning player was all-in, second place gets the balance" in {
+        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayer(10, Seven of Clubs, Seven of Hearts, "3")
+
+        winnings(round, List(playerHighCard, playerPair, playerTrips)) shouldEqual List(
+          PotWinnings(
+            potSize = 80,
+            participants = Set(playerHighCard.playerId, playerPair.playerId),
+            winners = Set(playerPair.playerId),
+          ),
+          PotWinnings(
+            potSize = 30,
+            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
+            winners = Set(playerTrips.playerId),
+          ),
+        )
+      }
+
+      "all-in player loses, another player can win whole balance" in {
+        val playerHighCard = testPlayer(10, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayer(50, Seven of Clubs, Seven of Hearts, "3")
+
+        winnings(round, List(playerHighCard, playerPair, playerTrips)) shouldEqual List(
+          PotWinnings(
+            potSize = 80,
+            participants = Set(playerPair.playerId, playerTrips.playerId),
+            winners = Set(playerTrips.playerId),
+          ),
+          PotWinnings(
+            potSize = 30,
+            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
+            winners = Set(playerTrips.playerId),
+          ),
+        )
+      }
+
+      "side-pot gets split between 2 players, balance goes to a lesser winner" in {
+        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
+        val playerHigherCard = testPlayer(50, Ace of Spades, Four of Clubs, "2")
+        val playerPair1 = testPlayer(10, King of Spades, Four of Hearts, "3")
+        val playerPair2 = testPlayer(10, King of Diamonds, Four of Spades, "4")
+
+        winnings(round, List(playerHighCard, playerHigherCard, playerPair1, playerPair2)) shouldEqual List(
+          PotWinnings(
+            potSize = 80,
+            participants = Set(playerHighCard.playerId, playerHigherCard.playerId),
+            winners = Set(playerHigherCard.playerId),
+          ),
+          PotWinnings(
+            potSize = 40,
+            participants = Set(playerHighCard.playerId, playerHigherCard.playerId, playerPair1.playerId, playerPair2.playerId),
+            winners = Set(playerPair1.playerId, playerPair2.playerId),
+          ),
+        )
+      }
+
+      "side-pot gets split between 2 players, balance is split between 2 tied lesser players" in {
+        val playerHighCard1 = testPlayer(50, Ace of Spades, Four of Diamonds, "1")
+        val playerHighCard2 = testPlayer(50, Ace of Diamonds, Four of Clubs, "2")
+        val playerPair1 = testPlayer(20, King of Spades, Four of Hearts, "3")
+        val playerPair2 = testPlayer(20, King of Diamonds, Four of Spades, "4")
+
+        winnings(round, List(playerHighCard1, playerHighCard2, playerPair1, playerPair2)) shouldEqual List(
+          PotWinnings(
+            potSize = 60,
+            participants = Set(playerHighCard1.playerId, playerHighCard2.playerId),
+            winners = Set(playerHighCard1.playerId, playerHighCard2.playerId),
+          ),
+          PotWinnings(
+            potSize = 80,
+            participants = Set(playerHighCard1.playerId, playerHighCard2.playerId, playerPair1.playerId, playerPair2.playerId),
+            winners = Set(playerPair1.playerId, playerPair2.playerId),
+          ),
+        )
+      }
+
+      "smallest all-in wins, next-smallest all-in is second, third-smallest all-in is third, fourth smallest all-in gets balance" in {
+        val playerHighCard = testPlayer(40, Ace of Spades, Four of Diamonds, "1")
+        val playerPair = testPlayer(30, Jack of Hearts, Two of Diamonds, "2")
+        val playerTrips = testPlayer(20, King of Spades, King of Diamonds, "3")
+        val playerStraight = testPlayer(10, Ten of Diamonds, Three of Spades, "4")
+
+        winnings(round, List(playerHighCard, playerPair, playerTrips, playerStraight)) shouldEqual List(
+          PotWinnings(
+            potSize = 10,
+            participants = Set(playerHighCard.playerId),
+            winners = Set(playerHighCard.playerId),
+          ),
+          PotWinnings(
+            potSize = 20,
+            participants = Set(playerHighCard.playerId, playerPair.playerId),
+            winners = Set(playerPair.playerId),
+          ),
+          PotWinnings(
+            potSize = 30,
+            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
+            winners = Set(playerTrips.playerId),
+          ),
+          PotWinnings(
+            potSize = 40,
+            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId, playerStraight.playerId),
+            winners = Set(playerStraight.playerId),
+          ),
+        )
+      }
     }
 
     "property tests" - {
