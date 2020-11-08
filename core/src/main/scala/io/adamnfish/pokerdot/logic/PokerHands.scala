@@ -54,6 +54,8 @@ object PokerHands {
     // typically there will only be a single entry here, which is the main pot.
     // If one or more players are all in then their pot contribution will differ, creating side pots.
     val potLevels = players
+      // folded players can't win, so their contributions won't create a pot
+      .filterNot(_.folded)
       .map(_.pot)
       .filter(_ > 0)
       .distinct
@@ -73,7 +75,10 @@ object PokerHands {
         paidPlayersByStrength.foldRight[(List[List[Player]], List[PlayerId], List[PlayerId], Int)](
           (Nil, Nil, Nil, 0)
         ) { case (playersAtThisStrength, (accPaidPlayersByStrength, accParticipants, accWinnerIds, accPotSize)) =>
-          val eligiblePlayerIdsAtThisStrength = playersAtThisStrength.filter(_.pot > 0).map(_.playerId)
+          val eligiblePlayerIdsAtThisStrength = playersAtThisStrength
+            .filter(_.pot > 0)
+            .filterNot(_.folded)
+            .map(_.playerId)
 
           // run through the players at this strength, paying into pot winnings
           val (paidPlayersAtThisStrength, potContributions) = playersAtThisStrength
@@ -82,6 +87,9 @@ object PokerHands {
             ) { case (player, (accPaidPlayers, accContributions)) =>
               val payment = math.min(player.pot, potLevel - paidSoFar)
               val paidPlayer = player.copy(pot = player.pot - payment)
+
+              // useful!
+              // println(s"${player.playerId}, pay: $payment, pl: $potLevel, psf: $paidSoFar, ppb: ${player.pot}, ppa: ${paidPlayer.pot}")
 
               // Return value (accumulator) is:
               // - players at this strength adjusted so that they have paid into the pot winnings
@@ -128,7 +136,7 @@ object PokerHands {
       (
         thisPotWinnings :: paidPots,
         updatedPlayersByStrength,
-        paidSoFar + potLevel,
+        potLevel,
       )
     }
 

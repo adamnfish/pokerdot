@@ -1,6 +1,7 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.models.{Attempt, Failures}
+import org.scalacheck.Gen
 import org.scalactic.source.Position
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.matchers.HavePropertyMatcher
