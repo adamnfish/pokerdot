@@ -47,6 +47,12 @@ update msg model =
             , Cmd.none
             )
 
+        UrlRequest urlRequest ->
+            ( model, Cmd.none )
+
+        UrlChange url ->
+            ( model, Cmd.none )
+
         ServerMessage json ->
             let
                 parsedMessage =

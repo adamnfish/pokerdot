@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.TestHelpers
+import io.adamnfish.pokerdot.{TestDates, TestHelpers}
 import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
@@ -39,13 +39,13 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "holes" - {
     val player1 =
-      Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"))
+      Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"), TestDates)
         .copy(hole = Some(Hole(Ace of Clubs, Ace of Diamonds)))
     val player2 =
-      Games.newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("address-2"))
+      Games.newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("address-2"), TestDates)
         .copy(hole = Some(Hole(Two of Clubs, Two of Diamonds)))
     val player3 =
-      Games.newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("address-3"))
+      Games.newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("address-3"), TestDates)
         .copy(hole = Some(Hole(Three of Clubs, Three of Diamonds)))
 
     "returns player IDs with their cards" in {

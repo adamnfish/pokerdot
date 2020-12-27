@@ -1,10 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
-import java.time.ZonedDateTime
 import java.util.UUID
-
-import io.adamnfish.pokerdot.logic.Play.generateRound
+import io.adamnfish.pokerdot.logic.Play.{dealHoles, generateRound}
 import io.adamnfish.pokerdot.models._
+import io.adamnfish.pokerdot.services.Dates
 import io.adamnfish.pokerdot.utils.Rng
 import io.adamnfish.pokerdot.utils.Rng.Seed
 
@@ -13,14 +12,14 @@ import io.adamnfish.pokerdot.utils.Rng.Seed
  * Game implementation functionality.
  */
 object Games {
-  def newGame(gameName: String, trackStacks: Boolean): Seed[Game] = {
-    val now = ZonedDateTime.now()
+  def newGame(gameName: String, trackStacks: Boolean, dates: Dates): Seed[Game] = {
     for {
       gameSeed <- Rng.next
       round <- generateRound(PreFlop)
     } yield {
       Game(
         gameId = GameId(UUID.randomUUID().toString),
+        expiry = dates.expires(),
         gameName = gameName,
         players = Nil,
         spectators = Nil,
@@ -29,21 +28,21 @@ object Games {
         inTurn = None,
         button = 0,
         started = false,
-        startTime = now,
-        expiry = now.plusDays(21).toEpochSecond,
+        startTime = dates.now(),
         trackStacks = trackStacks,
         timer = None,
       )
     }
   }
 
-  def newPlayer(gameId: GameId, screenName: String, isCreator: Boolean, playerAddress: PlayerAddress): Player = {
+  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, dates: Dates): Player = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Player(
       gameId = gameId,
-      screenName = screenName,
       playerId = playerId,
+      expiry = dates.expires(),
+      screenName = screenName,
       playerAddress = playerAddress,
       playerKey = playerKey,
       stack = 0,
@@ -52,7 +51,7 @@ object Games {
       folded = false,
       busted = false,
       hole = None,
-      isCreator = isCreator
+      isHost = isHost
     )
   }
 
@@ -78,6 +77,7 @@ object Games {
     gameId.gid.take(4)
   }
 
+
   def normaliseGameCode(joinGame: JoinGame): JoinGame = {
     joinGame.copy(
       gameCode = joinGame.gameCode
@@ -85,6 +85,24 @@ object Games {
         .replace('O', '0')
         .replace('o', '0')
     )
+  }
+
+  def start(game: Game, now: Long, timerLevels: List[TimerLevel], startingStacks: Option[Int]): Seed[Game] = {
+    dealHoles(game.players).map { players =>
+      game.copy(
+        players = players,
+        started = true,
+        startTime = now,
+        trackStacks = startingStacks.isDefined,
+        button = 0,
+        timer =
+          if (timerLevels.isEmpty) {
+            None
+          } else {
+            Some(TimerStatus(now, None, timerLevels))
+          }
+      )
+    }
   }
 
   def requireGame(gameDbOpt: Option[GameDb], gid: String): Either[Failures, GameDb] = {
@@ -121,6 +139,19 @@ object Games {
       }
     else
       Right(())
+  }
+
+  def ensurePlayerCount(game: Game): Either[Failures, Unit] = {
+    if (game.players.size > 20) {
+      Left {
+        Failures(
+          "Max player count exceeded",
+          "There are already 20 players in this game, which is the maximum number",
+        )
+      }
+    } else {
+      Right(())
+    }
   }
 
   def ensureNotAlreadyPlaying(game: Game, playerAddress: PlayerAddress): Either[Failures, Unit] = {

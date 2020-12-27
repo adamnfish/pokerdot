@@ -9,6 +9,7 @@ object Representations {
     GameDb(
       gameCode = Games.gameCode(game.gameId),
       gameId = game.gameId.gid,
+      expiry = game.expiry,
       gameName = game.gameName,
       playerIds = game.players.map(_.playerId.pid),
       spectatorIds = game.spectators.map(_.playerId.pid),
@@ -18,7 +19,6 @@ object Representations {
       button = game.button,
       started = game.started,
       startTime = game.startTime,
-      expiry = game.expiry,
       trackStacks = game.trackStacks,
       timer = game.timer
     )
@@ -28,6 +28,7 @@ object Representations {
     PlayerDb(
       gameId = player.gameId.gid,
       playerId = player.playerId.pid,
+      expiry = player.expiry,
       playerAddress = player.playerAddress.address,
       playerKey = player.playerKey.key,
       screenName = player.screenName,
@@ -37,7 +38,7 @@ object Representations {
       folded = player.folded,
       busted = player.busted,
       hole = player.hole,
-      isCreator = player.isCreator,
+      isHost = player.isHost,
     )
   }
 
@@ -85,6 +86,7 @@ object Representations {
     Player(
       gameId = GameId(playerDb.gameId),
       playerId = PlayerId(playerDb.playerId),
+      expiry = playerDb.expiry,
       playerAddress = PlayerAddress(playerDb.playerAddress),
       playerKey = PlayerKey(playerDb.playerKey),
       screenName = playerDb.screenName,
@@ -94,7 +96,7 @@ object Representations {
       folded = playerDb.folded,
       busted = playerDb.busted,
       hole = playerDb.hole,
-      isCreator = playerDb.isCreator,
+      isHost = playerDb.isHost,
     )
   }
 
@@ -105,6 +107,7 @@ object Representations {
       playerAddress = PlayerAddress(playerDb.playerAddress),
       playerKey = PlayerKey(playerDb.playerKey),
       screenName = playerDb.screenName,
+      isHost = playerDb.isHost,
     )
   }
 
@@ -191,7 +194,7 @@ object Representations {
       inTurn = game.inTurn.map(summarisePlayer),
       button = game.button,
       started = game.started,
-      startTime = game.startTime.toEpochSecond,
+      startTime = game.startTime,
       trackStacks = game.trackStacks,
       timer = game.timer,
     )

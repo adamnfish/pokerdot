@@ -4,9 +4,11 @@ import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
 import io.adamnfish.pokerdot.logic.{Games, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.Rng
-import io.adamnfish.pokerdot.validation.Validation.{extractCreateGame, extractJoinGame, extractPing}
+import io.adamnfish.pokerdot.validation.Validation.{extractCreateGame, extractJoinGame, extractPing, extractStartGame}
 import io.circe.Json
 import zio._
+
+import java.time.ZonedDateTime
 
 
 object PokerDot {
@@ -50,10 +52,6 @@ object PokerDot {
       _ <- response.messages.toList.ioTraverse { case (address, msg: Message) =>
         appContext.messaging.sendMessage(address, msg)
       }
-      // send status messages
-      _ <- response.statuses.toList.ioTraverse { case (address, statusMsg) =>
-        appContext.messaging.sendMessage(address, statusMsg)
-      }
     } yield operation)
       .tapError { failures =>
         appContext.messaging.sendError(appContext.playerAddress, failures)
@@ -65,14 +63,14 @@ object PokerDot {
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
       createGame <- extractCreateGame(requestJson).attempt
-      (_, game) = Games.newGame(createGame.gameName, trackStacks = false).run(initialSeed)
-      creator = Games.newPlayer(game.gameId, createGame.screenName, isCreator = true, appContext.playerAddress)
-      gameWithCreator = Games.addPlayer(game, creator)
-      gameDb = Representations.gameToDb(gameWithCreator)
-      creatorDb = Representations.playerToDb(creator)
-      response = Responses.welcome(gameWithCreator, creator)
+      (_, game) = Games.newGame(createGame.gameName, trackStacks = false, appContext.dates).run(initialSeed)
+      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, appContext.dates)
+      gameWithHost = Games.addPlayer(game, host)
+      gameDb = Representations.gameToDb(gameWithHost)
+      hostDb = Representations.playerToDb(host)
+      response = Responses.welcome(gameWithHost, host)
       _ <- appContext.db.writeGame(gameDb)
-      _ <- appContext.db.writePlayer(creatorDb)
+      _ <- appContext.db.writePlayer(hostDb)
     } yield response
   }
 
@@ -97,7 +95,8 @@ object PokerDot {
       _ <- Games.ensureNotStarted(game).attempt
       _ <- Games.ensureNotAlreadyPlaying(game, appContext.playerAddress).attempt
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName).attempt
-      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress)
+      _ <- Games.ensurePlayerCount(game).attempt
+      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.dates)
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player)
       playerDb = Representations.playerToDb(player)
@@ -106,15 +105,24 @@ object PokerDot {
   }
 
   /**
-   * Configures the game (stacks, timer and player order), Only the creator is shown the
+   * Configures the game (stacks, timer and player order), Only the host is shown the
    * config UI, and only they can start the game.
    *
-   * Might be worth considering allowing the creator to be a spectator, as "the house" in future?
+   * Might be worth considering allowing the host to be a spectator, as "the house" in future?
    *
    * Players can no longer join after this point, but this might want some thought (especially
    * for spectators).
    */
   def startGame(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    for {
+      startGame <- extractStartGame(requestJson).attempt
+      maybeGame <- appContext.db.getGame(startGame.gameId)
+      rawGameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot start game, game ID not found", "Couldn't find game to start",
+      ))
+
+
+    } yield 1
     ???
   }
 

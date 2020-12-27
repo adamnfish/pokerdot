@@ -18,7 +18,7 @@ trait TestHelpers extends Matchers {
   }
 
   implicit class HavingTestHelperString(propertyName: String) {
-    def as[A](propertyValue: A): HavePropertyMatcher[AnyRef, Any] = {
+    def as[A](propertyValue: A)(implicit pos: Position): HavePropertyMatcher[AnyRef, Any] = {
       Symbol(propertyName) (propertyValue)
     }
   }

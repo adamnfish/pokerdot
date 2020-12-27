@@ -33,6 +33,20 @@ object Play {
     }
   }
 
+  def dealHoles(players: List[Player]): Seed[List[Player]] = {
+    Rng.shuffledDeck().map { deck =>
+      players.zipWithIndex.map { case (player, i) =>
+        player.copy(
+          hole =
+            for {
+              c1 <- deck.lift(i + 8)
+              c2 <- deck.lift(i + 9)
+            } yield Hole(c1, c2)
+        )
+      }
+    }
+  }
+
   def holes(players: List[Player]): List[(PlayerId, Hole)] = {
     for {
       activePlayer <- players

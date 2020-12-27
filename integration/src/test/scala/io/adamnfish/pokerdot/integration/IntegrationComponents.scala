@@ -1,13 +1,16 @@
 package io.adamnfish.pokerdot.integration
 
 import java.util.UUID.randomUUID
-
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType._
-import io.adamnfish.pokerdot.Messaging
+import io.adamnfish.pokerdot.TestDates
+import io.adamnfish.pokerdot.logic.Utils
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.persistence.{Database, DynamoDb}
-import io.circe.Encoder
+import io.adamnfish.pokerdot.persistence.DynamoDb
+import io.adamnfish.pokerdot.services.{Database, Messaging}
+import io.circe.{Encoder, Json, parser}
 import io.circe.generic.semiauto.deriveEncoder
+import org.scalactic.source.Position
+import org.scalatest.exceptions.TestFailedException
 import org.scanamo.LocalDynamoDB
 import zio.IO
 
@@ -34,10 +37,24 @@ trait IntegrationComponents {
             override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = {
               IO.unit
             }
-          }
+          },
+          TestDates,
         )
         f(addressToContext, testDb)
       }
+    }
+  }
+
+  def parseReq(jsonStr: String)(implicit pos: Position): Json = {
+    parser.parse(jsonStr) match {
+      case Left(parsingFailure) =>
+        throw new TestFailedException(
+          _ => Some(s"Failed to parse request JSON"),
+          Some(parsingFailure),
+          pos
+        )
+      case Right(json) =>
+        json
     }
   }
 }

@@ -6,6 +6,7 @@ import java.time.ZonedDateTime
 case class GameDb(
   gameCode: String, // partition
   gameId: String,   // sort
+  expiry: Long,
   gameName: String,
   playerIds: List[String],
   spectatorIds: List[String],
@@ -14,8 +15,7 @@ case class GameDb(
   inTurn: Option[String],
   button: Int,
   started: Boolean,
-  startTime: ZonedDateTime,
-  expiry: Long,
+  startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus],
 )
@@ -23,6 +23,7 @@ case class GameDb(
 case class PlayerDb(
   gameId: String,   // partition
   playerId: String, // sort
+  expiry: Long,
   playerAddress: String,
   playerKey: String,
   screenName: String,
@@ -32,7 +33,7 @@ case class PlayerDb(
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],
-  isCreator: Boolean,
+  isHost: Boolean,
 )
 
 case class SpectatorDb(

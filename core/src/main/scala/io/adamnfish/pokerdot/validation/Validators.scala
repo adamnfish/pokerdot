@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures}
+import io.adamnfish.pokerdot.models.{Attempt, BreakLevel, Failure, Failures, RoundLevel, TimerLevel}
 import zio.IO
 
 object Validators {
@@ -91,6 +91,15 @@ object Validators {
 
   def sensibleLength: Validator[String] = { (str, context) =>
     nonEmpty(str, context) ++ maxLength(50)(str, context)
+  }
+
+  def timerLevel: Validator[TimerLevel] = { (tl, context) =>
+    tl match {
+      case RoundLevel(duration, smallBlind) =>
+        greaterThanZero(duration, context) ++ greaterThanZero(smallBlind, context)
+      case BreakLevel(duration) =>
+        greaterThanZero(duration, context)
+    }
   }
 }
 

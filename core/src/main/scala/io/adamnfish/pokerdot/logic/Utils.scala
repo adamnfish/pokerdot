@@ -3,6 +3,8 @@ package io.adamnfish.pokerdot.logic
 import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures}
 import zio.IO
 
+import java.time.ZonedDateTime
+
 
 object Utils {
   implicit class RichList[A](val as: List[A]) extends AnyVal {

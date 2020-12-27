@@ -1,7 +1,6 @@
-package io.adamnfish.pokerdot.persistence
+package io.adamnfish.pokerdot.services
 
 import io.adamnfish.pokerdot.models.{Attempt, GameDb, GameId, PlayerDb}
-
 
 trait Database {
   def getGame(gameId: GameId): Attempt[Option[GameDb]]

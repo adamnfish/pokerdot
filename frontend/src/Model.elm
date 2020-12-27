@@ -1,5 +1,8 @@
 module Model exposing (..)
 
+import Browser exposing (UrlRequest)
+import Browser.Navigation
+import Url
 import Browser.Dom exposing (Viewport)
 import Json.Decode
 import Json.Decode.Pipeline exposing (optional, required)
@@ -12,6 +15,9 @@ type Msg
     | Tick Time.Posix
     | OnResize
     | Resized Viewport
+    -- URLs
+    | UrlChange Url.Url
+    | UrlRequest UrlRequest
       -- connections
     | ServerMessage Json.Encode.Value
     | SocketConnect
@@ -52,6 +58,8 @@ type alias Model =
     , loadingStatus : LoadingStatus
     , errors : List Error
     , library : List Welcome
+    , navKey : Browser.Navigation.Key
+    , url : Url.Url
     }
 
 

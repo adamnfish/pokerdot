@@ -1,17 +1,20 @@
 package io.adamnfish.pokerdot.logic
 
+import io.adamnfish.pokerdot.logic.Representations.summariseGame
 import io.adamnfish.pokerdot.models._
 
 
 object Responses {
   def welcome(game: Game, newPlayer: Player): Response[Welcome] = {
+    val gameSummary = summariseGame(game)
     val welcomeMessage = Welcome(
       newPlayer.playerKey,
       newPlayer.playerId,
       game.gameId,
       game.gameName,
       newPlayer.screenName,
-      spectator = false
+      spectator = false,
+      game = gameSummary,
     )
     val action = PlayerJoinedSummary(
       Representations.summarisePlayer(newPlayer)
@@ -21,7 +24,6 @@ object Responses {
 
   def gameStatuses(game: Game, actionSummary: ActionSummary): Response[GameStatus] = {
     Response(
-      Map.empty,
       game.players.map { player =>
         player.playerAddress -> Representations.gameStatus(game, player, actionSummary)
       }.toMap,
@@ -38,7 +40,6 @@ object Responses {
       game.players.map { player =>
         player.playerAddress -> Representations.roundWinnings(game, player, potWinnings, playerWinnings)
       }.toMap,
-      Map.empty,
     )
   }
 
@@ -55,8 +56,7 @@ object Responses {
     Response(
       Map(
         playerAddress -> msg
-      ),
-      Map.empty
+      )
     )
   }
 
@@ -64,8 +64,7 @@ object Responses {
     Response(
       Map(
         playerAddress -> Status("ok")
-      ),
-      Map.empty
+      )
     )
   }
 

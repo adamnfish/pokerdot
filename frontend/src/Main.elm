@@ -3,6 +3,7 @@ module Main exposing (..)
 import Browser
 import Browser.Dom
 import Browser.Events
+import Browser.Navigation
 import Html exposing (Html, div, h1, img, text)
 import Html.Attributes exposing (src)
 import Messages exposing (sendWake, update)
@@ -10,6 +11,7 @@ import Model exposing (..)
 import Ports exposing (receiveMessage, socketConnect, socketDisconnect)
 import Task
 import Time
+import Url
 import Views.UI exposing (view)
 
 
@@ -17,9 +19,10 @@ import Views.UI exposing (view)
 ---- MODEL ----
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Flags -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
+init flags url navKey =
     let
+        initial : Model
         initial =
             { ui = WelcomeScreen
             , connected = False
@@ -40,6 +43,8 @@ init =
             , loadingStatus = NotLoading
             , errors = []
             , library = []
+            , url = url
+            , navKey = navKey
             }
     in
     ( initial
@@ -62,15 +67,19 @@ subscriptions _ =
         ]
 
 
+type alias Flags = ()
+
 
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
-    Browser.document
+    Browser.application
         { view = view
-        , init = \_ -> init
+        , init = init
         , update = update
         , subscriptions = subscriptions
+        , onUrlChange = UrlChange
+        , onUrlRequest = UrlRequest
         }

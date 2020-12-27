@@ -4,6 +4,7 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import io.adamnfish.pokerdot.logic.Games
 import io.adamnfish.pokerdot.logic.Utils.RichList
 import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.services.Database
 import org.scanamo._
 import org.scanamo.syntax._
 import org.scanamo.generic.auto._

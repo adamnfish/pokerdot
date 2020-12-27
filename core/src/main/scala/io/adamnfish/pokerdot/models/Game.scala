@@ -1,13 +1,12 @@
 package io.adamnfish.pokerdot.models
 
 import java.time.ZonedDateTime
-
-import io.adamnfish.pokerdot.Messaging
-import io.adamnfish.pokerdot.persistence.Database
+import io.adamnfish.pokerdot.services.{Database, Dates, Messaging}
 
 
 case class Game(
   gameId: GameId,
+  expiry: Long,
   gameName: String,
   players: List[Player],
   spectators: List[Spectator],
@@ -16,8 +15,7 @@ case class Game(
   inTurn: Option[Player],
   button: Int,
   started: Boolean,
-  startTime: ZonedDateTime,
-  expiry: Long,
+  startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus]
 )
@@ -25,6 +23,7 @@ case class Game(
 case class Player(
   gameId: GameId,
   playerId: PlayerId,
+  expiry: Long,
   playerAddress: PlayerAddress,
   playerKey: PlayerKey,
   screenName: String,
@@ -34,7 +33,7 @@ case class Player(
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],
-  isCreator: Boolean,
+  isHost: Boolean,
 )
 
 /**
@@ -45,6 +44,8 @@ case class Player(
  *
  * As well as being people watching the game, spectators can be "second screens",
  * e.g. providing a UI for the timer or showing the community cards.
+ *
+ * The host might be a spectator in a tournament setting, for example.
  */
 case class Spectator(
   gameId: GameId,
@@ -52,6 +53,7 @@ case class Spectator(
   playerAddress: PlayerAddress,
   playerKey: PlayerKey,
   screenName: String,
+  isHost: Boolean,
 )
 
 case class GameId(gid: String) extends AnyVal
@@ -64,4 +66,5 @@ case class AppContext(
   playerAddress: PlayerAddress,
   db: Database,
   messaging: Messaging,
+  dates: Dates,
 )

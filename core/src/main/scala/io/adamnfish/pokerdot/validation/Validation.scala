@@ -1,8 +1,8 @@
 package io.adamnfish.pokerdot.validation
 
 import io.adamnfish.pokerdot.logic.Utils.RichAttempt
-import io.adamnfish.pokerdot.models.Serialisation.{parseCreateGameRequest, parseJoinGameRequest, parsePingRequest}
-import io.adamnfish.pokerdot.models.{Attempt, CreateGame, Failure, Failures, JoinGame, Ping}
+import io.adamnfish.pokerdot.models.Serialisation.{parseCreateGameRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest}
+import io.adamnfish.pokerdot.models.{Attempt, CreateGame, Failure, Failures, JoinGame, Ping, StartGame, TimerLevel}
 import io.adamnfish.pokerdot.validation.Validators._
 import io.circe.Json
 import zio.IO
@@ -43,6 +43,23 @@ object Validation {
   def extractJoinGame(json: Json): Either[Failures, JoinGame] = {
     for {
       raw <- parseJoinGameRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(startGame: StartGame): Either[Failures, StartGame] = {
+    asResult(startGame,
+      validate(startGame.gameId.gid, "game ID", isUUID) ++
+        validate(startGame.playerId.pid, "player ID", isUUID) ++
+        validate(startGame.playerKey.key, "player ID", isUUID) ++
+        startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", isUUID)) ++
+        startGame.timerConfig.flatMap(tl => validate(tl, "timerLevel", timerLevel))
+    )
+  }
+
+  def extractStartGame(json: Json): Either[Failures, StartGame] = {
+    for {
+      raw <- parseStartGameRequest(json)
       validated <- validate(raw)
     } yield validated
   }

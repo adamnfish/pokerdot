@@ -1,7 +1,6 @@
-package io.adamnfish.pokerdot
+package io.adamnfish.pokerdot.services
 
 import io.adamnfish.pokerdot.models.{Attempt, Failures, Message, PlayerAddress}
-
 
 trait Messaging {
   def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit]

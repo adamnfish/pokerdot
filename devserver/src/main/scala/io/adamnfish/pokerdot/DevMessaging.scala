@@ -2,6 +2,7 @@ package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.Attempt
 import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, Message, PlayerAddress, Serialisation}
+import io.adamnfish.pokerdot.services.Messaging
 import io.javalin.websocket.WsContext
 import zio.IO
 

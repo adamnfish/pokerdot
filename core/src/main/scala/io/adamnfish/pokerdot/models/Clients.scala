@@ -152,7 +152,6 @@ case class Wake(
 
 case class Response[M <: Message](
   messages: Map[PlayerAddress, M],
-  statuses: Map[PlayerAddress, GameStatus],
 )
 
 // Data sent to clients
@@ -164,6 +163,7 @@ case class Welcome(
   gameName: String,
   screenName: String,
   spectator: Boolean,
+  game: GameSummary,
 ) extends Message
 case class GameStatus(
   self: Self,

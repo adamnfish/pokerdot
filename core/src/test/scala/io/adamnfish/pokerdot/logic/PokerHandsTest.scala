@@ -125,7 +125,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     def testPlayer(pot: Int, card1: Card, card2: Card, id: String, folded: Boolean = false): Player = {
       Player(
-        gameId, PlayerId(s"player-$id"), PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
+        gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
         pot = pot, 0,
         folded = folded, false,
         hole = Some(Hole(card1, card2)), false
@@ -133,7 +133,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
     def bustedPlayer(id: String): Player = {
       Player(
-        gameId, PlayerId(s"player-$id"), PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
+        gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
         pot = 0, 0, folded = false,
         busted = true,
         hole = None, false
