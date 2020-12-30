@@ -117,7 +117,7 @@ type alias Player =
     , screenName : String
     , stack : Int
     , pot : Int
-    , bid : Int
+    , bet : Int
     , folded : Bool
     , busted : Bool
     }
@@ -144,7 +144,7 @@ type alias Self =
     , screenName : String
     , stack : Int
     , pot : Int
-    , bid : Int
+    , bet : Int
     , folded : Bool
     , busted : Bool
     , hole : Maybe ( Card, Card )
@@ -306,11 +306,11 @@ type alias UpdateTimerRequest =
     }
 
 
-type alias BidRequest =
+type alias BetRequest =
     { gameId : GameId
     , playerKey : PlayerKey
     , playerId : PlayerId
-    , bid : Int
+    , betAmount : Int
     }
 
 
@@ -364,7 +364,7 @@ selfDecoder =
         |> required "screenName" Json.Decode.string
         |> required "stack" Json.Decode.int
         |> required "pot" Json.Decode.int
-        |> required "bid" Json.Decode.int
+        |> required "bet" Json.Decode.int
         |> required "folded" Json.Decode.bool
         |> required "busted" Json.Decode.bool
         |> required "hole" (Json.Decode.nullable holeDecoder)
@@ -437,7 +437,7 @@ playerDecoder =
         |> required "screenName" Json.Decode.string
         |> required "stack" Json.Decode.int
         |> required "pot" Json.Decode.int
-        |> required "bid" Json.Decode.int
+        |> required "bet" Json.Decode.int
         |> required "folded" Json.Decode.bool
         |> required "busted" Json.Decode.bool
 
@@ -888,14 +888,14 @@ updateTimerRequestEncoder updateTimerRequest =
         ]
 
 
-bidRequestEncoder : BidRequest -> Json.Encode.Value
-bidRequestEncoder bidRequest =
+betRequestEncoder : BetRequest -> Json.Encode.Value
+betRequestEncoder betRequest =
     Json.Encode.object <|
-        [ ( "operation", Json.Encode.string "bid" )
-        , ( "gameId", encodeGameId bidRequest.gameId )
-        , ( "playerKey", encodePlayerKey bidRequest.playerKey )
-        , ( "playerId", encodePlayerId bidRequest.playerId )
-        , ( "bid", Json.Encode.int bidRequest.bid )
+        [ ( "operation", Json.Encode.string "bet" )
+        , ( "gameId", encodeGameId betRequest.gameId )
+        , ( "playerKey", encodePlayerKey betRequest.playerKey )
+        , ( "playerId", encodePlayerId betRequest.playerId )
+        , ( "betAmount", Json.Encode.int betRequest.betAmount )
         ]
 
 

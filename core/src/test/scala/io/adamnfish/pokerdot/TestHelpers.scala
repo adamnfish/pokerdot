@@ -1,6 +1,7 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.models.{Attempt, Failures}
+import io.circe.{Json, parser}
 import org.scalacheck.Gen
 import org.scalactic.source.Position
 import org.scalatest.exceptions.TestFailedException
@@ -77,4 +78,17 @@ trait TestHelpers extends Matchers {
   sealed trait AttemptStatus
   case object ASuccess extends AttemptStatus
   case object AFailure extends AttemptStatus
+
+  def parseReq(jsonStr: String)(implicit pos: Position): Json = {
+    parser.parse(jsonStr) match {
+      case Left(parsingFailure) =>
+        throw new TestFailedException(
+          _ => Some(s"Failed to parse request JSON"),
+          Some(parsingFailure),
+          pos
+        )
+      case Right(json) =>
+        json
+    }
+  }
 }

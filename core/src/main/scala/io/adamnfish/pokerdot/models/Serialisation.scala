@@ -53,12 +53,12 @@ object Serialisation {
     extractJson[StartGame](json, "Could not understand the start game request")
   }
 
-  def parseUpdateTimeRequest(json: Json): Either[Failures, UpdateTimer] = {
+  def parseUpdateTimerRequest(json: Json): Either[Failures, UpdateTimer] = {
     extractJson[UpdateTimer](json, "Could not understand the update time request")
   }
 
-  def parseBidRequest(json: Json): Either[Failures, Bid] = {
-    extractJson[Bid](json, "Could not understand the bid request")
+  def parseBetRequest(json: Json): Either[Failures, Bet] = {
+    extractJson[Bet](json, "Could not understand the bet request")
   }
 
   def parseCheckRequest(json: Json): Either[Failures, Check] = {
@@ -258,13 +258,20 @@ object Serialisation {
       showdownSummaryEncoder.apply(showdownSummary)
   }
 
+  private implicit val gameStartedSummaryEncoder: Encoder[GameStartedSummary] = deriveEncoder[GameStartedSummary]
   private implicit val playerJoinedSummaryEncoder: Encoder[PlayerJoinedSummary] = deriveEncoder[PlayerJoinedSummary]
   private implicit val betSummaryEncoder: Encoder[BetSummary] = deriveEncoder[BetSummary]
   private implicit val checkSummaryEncoder: Encoder[CheckSummary] = deriveEncoder[CheckSummary]
   private implicit val foldSummaryEncoder: Encoder[FoldSummary] = deriveEncoder[FoldSummary]
   private implicit val advancePhaseSummaryEncoder: Encoder[AdvancePhaseSummary] = deriveEncoder[AdvancePhaseSummary]
+  private implicit val pauseTimerSummaryEncoder: Encoder[PauseTimerSummary] = deriveEncoder[PauseTimerSummary]
+  private implicit val startTimerSummaryEncoder: Encoder[StartTimerSummary] = deriveEncoder[StartTimerSummary]
+  private implicit val editTimerSummaryEncoder: Encoder[EditTimerSummary] = deriveEncoder[EditTimerSummary]
   private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
   private implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
+    case gameStartedSummary: GameStartedSummary =>
+      gameStartedSummaryEncoder.apply(gameStartedSummary)
+        .mapObject(o => o.add("action", Json.fromString("game-started")))
     case playerJoinedSummary: PlayerJoinedSummary =>
       playerJoinedSummaryEncoder.apply(playerJoinedSummary)
         .mapObject(o => o.add("action", Json.fromString("player-joined")))
@@ -280,6 +287,15 @@ object Serialisation {
     case advancePhaseSummary: AdvancePhaseSummary =>
       advancePhaseSummaryEncoder.apply(advancePhaseSummary)
         .mapObject(o => o.add("action", Json.fromString("advance-phase")))
+    case pauseTimerSummary: PauseTimerSummary =>
+      pauseTimerSummaryEncoder.apply(pauseTimerSummary)
+        .mapObject(o => o.add("action", Json.fromString("pause-timer")))
+    case startTimerSummary: StartTimerSummary =>
+      startTimerSummaryEncoder.apply(startTimerSummary)
+        .mapObject(o => o.add("action", Json.fromString("start-timer")))
+    case editTimerSummary: EditTimerSummary =>
+      editTimerSummaryEncoder.apply(editTimerSummary)
+        .mapObject(o => o.add("action", Json.fromString("edit-timer")))
     case noActionSummary: NoActionSummary =>
       noActionSummaryEncoder.apply(noActionSummary)
         .mapObject(o => o.add("action", Json.fromString("no-action")))
@@ -319,7 +335,7 @@ object Serialisation {
   private implicit val joinGameDecoder: Decoder[JoinGame] = deriveDecoder[JoinGame]
   private implicit val startGameDecoder: Decoder[StartGame] = deriveDecoder[StartGame]
   private implicit val updateTimeDecoder: Decoder[UpdateTimer] = deriveDecoder[UpdateTimer]
-  private implicit val bidDecoder: Decoder[Bid] = deriveDecoder[Bid]
+  private implicit val betDecoder: Decoder[Bet] = deriveDecoder[Bet]
   private implicit val checkDecoder: Decoder[Check] = deriveDecoder[Check]
   private implicit val foldDecoder: Decoder[Fold] = deriveDecoder[Fold]
   private implicit val advancePhaseDecoder: Decoder[AdvancePhase] = deriveDecoder[AdvancePhase]
@@ -348,7 +364,7 @@ object Serialisation {
     implicit val joinGameEncoder: Encoder[JoinGame] = deriveEncoder[JoinGame]
     implicit val startGameEncoder: Encoder[StartGame] = deriveEncoder[StartGame]
     implicit val updateTimeEncoder: Encoder[UpdateTimer] = deriveEncoder[UpdateTimer]
-    implicit val bidEncoder: Encoder[Bid] = deriveEncoder[Bid]
+    implicit val betEncoder: Encoder[Bet] = deriveEncoder[Bet]
     implicit val checkEncoder: Encoder[Check] = deriveEncoder[Check]
     implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
     implicit val advancePhaseEncoder: Encoder[AdvancePhase] = deriveEncoder[AdvancePhase]

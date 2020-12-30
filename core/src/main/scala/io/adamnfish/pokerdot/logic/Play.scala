@@ -55,4 +55,19 @@ object Play {
       privateCards <- activePlayer.hole
     } yield (activePlayer.playerId, privateCards)
   }
+
+  /**
+   * If the player is in this round (i.e. not busted or folded), check if they have acted at this bid level.
+   */
+  def playerIsYetToAct(betAmount: Int)(player: Player): Boolean = {
+    if (player.folded || player.busted) {
+      false
+    } else if (player.bet < betAmount) {
+      true
+    } else {
+      // player's contribution is equal (or higher - shouldn't happen) than the current bid amount
+      // and they are still playing in the phase
+      !player.checked
+    }
+  }
 }

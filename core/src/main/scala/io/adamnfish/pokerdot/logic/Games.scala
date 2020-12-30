@@ -47,7 +47,8 @@ object Games {
       playerKey = playerKey,
       stack = 0,
       pot = 0,
-      bid = 0,
+      bet = 0,
+      checked = false,
       folded = false,
       busted = false,
       hole = None,
@@ -100,9 +101,124 @@ object Games {
             None
           } else {
             Some(TimerStatus(now, None, timerLevels))
-          }
+          },
       )
     }
+  }
+
+  def advancePhase(game: Game): Either[Failures, (Game, List[Player], List[PotWinnings])] = {
+    // ensure the round is finished
+    // all players are passed, folded, busted
+
+    val activePlayers = game.players.filter { player =>
+      !player.busted && !player.folded
+    }
+    val betAmount = game.players.map(_.bet).max
+    val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount))
+
+    if (playersYetToAct.nonEmpty) {
+      val message =
+        playersYetToAct match {
+          case lastPlayer :: Nil =>
+            s"${lastPlayer.screenName} needs to act before the round is finished"
+          case _ =>
+            s"${playersYetToAct.size} players still need to act"
+        }
+      Left(
+        Failures(
+          s"Cannot advance phase while ${playersYetToAct.length} players have not yet acted",
+          message,
+        )
+      )
+    } else {
+      game.round.phase match {
+        case PreFlop =>
+          Right(
+            game.copy(
+              round = game.round.copy(phase = Flop),
+              players = game.players.map(resetPlayerForNextPhase),
+            ),
+            activePlayers,
+            Nil,
+          )
+        case Flop =>
+          Right(
+            game.copy(
+              round = game.round.copy(phase = Turn),
+              players = game.players.map(resetPlayerForNextPhase),
+            ),
+            activePlayers,
+            Nil,
+          )
+        case Turn =>
+          Right(
+            game.copy(
+              round = game.round.copy(phase = River),
+              players = game.players.map(resetPlayerForNextPhase),
+            ),
+            activePlayers,
+            Nil,
+          )
+        case River =>
+          val potsWinnings = PokerHands.potWinnings(game.round, game.players)
+          val playersWinnings = PokerHands.playerWinnings(potsWinnings, game.button, game.players.map(_.playerId))
+          Right(
+            game.copy(
+              round = game.round.copy(phase = Showdown),
+              players = game.players.map(resetPlayerForShowdown(playersWinnings)),
+            ),
+            activePlayers,
+            potsWinnings
+          )
+        case Showdown =>
+          Right(
+            game.copy(
+              round = game.round.copy(phase = PreFlop),
+              players = game.players.map(resetPlayerForNextRound),
+            ),
+            // between rounds we'll update everyone that's still in the game
+            // including players that have folded
+            game.players.filter { player =>
+              !player.busted
+            },
+            Nil,
+          )
+      }
+    }
+  }
+
+  /**
+   * Copies the round's bet over to the player's pot contribution and resets the checked state.
+   *
+   */
+  def resetPlayerForNextPhase(player: Player): Player = {
+    player.copy(
+      checked = false,
+      bet = 0,
+      pot = player.pot + player.bet,
+    )
+  }
+
+  /**
+   * In the showdown we've updated player stacks, but left their pots intact.
+   * This allows the UI to better show the before / after states for the showdown.
+   */
+  def resetPlayerForShowdown(playersWinnings: Map[PlayerId, Int])(player: Player): Player = {
+    resetPlayerForNextPhase(player).copy(
+      stack = player.stack + playersWinnings.getOrElse(player.playerId, 0)
+    )
+  }
+
+  /**
+   * As with next phase, this resets the phase state.
+   * We're also done with the pots at this point having already updated player stacks before the showdown.
+   * Additionally, with a new round starting we can reset the fold status of all players.
+   */
+  def resetPlayerForNextRound(player: Player): Player = {
+    resetPlayerForNextPhase(player).copy(
+      pot = 0,
+      folded = false,
+    )
   }
 
   def requireGame(gameDbOpt: Option[GameDb], gid: String): Either[Failures, GameDb] = {
@@ -141,8 +257,8 @@ object Games {
       Right(())
   }
 
-  def ensurePlayerCount(game: Game): Either[Failures, Unit] = {
-    if (game.players.size > 20) {
+  def ensurePlayerCount(players: List[Player]): Either[Failures, Unit] = {
+    if (players.size > 20) {
       Left {
         Failures(
           "Max player count exceeded",
@@ -154,8 +270,8 @@ object Games {
     }
   }
 
-  def ensureNotAlreadyPlaying(game: Game, playerAddress: PlayerAddress): Either[Failures, Unit] = {
-    if (game.players.exists(_.playerAddress == playerAddress))
+  def ensureNotAlreadyPlaying(players: List[Player], playerAddress: PlayerAddress): Either[Failures, Unit] = {
+    if (players.exists(_.playerAddress == playerAddress))
       Left {
         Failures(
           "Duplicate player address, joining game failed",
@@ -166,15 +282,15 @@ object Games {
       Right(())
   }
 
-  def ensurePlayerKey(game: Game, playerId: PlayerId, playerKey: PlayerKey): Either[Failures, Player] = {
-    game.players.find(_.playerId == playerId) match {
+  def ensurePlayerKey(players: List[Player], playerId: PlayerId, playerKey: PlayerKey): Either[Failures, Player] = {
+    players.find(_.playerId == playerId) match {
       case None =>
-        Left(
+        Left {
           Failures(
             "Couldn't validate key for player that does not exist",
             "Couldn't find you in the game",
           )
-        )
+        }
       case Some(player) if player.playerKey == playerKey =>
         Right(player)
       case _ =>
@@ -182,6 +298,27 @@ object Games {
           Failures(
             "Invalid player key",
             "Couldn't authenticate you for this game",
+          )
+        }
+    }
+  }
+
+  def ensureHost(players: List[Player], playerKey: PlayerKey): Either[Failures, Player] = {
+    players.find(_.playerKey == playerKey) match {
+      case None =>
+        Left {
+          Failures(
+            "Couldn't validate host key for player that does not exist",
+            "Couldn't find you in the game",
+          )
+        }
+      case Some(player) if player.isHost =>
+        Right(player)
+      case _ =>
+        Left {
+          Failures(
+            "Invalid player key, not the host",
+            "You are not the game's host"
           )
         }
     }

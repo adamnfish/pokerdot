@@ -79,4 +79,46 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       )
     }
   }
+
+  "playerIsYetToAct" - {
+    val player =
+      Games.newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+        .copy(
+          hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
+          bet = 100,
+          stack = 1000,
+        )
+
+    "unmodified test player" - {
+      "needs to act when bet amount equals their own input" in {
+        playerIsYetToAct(100)(player) shouldEqual true
+      }
+
+      "needs to act when bet amount exceeds their own input" in {
+        playerIsYetToAct(200)(player) shouldEqual true
+      }
+    }
+
+    "checked player" - {
+      "does not need to act when bet amount equals their own input" in {
+        playerIsYetToAct(100)(player.copy(checked = true)) shouldEqual false
+      }
+
+      "needs to act when bet amount exceeds their own input" in {
+        playerIsYetToAct(200)(player.copy(checked = true)) shouldEqual true
+      }
+    }
+
+    "a folded player does not need to act for any amount" in {
+      forAll { (betAmount: Int) =>
+        playerIsYetToAct(betAmount)(player.copy(folded = true)) shouldEqual false
+      }
+    }
+
+    "a busted player does not need to act for any amount" in {
+      forAll { (betAmount: Int) =>
+        playerIsYetToAct(betAmount)(player.copy(busted = true)) shouldEqual false
+      }
+    }
+  }
 }

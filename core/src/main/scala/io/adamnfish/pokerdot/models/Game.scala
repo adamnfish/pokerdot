@@ -13,10 +13,11 @@ case class Game(
   seed: Long,
   round: Round,
   inTurn: Option[Player],
-  button: Int,
+  button: Int, // 0-indexed dealer position
   started: Boolean,
   startTime: Long,
   trackStacks: Boolean,
+  // autoAdvance: Boolean,
   timer: Option[TimerStatus]
 )
 
@@ -29,7 +30,8 @@ case class Player(
   screenName: String,
   stack: Int,
   pot: Int,
-  bid: Int,
+  bet: Int,
+  checked: Boolean, // has the player checked at this bet amount
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],

@@ -94,7 +94,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
           "screenName" as screenName,
           "stack" as 0,
           "pot" as 0,
-          "bid" as 0,
+          "bet" as 0,
           "folded" as false,
           "busted" as false,
           "hole" as None,
@@ -258,7 +258,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         whenever(address != "address1") {
           val player = newPlayer(game.gameId, "screenname", false, PlayerAddress("address1"), TestDates)
           val gameWithPlayer = addPlayer(game, player)
-          ensureNotAlreadyPlaying(gameWithPlayer, PlayerAddress(address)).isRight shouldEqual true
+          ensureNotAlreadyPlaying(gameWithPlayer.players, PlayerAddress(address)).isRight shouldEqual true
         }
       }
     }
@@ -267,7 +267,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       forAll { address: String =>
         val player = newPlayer(game.gameId, "screenname", false, PlayerAddress(address), TestDates)
         val gameWithPlayer = addPlayer(game, player)
-        ensureNotAlreadyPlaying(gameWithPlayer, PlayerAddress(address)).isLeft shouldEqual true
+        ensureNotAlreadyPlaying(gameWithPlayer.players, PlayerAddress(address)).isLeft shouldEqual true
       }
     }
   }
@@ -280,19 +280,19 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       val gameWithPlayer = addPlayer(game, player)
 
       "returns the valid player if their key is valid" in {
-        val playerResult = ensurePlayerKey(gameWithPlayer, player.playerId, player.playerKey).value
+        val playerResult = ensurePlayerKey(gameWithPlayer.players, player.playerId, player.playerKey).value
         playerResult shouldEqual player
       }
 
       "fails if the player key does not match" in {
         val incorrectPlayerKey = PlayerKey("bad player key")
-        val result = ensurePlayerKey(gameWithPlayer, player.playerId, incorrectPlayerKey)
+        val result = ensurePlayerKey(gameWithPlayer.players, player.playerId, incorrectPlayerKey)
         result.isLeft shouldEqual true
       }
     }
 
     "fails if the player does not exist in the game" in {
-      val result = ensurePlayerKey(game, player.playerId, player.playerKey)
+      val result = ensurePlayerKey(game.players, player.playerId, player.playerKey)
       result.isLeft shouldEqual true
     }
   }

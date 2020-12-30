@@ -20,7 +20,7 @@ case class PlayerSummary(
   screenName: String,
   stack: Int,
   pot: Int,
-  bid: Int,
+  bet: Int,
   folded: Boolean,
   busted: Boolean,
 )
@@ -37,7 +37,7 @@ case class SelfSummary(
   screenName: String,
   stack: Int,
   pot: Int,
-  bid: Int,
+  bet: Int,
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],
@@ -75,6 +75,8 @@ case class ShowdownSummary(
 
 
 sealed trait ActionSummary extends Product
+case class GameStartedSummary(
+) extends ActionSummary
 case class PlayerJoinedSummary(
   player: PlayerSummary,
 ) extends ActionSummary
@@ -88,6 +90,12 @@ case class FoldSummary(
   player: PlayerSummary,
 ) extends ActionSummary
 case class AdvancePhaseSummary(
+) extends ActionSummary
+case class PauseTimerSummary(
+) extends ActionSummary
+case class StartTimerSummary(
+) extends ActionSummary
+case class EditTimerSummary(
 ) extends ActionSummary
 case class NoActionSummary(
 ) extends ActionSummary
@@ -116,14 +124,15 @@ case class UpdateTimer(
   gameId: GameId,
   playerId: PlayerId,
   playerKey: PlayerKey,
-  timerStatus: TimerStatus,
+  timerLevels: Option[List[TimerLevel]],
+  playing: Boolean,
 ) extends Request
 // game requests
-case class Bid(
+case class Bet(
   gameId: GameId,
   playerKey: PlayerKey,
   playerId: PlayerId,
-  bid: Int,
+  betAmount: Int,
 ) extends Request
 case class Check(
   gameId: GameId,

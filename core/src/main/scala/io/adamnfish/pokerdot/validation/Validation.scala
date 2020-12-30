@@ -1,8 +1,8 @@
 package io.adamnfish.pokerdot.validation
 
 import io.adamnfish.pokerdot.logic.Utils.RichAttempt
-import io.adamnfish.pokerdot.models.Serialisation.{parseCreateGameRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest}
-import io.adamnfish.pokerdot.models.{Attempt, CreateGame, Failure, Failures, JoinGame, Ping, StartGame, TimerLevel}
+import io.adamnfish.pokerdot.models.Serialisation.{parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateTimerRequest}
+import io.adamnfish.pokerdot.models.{AdvancePhase, Attempt, Bet, Check, CreateGame, Failure, Failures, Fold, JoinGame, Ping, StartGame, TimerLevel, UpdateTimer}
 import io.adamnfish.pokerdot.validation.Validators._
 import io.circe.Json
 import zio.IO
@@ -60,6 +60,83 @@ object Validation {
   def extractStartGame(json: Json): Either[Failures, StartGame] = {
     for {
       raw <- parseStartGameRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(bet: Bet): Either[Failures, Bet] = {
+    asResult(bet,
+      validate(bet.gameId.gid, "game ID", isUUID) ++
+        validate(bet.playerId.pid, "player ID", isUUID) ++
+        validate(bet.playerKey.key, "player ID", isUUID) ++
+        validate(bet.betAmount, "betAmount", positiveInteger)
+    )
+  }
+
+  def extractBet(json: Json): Either[Failures, Bet] = {
+    for {
+      raw <- parseBetRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(check: Check): Either[Failures, Check] = {
+    asResult(check,
+      validate(check.gameId.gid, "game ID", isUUID) ++
+        validate(check.playerId.pid, "player ID", isUUID) ++
+        validate(check.playerKey.key, "player ID", isUUID)
+    )
+  }
+
+  def extractCheck(json: Json): Either[Failures, Check] = {
+    for {
+      raw <- parseCheckRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(fold: Fold): Either[Failures, Fold] = {
+    asResult(fold,
+      validate(fold.gameId.gid, "game ID", isUUID) ++
+        validate(fold.playerId.pid, "player ID", isUUID) ++
+        validate(fold.playerKey.key, "player ID", isUUID)
+    )
+  }
+
+  def extractFold(json: Json): Either[Failures, Fold] = {
+    for {
+      raw <- parseFoldRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(advancePhase: AdvancePhase): Either[Failures, AdvancePhase] = {
+    asResult(advancePhase,
+      validate(advancePhase.gameId.gid, "game ID", isUUID) ++
+        validate(advancePhase.playerId.pid, "player ID", isUUID) ++
+        validate(advancePhase.playerKey.key, "player ID", isUUID)
+    )
+  }
+
+  def extractAdvancePhase(json: Json): Either[Failures, AdvancePhase] = {
+    for {
+      raw <- parseAdvancePhaseRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(updateTimer: UpdateTimer): Either[Failures, UpdateTimer] = {
+    asResult(updateTimer,
+      validate(updateTimer.gameId.gid, "game ID", isUUID) ++
+        validate(updateTimer.playerId.pid, "player ID", isUUID) ++
+        validate(updateTimer.playerKey.key, "player ID", isUUID) ++
+        updateTimer.timerLevels.toList.flatMap(tls => validate(tls, "timerLevels", nonEmptyList[TimerLevel]))
+    )
+  }
+
+  def extractUpdateTimer(json: Json): Either[Failures, UpdateTimer] = {
+    for {
+      raw <- parseUpdateTimerRequest(json)
       validated <- validate(raw)
     } yield validated
   }

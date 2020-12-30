@@ -4,7 +4,7 @@ import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
 import io.adamnfish.pokerdot.logic.{Games, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.Rng
-import io.adamnfish.pokerdot.validation.Validation.{extractCreateGame, extractJoinGame, extractPing, extractStartGame}
+import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer}
 import io.circe.Json
 import zio._
 
@@ -28,8 +28,8 @@ object PokerDot {
           startGame(requestJson, appContext)
         case "update-timer" =>
           updateTimer(requestJson, appContext)
-        case "bid" =>
-          bid(requestJson, appContext)
+        case "bet" =>
+          bet(requestJson, appContext)
         case "check" =>
           check(requestJson, appContext)
         case "fold" =>
@@ -89,13 +89,14 @@ object PokerDot {
         "Couldn't find game, is the code correct?",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
-      // player IDs aren't persisted until the game starts
+      // player IDs aren't persisted in the game's DB record until the game starts
+      // so we patch them in here so we can re-use existing functionality
       gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureNotStarted(game).attempt
-      _ <- Games.ensureNotAlreadyPlaying(game, appContext.playerAddress).attempt
+      _ <- Games.ensureNotAlreadyPlaying(game.players, appContext.playerAddress).attempt
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName).attempt
-      _ <- Games.ensurePlayerCount(game).attempt
+      _ <- Games.ensurePlayerCount(game.players).attempt
       player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.dates)
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player)
@@ -120,10 +121,20 @@ object PokerDot {
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
         s"Cannot start game, game ID not found", "Couldn't find game to start",
       ))
-
-
-    } yield 1
-    ???
+      playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
+      gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
+      rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
+      _ <- Games.ensureNotStarted(rawGame).attempt
+      _ <- Games.ensureHost(rawGame.players, startGame.playerKey).attempt
+      now = appContext.dates.now()
+      startedGame = Games.start(rawGame, now, startGame.timerConfig, startGame.startingStack).value(rawGame.seed)
+      startedGameDb = Representations.gameToDb(startedGame)
+      playerDbs = Representations.allPlayerDbs(startedGame)
+      // update all players with dealt cards, stack size etc
+      _ <- playerDbs.ioTraverse(appContext.db.writePlayer)
+      // persist started game
+      _ <- appContext.db.writeGame(startedGameDb)
+    } yield Responses.gameStatuses(startedGame, GameStartedSummary())
   }
 
   /**
@@ -132,19 +143,59 @@ object PokerDot {
    * Pausing / playing is done by setting the optional pauseTime and by faking the start time, respectively.
    */
   def updateTimer(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
-    ???
+    for {
+      updateTimer <- extractUpdateTimer(requestJson).attempt
+      // ensure host
+      // ensure started
+    } yield Responses.tbd() // Responses.gameStatuses(???, ???)
   }
 
-  def bid(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
-    ???
+  def bet(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    for {
+      bet <- extractBet(requestJson).attempt
+      maybeGame <- appContext.db.getGame(bet.gameId)
+      gameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot start game, game ID not found", "Couldn't find game to start",
+      ))
+      // ensure started
+      // ensure active player
+      // ensure bet amount does not exceed stack
+      // ensure bet is legal
+      // update this player's moneys, and deactivate
+      // update active player in game
+      // set player's checked to `false`
+      // save this player
+      // save game
+    } yield Responses.tbd() // Responses.gameStatuses(???, BetSummary(???))
   }
 
   def check(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
-    ???
+    for {
+      check <- extractCheck(requestJson).attempt
+      // fetch game
+      // ensure started
+      // ensure active player
+      // ensure check is legal
+      // deactivate this player
+      // update active player in game
+      // set player's checked to `true`
+      // save player (if updated?)
+      // save game
+    } yield Responses.tbd() // Responses.gameStatuses(???, CheckSummary(???))
   }
 
   def fold(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
-    ???
+    for {
+      fold <- extractFold(requestJson).attempt
+      // fetch game
+      // ensure started
+      // ensure active player // TODO: allow off-turn folds?
+      // ensure fold is legal
+      // deactivate this player
+      // update active player in game
+      // save player (if updated?)
+      // save game
+    } yield Responses.tbd() // Responses.gameStatuses(???, FoldSummary(???))
   }
 
   /**
@@ -154,7 +205,15 @@ object PokerDot {
    * each phase needs to be triggered.
    */
   def advancePhase(requestJson: Json, appContext: AppContext): Attempt[Response[RoundWinnings]] = {
-    ???
+    for {
+      fold <- extractAdvancePhase(requestJson).attempt
+      // fetch game
+      // ensure started
+      // ensure host // TODO: allow others / admins?
+      // reset all players for the next round
+      // save updated players
+      // save game
+    } yield Responses.tbd() // Responses.gameStatuses(???, FoldSummary(???))
   }
 
   /**
@@ -173,7 +232,7 @@ object PokerDot {
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       // TODO: handle players or spectators here
       // check player
-      player <- Games.ensurePlayerKey(game, pingRequest.playerId, pingRequest.playerKey).attempt
+      player <- Games.ensurePlayerKey(game.players, pingRequest.playerId, pingRequest.playerKey).attempt
       // logic
       updatedPlayer = Games.updatePlayerAddress(player, appContext.playerAddress)
       // create and save updated player for DB
@@ -184,7 +243,7 @@ object PokerDot {
   }
 
   /**
-   * This endpoint does "nothing", but wakes the server so subsequent requests load quickly.
+   * This endpoint does "nothing", but running this function wakes the server so subsequent requests load quickly.
    */
   def wake(appContext: AppContext): Attempt[Response[Status]] = {
     IO.succeed {

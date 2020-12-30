@@ -44,17 +44,4 @@ trait IntegrationComponents {
       }
     }
   }
-
-  def parseReq(jsonStr: String)(implicit pos: Position): Json = {
-    parser.parse(jsonStr) match {
-      case Left(parsingFailure) =>
-        throw new TestFailedException(
-          _ => Some(s"Failed to parse request JSON"),
-          Some(parsingFailure),
-          pos
-        )
-      case Right(json) =>
-        json
-    }
-  }
 }

@@ -34,7 +34,8 @@ object Representations {
       screenName = player.screenName,
       stack = player.stack,
       pot = player.pot,
-      bid = player.bid,
+      bet = player.bet,
+      checked = player.checked,
       folded = player.folded,
       busted = player.busted,
       hole = player.hole,
@@ -50,6 +51,10 @@ object Representations {
       playerKey = spectator.playerKey.key,
       screenName = spectator.screenName,
     )
+  }
+
+  def allPlayerDbs(game: Game): List[PlayerDb] = {
+    game.players.map(playerToDb)
   }
 
   def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failures, Game] = {
@@ -92,7 +97,8 @@ object Representations {
       screenName = playerDb.screenName,
       stack = playerDb.stack,
       pot = playerDb.pot,
-      bid = playerDb.bid,
+      bet = playerDb.bet,
+      checked = playerDb.checked,
       folded = playerDb.folded,
       busted = playerDb.busted,
       hole = playerDb.hole,
@@ -206,7 +212,7 @@ object Representations {
       screenName = player.screenName,
       stack = player.stack,
       pot = player.pot,
-      bid = player.bid,
+      bet = player.bet,
       folded = player.folded,
       busted = player.busted,
       hole = player.hole,
@@ -226,7 +232,7 @@ object Representations {
       screenName = player.screenName,
       stack = player.stack,
       pot = player.pot,
-      bid = player.bid,
+      bet = player.bet,
       folded = player.folded,
       busted = player.busted,
     )

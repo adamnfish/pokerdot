@@ -24,7 +24,7 @@ object PokerHands {
    * We check for results on a pot-by-pot basis, at each level selecting the
    * strongest hand that is eligible.
    */
-  def winnings(round: Round, players: List[Player]): List[PotWinnings] = {
+  def potWinnings(round: Round, players: List[Player]): List[PotWinnings] = {
     val playerHands =
       for {
         player <- players
@@ -141,6 +141,29 @@ object PokerHands {
     }
 
     potWinnings
+  }
+
+  def playerWinnings(potsWinnings: List[PotWinnings], button: Int, playerOrder: List[PlayerId]): Map[PlayerId, Int] = {
+    potsWinnings.foldRight[Map[PlayerId, Int]](playerOrder.map((_, 0)).toMap) { case (potWinnings, acc) =>
+      val splitAmount = potWinnings.potSize / potWinnings.winners.size
+      val remainder = potWinnings.potSize % potWinnings.winners.size
+      val winningPlayers = playerOrder.filter(potWinnings.winners.contains)
+      val playersWithOneExtra = (winningPlayers ++ winningPlayers).drop(button + 1).take(remainder).toSet
+      val playerIdsWithWinnings = potWinnings.winners.map { playerId =>
+        (
+          playerId,
+          if (playersWithOneExtra.contains(playerId))
+            splitAmount + 1
+          else
+            splitAmount + 0
+        )
+      }.toMap
+      acc.foldLeft[Map[PlayerId, Int]](Map.empty) { case (acc, (playerId, accWinnings)) =>
+        acc + (
+          playerId -> (accWinnings + playerIdsWithWinnings.getOrElse(playerId, 0))
+        )
+      }
+    }
   }
 
   /**
