@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.logic.PokerHands.{findDuplicateSuits, findDuplicates, flush, fourOfAKind, pair, straight, threeOfAKind}
+import io.adamnfish.pokerdot.logic.PokerHands.{findDuplicateSuits, findDuplicateRanks, flush, fourOfAKind, pair, straight, threeOfAKind}
 import io.adamnfish.pokerdot.models._
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -75,111 +75,109 @@ class PokerGeneratorsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
     }
   }
 
-  "high card / nothing connects" - {
-    "does not contain a pair" in {
-      forAll(nothingConnectsCardsGen) { cards =>
-        pair(cards, findDuplicates(cards)) shouldEqual None
+  "accidental hand checking" - {
+    "high card / nothing connects" - {
+      "does not contain a pair" in {
+        forAll(nothingConnectsCardsGen()) { cards =>
+          pair(cards, findDuplicateRanks(cards)) shouldEqual None
+        }
+      }
+      "does not contain a trip" in {
+        forAll(nothingConnectsCardsGen()) { cards =>
+          threeOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
+        }
+      }
+      "does not contain a straight" in {
+        forAll(nothingConnectsCardsGen()) { cards =>
+          straight(cards) shouldEqual None
+        }
+      }
+      "does not contain a flush" in {
+        forAll(nothingConnectsCardsGen()) { cards =>
+          flush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
+      }
+      "does not contain a quad" in {
+        forAll(nothingConnectsCardsGen()) { cards =>
+          fourOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
+        }
       }
     }
-    "does not contain a trip" in {
-      forAll(nothingConnectsCardsGen) { cards =>
-        threeOfAKind(cards, findDuplicates(cards)) shouldEqual None
-      }
-    }
-    "does not contain a straight" in {
-      forAll(nothingConnectsCardsGen) { cards =>
-        straight(cards) shouldEqual None
-      }
-    }
-    "does not contain a flush" in {
-      forAll(nothingConnectsCardsGen) { cards =>
-        flush(cards, findDuplicateSuits(cards)) shouldEqual None
-      }
-    }
-    "does not contain a quad" in {
-      forAll(nothingConnectsCardsGen) { cards =>
-        fourOfAKind(cards, findDuplicates(cards)) shouldEqual None
-      }
-    }
-  }
 
-  "pair" - {
-    "does not contain a trip" in {
-      forAll(pairCardsGen) { cards =>
-        threeOfAKind(cards, findDuplicates(cards)) shouldEqual None
+    "pair" - {
+      "does not contain a trip" in {
+        forAll(pairCardsGen()) { cards =>
+          threeOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
+        }
+      }
+      "does not contain a straight" in {
+        forAll(pairCardsGen()) { cards =>
+          straight(cards) shouldEqual None
+        }
+      }
+      "does not contain a flush" in {
+        forAll(pairCardsGen()) { cards =>
+          flush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
       }
     }
-    "does not contain a straight" in {
-      forAll(pairCardsGen) { cards =>
-        straight(cards) shouldEqual None
-      }
-    }
-    "does not contain a flush" in {
-      forAll(pairCardsGen) { cards =>
-        flush(cards, findDuplicateSuits(cards)) shouldEqual None
-      }
-    }
-  }
 
-  "two pair" - {
-    "does not contain a trip" in {
-      forAll(twoPairCardsGen) { cards =>
-        threeOfAKind(cards, findDuplicates(cards)) shouldEqual None
+    "two pair" - {
+      "does not contain a trip" in {
+        forAll(twoPairCardsGen()) { cards =>
+          threeOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
+        }
+      }
+      "does not contain a straight" in {
+        forAll(twoPairCardsGen()) { cards =>
+          straight(cards) shouldEqual None
+        }
+      }
+      "does not contain a flush" in {
+        forAll(twoPairCardsGen()) { cards =>
+          flush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
       }
     }
-    "does not contain a straight" in {
-      forAll(twoPairCardsGen) { cards =>
-        straight(cards) shouldEqual None
-      }
-    }
-    "does not contain a flush" in {
-      forAll(twoPairCardsGen) { cards =>
-        flush(cards, findDuplicateSuits(cards)) shouldEqual None
-      }
-    }
-  }
 
-  "three of a kind" - {
-    "does not contain a straight" in {
-      forAll(threeOfAKindCardsGen) { cards =>
-        straight(cards) shouldEqual None
+    "three of a kind" - {
+      "does not contain a straight" in {
+        forAll(threeOfAKindCardsGen()) { cards =>
+          straight(cards) shouldEqual None
+        }
+      }
+      "does not contain a flush" in {
+        forAll(threeOfAKindCardsGen()) { cards =>
+          flush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
       }
     }
-    "does not contain a flush" in {
-      forAll(threeOfAKindCardsGen) { cards =>
-        flush(cards, findDuplicateSuits(cards)) shouldEqual None
-      }
-    }
-  }
 
-  "straight" - {
-    "does not contain a flush" in {
-      forAll(straightCardsGen) { cards =>
-        flush(cards, findDuplicateSuits(cards)) shouldEqual None
+    "straight" - {
+      "does not contain a flush" in {
+        forAll(straightCardsGen()) { cards =>
+          flush(cards, findDuplicateSuits(cards)) shouldEqual None
+        }
       }
     }
-  }
 
-  "flush" - {
-    "does not contain a straight" in {
-      forAll(flushCardsGen) { cards =>
-        straight(cards) shouldEqual None
+    "flush" - {
+      "does not contain a straight" in {
+        forAll(flushCardsGen()) { cards =>
+          straight(cards) shouldEqual None
+        }
       }
     }
-  }
 
-//  "full house" - {
-//  }
-//
-//  "four of a kind" in {
-//    forAll(fourOfAKindCardsGen) { cards =>
-//      println(s"four of a kind: $cards")
-//    }
-//  }
-//
-//  "straight flush" in {
-//    forAll(straightFlushCardsGen) { cards =>
-//      println(s"straight flush: $cards")
-//    }
-//  }
+    "full house" - {
+      "does not contain quads" in {
+        forAll(fullHouseCardsGen()) { cards =>
+          fourOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
+        }
+      }
+    }
+
+    // there aren't any accidental hands to watch out for with four of a kind
+    // or straight flush, since they are such strong hands
+  }
 }

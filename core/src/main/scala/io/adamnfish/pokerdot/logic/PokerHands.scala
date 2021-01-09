@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, PlayerHand, PlayerId, PlayerWinnings, PotWinnings, Queen, Rank, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
+import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flop, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, PlayerHand, PlayerId, PlayerWinnings, PotWinnings, PreFlop, Queen, Rank, River, Round, Seven, Showdown, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Turn, Two, TwoPair}
 
 
 object PokerHands {
@@ -13,20 +13,36 @@ object PokerHands {
   )
 
   // TODO: probably include folded players, as long as they aren't eligible for wins
-  //       it would allow rabbit chasing
+  //       it would allow rabbit chasing, which people enjoy
   def bestHands(round: Round, players: List[Player]): List[PlayerHand] = {
+    val showTurn = round.phase match {
+      case PreFlop => false
+      case Flop => false
+      case Turn => true
+      case River => true
+      case Showdown => true
+    }
+    val showRiver = round.phase match {
+      case PreFlop => false
+      case Flop => false
+      case Turn => false
+      case River => true
+      case Showdown => true
+    }
     for {
       player <- players
         .filterNot(p => p.busted || p.folded)
       hole <- player.hole
     } yield PlayerHand(player, bestHand(
+      hole.card1,
+      hole.card2,
       round.flop1,
       round.flop2,
       round.flop3,
-      round.turn,
-      round.river,
-      hole.card1,
-      hole.card2,
+      if (showTurn) Some(round.turn)
+      else None,
+      if (showRiver) Some(round.river)
+      else None,
     ))
   }
 
@@ -179,28 +195,30 @@ object PokerHands {
    *
    * Note that "royal flush" is a special case of "straight flush" (high card is an Ace).
    */
-  def bestHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card, card6: Card, card7: Card): Hand = {
-    val sevenCards = List(
-      card1, card2, card3, card4, card5, card6, card7,
+  def bestHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card, card6: Option[Card], card7: Option[Card]): Hand = {
+    val sevenCards = (
+      List(
+        card1, card2, card3, card4, card5
+      ) ++ card6 ++ card7
     ).sortBy(cardOrd(acesHigh = true)).reverse
 
     // We'll need to call these over and over, let's do it once here
-    val duplicates = findDuplicates(sevenCards)
+    val duplicateRanks = findDuplicateRanks(sevenCards)
     val duplicateSuits = findDuplicateSuits(sevenCards)
 
     // check for the strongest first and fallback to lesser hands
-    straightFlush(sevenCards, duplicateSuits) orElse
-      fourOfAKind(sevenCards, duplicates)     orElse
-      fullHouse(sevenCards, duplicates)       orElse
+    straightFlush(duplicateSuits) orElse
+      fourOfAKind(sevenCards, duplicateRanks)     orElse
+      fullHouse(sevenCards, duplicateRanks)       orElse
       flush(sevenCards, duplicateSuits)       orElse
       straight(sevenCards)                    orElse
-      threeOfAKind(sevenCards, duplicates)    orElse
-      twoPair(sevenCards, duplicates)         orElse
-      pair(sevenCards, duplicates)            getOrElse
+      threeOfAKind(sevenCards, duplicateRanks)    orElse
+      twoPair(sevenCards, duplicateRanks)         orElse
+      pair(sevenCards, duplicateRanks)            getOrElse
         highCard(sevenCards)
   }
 
-  def findDuplicates(cards: List[Card]): List[(Rank, List[Card])] = {
+  def findDuplicateRanks(cards: List[Card]): List[(Rank, List[Card])] = {
     cards
       .groupBy(_.rank).toList
       .sortBy { case (rank, _) =>
@@ -233,8 +251,8 @@ object PokerHands {
     }
   }
 
-  def pair(sevenCards: List[Card], duplicates: List[(Rank, List[Card])]): Option[Pair] = {
-    duplicates.filter { case (_, cards) =>
+  def pair(sevenCards: List[Card], duplicateRanks: List[(Rank, List[Card])]): Option[Pair] = {
+    duplicateRanks.filter { case (_, cards) =>
       cards.size == 2
     } match {
       // Note: If there is more than one pair this is not a "pair hand" so we'll reject it
@@ -253,8 +271,8 @@ object PokerHands {
     }
   }
 
-  def twoPair(sevenCards: List[Card], duplicates: List[(Rank, List[Card])]): Option[TwoPair] = {
-    duplicates.filter { case (_, cards) =>
+  def twoPair(sevenCards: List[Card], duplicateRanks: List[(Rank, List[Card])]): Option[TwoPair] = {
+    duplicateRanks.filter { case (_, cards) =>
       cards.size == 2
     } match {
       // Note: there could be more than two pairs in 7 cards, we'll take the strongest 2
@@ -273,8 +291,8 @@ object PokerHands {
     }
   }
 
-  def threeOfAKind(sevenCards: List[Card], duplicates: List[(Rank, List[Card])]): Option[ThreeOfAKind] = {
-    duplicates.filter { case (_, cards) =>
+  def threeOfAKind(sevenCards: List[Card], duplicateRanks: List[(Rank, List[Card])]): Option[ThreeOfAKind] = {
+    duplicateRanks.filter { case (_, cards) =>
       cards.size == 3
     } match {
       // Note: there could be two "three of a kinds" in 7 cards, we'll take the highest
@@ -353,8 +371,8 @@ object PokerHands {
     }
   }
 
-  def fullHouse(sevenCards: List[Card], duplicates: List[(Rank, List[Card])]): Option[FullHouse] = {
-    duplicates.filter { case (_, cards) =>
+  def fullHouse(sevenCards: List[Card], duplicateRanks: List[(Rank, List[Card])]): Option[FullHouse] = {
+    duplicateRanks.filter { case (_, cards) =>
       // while it's possible a full house exists from a duplicate of  >3 cards,
       // four-of-a-kind is a stronger hand so we don't need to consider that case
       cards.size == 3
@@ -381,8 +399,8 @@ object PokerHands {
     }
   }
 
-  def fourOfAKind(sevenCards: List[Card], duplicates: List[(Rank, List[Card])]): Option[FourOfAKind] = {
-    duplicates.filter { case (_, cards) =>
+  def fourOfAKind(sevenCards: List[Card], duplicateRanks: List[(Rank, List[Card])]): Option[FourOfAKind] = {
+    duplicateRanks.filter { case (_, cards) =>
       cards.size == 4
     } match {
       case (rank, quad1 :: quad2 :: quad3 :: quad4 :: Nil) :: _ =>
@@ -400,7 +418,7 @@ object PokerHands {
     }
   }
 
-  def straightFlush(sevenCards: List[Card], duplicateSuits: Map[Suit, List[Card]]): Option[StraightFlush] = {
+  def straightFlush(duplicateSuits: Map[Suit, List[Card]]): Option[StraightFlush] = {
     for {
       (_, flushCards) <-
         duplicateSuits.find { case (_, cards) =>
@@ -465,7 +483,7 @@ object PokerHands {
           aceHighRankOrd(next1.rank),
           aceHighRankOrd(next2.rank),
           aceHighRankOrd(next3.rank),
-          // aces can be low in a straight
+          // aces are low at the bottom of a straight
           rankOrd(acesHigh = false)(low.rank),
         )
       case Flush(high, next1, next2, next3, low) =>
@@ -498,7 +516,7 @@ object PokerHands {
           aceHighRankOrd(next1.rank),
           aceHighRankOrd(next2.rank),
           aceHighRankOrd(next3.rank),
-          // aces can be low in a straight
+          // aces are low at the bottom of a straight
           rankOrd(acesHigh = false)(low.rank),
         )
     }

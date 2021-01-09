@@ -32,7 +32,8 @@ trait PokerGenerators {
    * Generates 7 cards that do not connect.
    * All distinct ranks, no flush, and no straights.
    */
-  val nothingConnectsCardsGen: Gen[List[Card]] = {
+  def nothingConnectsCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       // all ranks must be distinct
       rank1 <- rankGen
@@ -82,18 +83,24 @@ trait PokerGenerators {
       )
     } yield orderCards(
       List(
-        rank1 of suit1, rank2 of suit2, rank3 of suit3, rank4 of suit4,
-        rank5 of suit5, rank6 of suit6, rank7 of suit7,
-      )
+        rank1 of suit1, rank2 of suit2, rank3 of suit3, rank4 of suit4, rank5 of suit5,
+      ) ++ {
+        if (size >= 6) Some(rank6 of suit6)
+        else None
+      } ++ {
+        if (size >= 7) Some(rank7 of suit7)
+        else None
+      }
     )
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
   /**
    * Generates 7 cards that contains a single pair.
    * All distinct ranks apart from the pair, no flush, and no straights.
    */
-  val pairCardsGen: Gen[List[Card]] = {
+  def pairCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       pairRank <- rankGen
       pairSuit1 <- suitGen
@@ -135,20 +142,28 @@ trait PokerGenerators {
         allSuits.filterNot(breakFlush(pairSuit1, pairSuit2, kicker1Suit, kicker2Suit, kicker3Suit, kicker4Suit))
       )
     } yield {
-      orderCards(List(
-        pairRank of pairSuit1, pairRank of pairSuit2,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit, kicker3Rank of kicker3Suit,
-        kicker4Rank of kicker4Suit, kicker5Rank of kicker5Suit
-      ))
+      orderCards(
+        List(
+          pairRank of pairSuit1, pairRank of pairSuit2,
+          kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit, kicker3Rank of kicker3Suit,
+        ) ++ {
+          if (size >= 6) Some(kicker4Rank of kicker4Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker5Rank of kicker5Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
   /**
    * Generates 7 cards that contains two (or more) pairs.
    * No three (or more) of a kind, no flush, and no straights.
    */
-  val twoPairCardsGen: Gen[List[Card]] = {
+  def twoPairCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       pair1Rank <- rankGen
       pair1Suit1 <- suitGen
@@ -189,21 +204,29 @@ trait PokerGenerators {
         allSuits.filterNot(breakFlush(pair1Suit1, pair1Suit2, pair2Suit1, pair2Suit2, kicker1Suit, kicker2Suit))
       )
     } yield {
-      orderCards(List(
-        pair1Rank of pair1Suit1, pair1Rank of pair1Suit2,
-        pair2Rank of pair2Suit1, pair2Rank of pair2Suit2,
-        kicker1Rank of kicker1Suit,
-        kicker2Rank of kicker2Suit, kicker3Rank of kicker3Suit
-      ))
+      orderCards(
+        List(
+          pair1Rank of pair1Suit1, pair1Rank of pair1Suit2,
+          pair2Rank of pair2Suit1, pair2Rank of pair2Suit2,
+          kicker1Rank of kicker1Suit,
+        ) ++ {
+          if (size >= 6) Some(kicker2Rank of kicker2Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker3Rank of kicker3Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
   /**
    * Generates 7 cards that contains a three of a kind.
    * No other duplicates (no pairs), no four of a kind, no flush, and no straights.
    */
-  val threeOfAKindCardsGen: Gen[List[Card]] = {
+  def threeOfAKindCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       tripRank <- rankGen
       tripSuit1 <- suitGen
@@ -236,16 +259,24 @@ trait PokerGenerators {
         allSuits.filterNot(breakFlush(tripSuit1, tripSuit2, tripSuit3, kicker1Suit, kicker2Suit, kicker3Suit))
       )
     } yield {
-      orderCards(List(
-        tripRank of tripSuit1, tripRank of tripSuit2, tripRank of tripSuit3,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit,
-        kicker3Rank of kicker3Suit, kicker4Rank of kicker4Suit,
-      ))
+      orderCards(
+        List(
+          tripRank of tripSuit1, tripRank of tripSuit2, tripRank of tripSuit3,
+          kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit,
+        ) ++ {
+          if (size >= 6) Some(kicker3Rank of kicker3Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker4Rank of kicker4Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
-  val straightCardsGen: Gen[List[Card]] = {
+  def straightCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       (rank1, rank2, rank3, rank4, rank5) <- Gen.oneOf(
         (Ace, King, Queen, Jack, Ten),
@@ -280,15 +311,23 @@ trait PokerGenerators {
         allSuits.filterNot(breakFlush(suit1, suit2, suit3, suit4, suit5, kicker1Suit))
       )
     } yield {
-      orderCards(List(
-        rank1 of suit1, rank2 of suit2, rank3 of suit3, rank4 of suit4, rank5 of suit5,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
-      ))
+      orderCards(
+        List(
+          rank1 of suit1, rank2 of suit2, rank3 of suit3, rank4 of suit4, rank5 of suit5,
+        ) ++ {
+          if (size >= 6) Some(kicker1Rank of kicker1Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker2Rank of kicker2Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
-  val flushCardsGen: Gen[List[Card]] = {
+  def flushCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       flushSuit <- suitGen
       rank1 <- rankGen
@@ -321,15 +360,23 @@ trait PokerGenerators {
       )
       kicker2Suit <- suitGen
     } yield {
-      orderCards(List(
-        rank1 of flushSuit, rank2 of flushSuit, rank3 of flushSuit, rank4 of flushSuit, rank5 of flushSuit,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
-      ))
+      orderCards(
+        List(
+          rank1 of flushSuit, rank2 of flushSuit, rank3 of flushSuit, rank4 of flushSuit, rank5 of flushSuit,
+        ) ++ {
+          if (size >= 6) Some(kicker1Rank of kicker1Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker2Rank of kicker2Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
-  val fullHouseCardsGen: Gen[List[Card]] = {
+  def fullHouseCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       tripRank <- rankGen
       tripSuit1 <- suitGen
@@ -356,15 +403,22 @@ trait PokerGenerators {
       kicker2Suit <- suitGen
     } yield {
       orderCards(List(
-        tripRank of tripSuit1, tripRank of tripSuit2, tripRank of tripSuit3,
-        pairRank of pairSuit1, pairRank of pairSuit2,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit,
-      ))
+          tripRank of tripSuit1, tripRank of tripSuit2, tripRank of tripSuit3,
+          pairRank of pairSuit1, pairRank of pairSuit2,
+        ) ++ {
+          if (size >= 6) Some(kicker1Rank of kicker1Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker2Rank of kicker2Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
-  val fourOfAKindCardsGen: Gen[List[Card]] = {
+  def fourOfAKindCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       quadRank <- rankGen
       quadSuit1 <- suitGen
@@ -392,15 +446,24 @@ trait PokerGenerators {
       )
       kicker3Suit <- suitGen
     } yield {
-      orderCards(List(
-        quadRank of quadSuit1, quadRank of quadSuit2, quadRank of quadSuit3, quadRank of quadSuit4,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit, kicker3Rank of kicker3Suit,
-      ))
+      orderCards(
+        List(
+          quadRank of quadSuit1, quadRank of quadSuit2, quadRank of quadSuit3, quadRank of quadSuit4,
+          kicker1Rank of kicker1Suit,
+        ) ++ {
+          if (size >= 6) Some(kicker2Rank of kicker2Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker3Rank of kicker3Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
-  val straightFlushCardsGen: Gen[List[Card]] = {
+  def straightFlushCardsGen(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       (rank1, rank2, rank3, rank4, rank5) <- Gen.oneOf(
         (Ace, King, Queen, Jack, Ten),
@@ -424,12 +487,19 @@ trait PokerGenerators {
       )
       kicker2Suit <- suitGen
     } yield {
-      orderCards(List(
-        rank1 of flushSuit, rank2 of flushSuit, rank3 of flushSuit, rank4 of flushSuit, rank5 of flushSuit,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
-      ))
+      orderCards(
+        List(
+          rank1 of flushSuit, rank2 of flushSuit, rank3 of flushSuit, rank4 of flushSuit, rank5 of flushSuit,
+        ) ++ {
+          if (size >= 6) Some(kicker1Rank of kicker1Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker2Rank of kicker2Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
   // other hand generators
@@ -529,7 +599,8 @@ trait PokerGenerators {
     gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
   }
 
-  val aceLowStraightGenerator: Gen[List[Card]] = {
+  def aceLowStraightGenerator(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       suit1 <- suitGen
       suit2 <- suitGen
@@ -558,15 +629,23 @@ trait PokerGenerators {
         )
       )
     } yield {
-      orderCards(List(
-        Ace of suit1, Two of suit2, Three of suit3, Four of suit4, Five of suit5,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
-      ))
+      orderCards(
+        List(
+          Ace of suit1, Two of suit2, Three of suit3, Four of suit4, Five of suit5,
+        ) ++ {
+          if (size >= 6) Some(kicker1Rank of kicker1Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker2Rank of kicker2Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
-  val aceLowStraightFlushGenerator: Gen[List[Card]] = {
+  def aceLowStraightFlushGenerator(size: Int = 7): Gen[List[Card]] = {
+    assert(size >= 5, s"At least 5 cards are required for building hands, size was set to $size")
     val gen = for {
       suit <- suitGen
       kicker1Rank <- Gen.oneOf(
@@ -578,12 +657,19 @@ trait PokerGenerators {
       )
       kicker2Suit <- suitGen
     } yield {
-      orderCards(List(
-        Ace of suit, Two of suit, Three of suit, Four of suit, Five of suit,
-        kicker1Rank of kicker1Suit, kicker2Rank of kicker2Suit
-      ))
+      orderCards(
+        List(
+          Ace of suit, Two of suit, Three of suit, Four of suit, Five of suit,
+        ) ++ {
+          if (size >= 6) Some(kicker1Rank of kicker1Suit)
+          else None
+        } ++ {
+          if (size >= 7) Some(kicker2Rank of kicker2Suit)
+          else None
+        }
+      )
     }
-    gen.suchThat(cards => cards.size == 7 && cards.distinct.size == 7)
+    gen.suchThat(cards => cards.size == size && cards.distinct.size == size)
   }
 
   private def orderCards(cards: List[Card]): List[Card] = {

@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, playerWinnings, winnings, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
+import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateSuits, findDuplicateRanks, flush, fourOfAKind, fullHouse, highCard, pair, playerWinnings, winnings, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.IntHelpers.abs
 import org.scalacheck.Gen
@@ -16,93 +16,273 @@ import scala.util.Random
 
 class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with OptionValues with PokerGenerators {
   "bestHand" - {
-    "returns 'high card' when nothing better exists" in {
-      forAll(nothingConnectsCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [HighCard]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'high card' when nothing better exists" - {
+      "with 7 cards" in {
+        forAll(nothingConnectsCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[HighCard]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(nothingConnectsCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[HighCard]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(nothingConnectsCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[HighCard]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'pair' for cards containing a pair" in {
-      forAll(pairCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [Pair]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'pair' for cards containing a pair" - {
+      "with 7 cards" in {
+        forAll(pairCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[Pair]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(pairCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[Pair]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(pairCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[Pair]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
       }
     }
 
-    "returns 'two pair' for cards containing two pairs" in {
-      forAll(twoPairCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [TwoPair]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'two pair' for cards containing two pairs" - {
+      "with 7 cards" in {
+        forAll(twoPairCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[TwoPair]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(twoPairCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[TwoPair]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(twoPairCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[TwoPair]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'three of a kind' for cards containing a trip" in {
-      forAll(threeOfAKindCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [ThreeOfAKind]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'three of a kind' for cards containing a trip" - {
+      "with 7 cards" in {
+        forAll(threeOfAKindCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[ThreeOfAKind]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(threeOfAKindCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[ThreeOfAKind]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(threeOfAKindCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[ThreeOfAKind]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'straight' for cards containing a straight" in {
-      forAll(straightCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [Straight]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'straight' for cards containing a straight" - {
+      "with 7 cards" in {
+        forAll(straightCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[Straight]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(straightCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[Straight]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(straightCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[Straight]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'flush' for cards containing a flush" in {
-      forAll(flushCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [Flush]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'flush' for cards containing a flush" - {
+      "with 7 cards" in {
+        forAll(flushCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[Flush]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(flushCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[Flush]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(flushCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[Flush]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'full house' for cards containing a full house" in {
-      forAll(fullHouseCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [FullHouse]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'full house' for cards containing a full house" - {
+      "with 7 cards" in {
+        forAll(fullHouseCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[FullHouse]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(fullHouseCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[FullHouse]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(fullHouseCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[FullHouse]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'four of a kind' for cards containing a quad" in {
-      forAll(fourOfAKindCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [FourOfAKind]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'four of a kind' for cards containing a quad" - {
+      "with 7 cards" in {
+        forAll(fourOfAKindCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[FourOfAKind]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(fourOfAKindCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[FourOfAKind]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(fourOfAKindCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[FourOfAKind]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
 
-    "returns 'straight flush' for cards containing a straight flush" in {
-      forAll(straightFlushCardsGen) {
-        case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
-          val hand = bestHand(card1, card2, card3, card4, card5, card6, card7)
-          hand shouldBe a [StraightFlush]
-        case _ =>
-          fail("generator did not provide 7 cards")
+    "returns 'straight flush' for cards containing a straight flush" - {
+      "with 7 cards" in {
+        forAll(straightFlushCardsGen(7)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: card7 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), Some(card7))
+            hand shouldBe a[StraightFlush]
+          case _ =>
+            fail("generator did not provide 7 cards")
+        }
+      }
+      "with 6 cards" in {
+        forAll(straightFlushCardsGen(6)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: card6 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, Some(card6), None)
+            hand shouldBe a[StraightFlush]
+          case _ =>
+            fail("generator did not provide 6 cards")
+        }
+      }
+      "with 5 cards" in {
+        forAll(straightFlushCardsGen(5)) {
+          case card1 :: card2 :: card3 :: card4 :: card5 :: Nil =>
+            val hand = bestHand(card1, card2, card3, card4, card5, None, None)
+            hand shouldBe a[StraightFlush]
+          case _ =>
+            fail("generator did not provide 5 cards")
+        }
       }
     }
   }
@@ -305,7 +485,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         ),
         bestHand(card1, card2,
           // community cards
-          King of Clubs, Queen of Diamonds, Jack of Spades, Nine of Clubs, Seven of Hearts
+          King of Clubs, Queen of Diamonds, Jack of Spades, Some(Nine of Clubs), Some(Seven of Hearts)
         )
       )
     }
@@ -605,7 +785,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
   "specific hand assessments" - {
     "highCard" - {
       "returns a hand containing the first five of the provided cards" in {
-        forAll(nothingConnectsCardsGen) { cards =>
+        forAll(nothingConnectsCardsGen()) { cards =>
           val highCardHand = highCard(cards)
           val handCards = List(
             highCardHand.highCard, highCardHand.kicker1, highCardHand.kicker2,
@@ -620,16 +800,22 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     "pair" - {
       "if there is a pair" - {
+        "it is detected" in {
+          forAll(pairCardsGen()) { cards =>
+            pair(cards, findDuplicateRanks(cards)) should not be empty
+          }
+        }
+
         "pair cards have the same rank" in {
-          forAll(pairCardsGen) { cards =>
-            val hand = pair(cards, findDuplicates(cards)).value
+          forAll(pairCardsGen()) { cards =>
+            val hand = pair(cards, findDuplicateRanks(cards)).value
             hand.pair1.rank shouldEqual hand.pair2.rank
           }
         }
 
         "kickers are higher than the 2 discarded cards, with kicker1 highest" in {
-          forAll(pairCardsGen) { cards =>
-            val hand = pair(cards, findDuplicates(cards)).value
+          forAll(pairCardsGen()) { cards =>
+            val hand = pair(cards, findDuplicateRanks(cards)).value
             // 2 lowest cards - exclude the pair, and drop the highest 3 that remain
             cards.filterNot(_.rank == hand.pair1.rank).drop(3) match {
               case low :: lowest :: Nil =>
@@ -645,8 +831,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       }
 
       "returns None for a hand with with no pair" in {
-        forAll(nothingConnectsCardsGen) { cards =>
-          pair(cards, findDuplicates(cards)) shouldEqual None
+        forAll(nothingConnectsCardsGen()) { cards =>
+          pair(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
 
@@ -654,38 +840,44 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       // let alone one that really needs to be tested.
       "if there are two pairs, returns None (this is a 2-pair hand not a pair hand)" in {
         // this assumes the 2-pair function works properly!
-        forAll(twoPairCardsGen) { cards =>
-          pair(cards, findDuplicates(cards)) shouldEqual None
+        forAll(twoPairCardsGen()) { cards =>
+          pair(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
     }
 
     "twoPair" - {
       "if a 2-pair exists" - {
+        "it should be detected" in {
+          forAll(twoPairCardsGen()) { cards =>
+            twoPair(cards, findDuplicateRanks(cards)) should not be empty
+          }
+        }
+
         "'up' pair cards are the same rank" in {
-          forAll(twoPairCardsGen) { cards =>
-            val hand = twoPair(cards, findDuplicates(cards)).value
+          forAll(twoPairCardsGen()) { cards =>
+            val hand = twoPair(cards, findDuplicateRanks(cards)).value
             hand.up1.rank shouldEqual hand.up2.rank
           }
         }
 
         "'down' pair cards are the same rank" in {
-          forAll(twoPairCardsGen) { cards =>
-            val hand = twoPair(cards, findDuplicates(cards)).value
+          forAll(twoPairCardsGen()) { cards =>
+            val hand = twoPair(cards, findDuplicateRanks(cards)).value
             hand.down1.rank shouldEqual hand.down2.rank
           }
         }
 
         "'up' pair cards are a higher rank than 'down' pair cards" in {
-          forAll(twoPairCardsGen) { cards =>
-            val hand = twoPair(cards, findDuplicates(cards)).value
+          forAll(twoPairCardsGen()) { cards =>
+            val hand = twoPair(cards, findDuplicateRanks(cards)).value
             rankOrd(true)(hand.up1.rank) should be > rankOrd(true)(hand.down1.rank)
           }
         }
 
         "kicker is the highest card that remains, excluding pairs" in {
-          forAll(twoPairCardsGen) { cards =>
-            val hand = twoPair(cards, findDuplicates(cards)).value
+          forAll(twoPairCardsGen()) { cards =>
+            val hand = twoPair(cards, findDuplicateRanks(cards)).value
             val highestOther = cards.filterNot(card => Set(hand.up1.rank, hand.down1.rank).contains(card.rank)).head
             hand.kicker shouldEqual highestOther
           }
@@ -693,36 +885,42 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       }
 
       "returns None if only a single pair exists" in {
-        forAll(pairCardsGen) { cards =>
-          twoPair(cards, findDuplicates(cards)) shouldEqual None
+        forAll(pairCardsGen()) { cards =>
+          twoPair(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
 
       "returns None if there is no two-pair" in {
         forAll(
           Gen.oneOf(
-            nothingConnectsCardsGen,
+            nothingConnectsCardsGen(),
             // or irrelevant hand that cannot contain two pairs
-            pairCardsGen, threeOfAKindCardsGen,
+            pairCardsGen(), threeOfAKindCardsGen(),
           )
         ) { cards =>
-          twoPair(cards, findDuplicates(cards)) shouldEqual None
+          twoPair(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
     }
 
     "threeOfAKind" - {
       "if a trip exists" - {
+        "it should be detected" in {
+          forAll(threeOfAKindCardsGen()) { cards =>
+            threeOfAKind(cards, findDuplicateRanks(cards)) should not be empty
+          }
+        }
+
         "trip cards share the same rank" in {
-          forAll(threeOfAKindCardsGen) { cards =>
-            val hand = threeOfAKind(cards, findDuplicates(cards)).value
+          forAll(threeOfAKindCardsGen()) { cards =>
+            val hand = threeOfAKind(cards, findDuplicateRanks(cards)).value
             hand.trip1.rank should (equal (hand.trip2.rank) and equal (hand.trip3.rank))
           }
         }
 
         "kickers are highest than the two discarded cards, with kicker 1 highest" in {
-          forAll(threeOfAKindCardsGen) { cards =>
-            val hand = threeOfAKind(cards, findDuplicates(cards)).value
+          forAll(threeOfAKindCardsGen()) { cards =>
+            val hand = threeOfAKind(cards, findDuplicateRanks(cards)).value
             // 2 lowest cards - exclude the pair, and drop the highest 3 that remain
             cards.filterNot(_.rank == hand.trip1.rank).drop(2) match {
               case low :: lowest :: Nil =>
@@ -739,20 +937,26 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       "returns None if there is no trip present" in {
         forAll(
           Gen.oneOf(
-            nothingConnectsCardsGen,
+            nothingConnectsCardsGen(),
             // or irrelevant hand that cannot contain three of a kind
-            pairCardsGen, twoPairCardsGen,
+            pairCardsGen(), twoPairCardsGen(),
           )
         ) { cards =>
-          threeOfAKind(cards, findDuplicates(cards)) shouldEqual None
+          threeOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
     }
 
     "straight" - {
       "if a straight exists" - {
+        "it should be detected" in {
+          forAll(straightCardsGen()) { cards =>
+            straight(cards) should not be empty
+          }
+        }
+
         "card ranks are adjacent (i.e. this is a straight)" in {
-          forAll(straightCardsGen) { cards =>
+          forAll(straightCardsGen()) { cards =>
             val hand = straight(cards).value
             val highRank = rankOrd(acesHigh = true)(hand.high.rank)
             val next1Rank = rankOrd(acesHigh = true)(hand.next1.rank)
@@ -785,7 +989,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         }
 
         "correctly identifies an Ace-low straight" in {
-          forAll(aceLowStraightGenerator) { cards =>
+          forAll(aceLowStraightGenerator()) { cards =>
             val hand = straight(cards).value
             hand.low.rank shouldEqual Ace
           }
@@ -806,10 +1010,10 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       "returns None if no straight exists" in {
         forAll(
           Gen.oneOf(
-            nothingConnectsCardsGen,
+            nothingConnectsCardsGen(),
             // or irrelevant hand that cannot contain a straight
-            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
-            fullHouseCardsGen, fourOfAKindCardsGen,
+            pairCardsGen(), twoPairCardsGen(), threeOfAKindCardsGen(),
+            fullHouseCardsGen(), fourOfAKindCardsGen(),
           )
         ) { cards =>
           straight(cards) shouldEqual None
@@ -819,8 +1023,14 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     "flush" - {
       "if a flush exists" - {
+        "it should be detected" in {
+          forAll(flushCardsGen()) { cards =>
+            flush(cards, findDuplicateSuits(cards)) should not be empty
+          }
+        }
+
         "all cards are the same suit" in {
-          forAll(flushCardsGen) { cards =>
+          forAll(flushCardsGen()) { cards =>
             val hand = flush(cards, findDuplicateSuits(cards)).value
             hand.high.suit should (
               equal (hand.next1.suit) and
@@ -831,7 +1041,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         }
 
         "cards are arranged by rank" in {
-          forAll(flushCardsGen) { cards =>
+          forAll(flushCardsGen()) { cards =>
             val hand = flush(cards, findDuplicateSuits(cards)).value
 
             val highRank = rankOrd(acesHigh = true)(hand.high.rank)
@@ -851,10 +1061,10 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       "returns None if no flush exists" in {
         forAll(
           Gen.oneOf(
-            nothingConnectsCardsGen,
+            nothingConnectsCardsGen(),
             // or irrelevant hand that cannot contain a flush
-            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
-            straightCardsGen, fullHouseCardsGen, fourOfAKindCardsGen,
+            pairCardsGen(), twoPairCardsGen(), threeOfAKindCardsGen(),
+            straightCardsGen(), fullHouseCardsGen(), fourOfAKindCardsGen(),
           )
         ) { cards =>
           flush(cards, findDuplicateSuits(cards)) shouldEqual None
@@ -864,23 +1074,29 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     "full house" - {
       "if a full house exists" - {
+        "it should be detected" in {
+          forAll(fullHouseCardsGen()) { cards =>
+            fullHouse(cards, findDuplicateRanks(cards)) should not be empty
+          }
+        }
+
         "trips have the same rank" in {
-          forAll(fullHouseCardsGen) { cards =>
-            val hand = fullHouse(cards, findDuplicates(cards)).value
+          forAll(fullHouseCardsGen()) { cards =>
+            val hand = fullHouse(cards, findDuplicateRanks(cards)).value
             hand.trip1.rank should (equal (hand.trip2.rank) and equal (hand.trip3.rank))
           }
         }
 
         "pair have the same rank" in {
-          forAll(fullHouseCardsGen) { cards =>
-            val hand = fullHouse(cards, findDuplicates(cards)).value
+          forAll(fullHouseCardsGen()) { cards =>
+            val hand = fullHouse(cards, findDuplicateRanks(cards)).value
             hand.pair1.rank shouldEqual hand.pair2.rank
           }
         }
 
         "if two trips are present, use the lower as the pair" in {
           forAll(twoTripsGen) { cards =>
-            val hand = fullHouse(cards, findDuplicates(cards)).value
+            val hand = fullHouse(cards, findDuplicateRanks(cards)).value
             val tripRank = rankOrd(acesHigh = true)(hand.trip1.rank)
             val pairRank = rankOrd(acesHigh = true)(hand.pair1.rank)
             tripRank should be > pairRank
@@ -890,22 +1106,28 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
       "returns None if no full house exists" in {
         forAll(
-          Gen.oneOf(nothingConnectsCardsGen,
+          Gen.oneOf(nothingConnectsCardsGen(),
             // or irrelevant hand that cannot contain a flush
-            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
-            straightCardsGen, flushCardsGen, straightFlushCardsGen
+            pairCardsGen(), twoPairCardsGen(), threeOfAKindCardsGen(),
+            straightCardsGen(), flushCardsGen(), straightFlushCardsGen(),
           )
         ) { cards =>
-          fullHouse(cards, findDuplicates(cards)) shouldEqual None
+          fullHouse(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
     }
 
     "fourOfAKind" - {
       "if a four-of-a-kind exists" - {
+        "it should bne detected" in {
+          forAll(fourOfAKindCardsGen()) { cards =>
+            fourOfAKind(cards, findDuplicateRanks(cards)) should not be empty
+          }
+        }
+
         "quads all have same rank" in {
-          forAll(fourOfAKindCardsGen) { cards =>
-            val hand = fourOfAKind(cards, findDuplicates(cards)).value
+          forAll(fourOfAKindCardsGen()) { cards =>
+            val hand = fourOfAKind(cards, findDuplicateRanks(cards)).value
             hand.quad1.rank should (
               equal (hand.quad2.rank) and
               equal (hand.quad3.rank) and
@@ -915,8 +1137,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         }
 
         "kicker is higher than the discarded two cards" in {
-          forAll(fourOfAKindCardsGen) { cards =>
-            val hand = fourOfAKind(cards, findDuplicates(cards)).value
+          forAll(fourOfAKindCardsGen()) { cards =>
+            val hand = fourOfAKind(cards, findDuplicateRanks(cards)).value
             // 2 lowest cards - exclude the quad, and drop the highest card that remains
             cards.filterNot(_.rank == hand.quad1.rank).drop(1) match {
               case low :: lowest :: Nil =>
@@ -932,23 +1154,29 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
       "returns None if there is no four-of-a-kind present" in {
         forAll(
           Gen.oneOf(
-            nothingConnectsCardsGen,
+            nothingConnectsCardsGen(),
             // or irrelevant hand with no quads
-            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
-            straightCardsGen, flushCardsGen, fullHouseCardsGen,
-            straightFlushCardsGen,
+            pairCardsGen(), twoPairCardsGen(), threeOfAKindCardsGen(),
+            straightCardsGen(), flushCardsGen(), fullHouseCardsGen(),
+            straightFlushCardsGen(),
           )
         ) { cards =>
-          fourOfAKind(cards, findDuplicates(cards)) shouldEqual None
+          fourOfAKind(cards, findDuplicateRanks(cards)) shouldEqual None
         }
       }
     }
 
     "straightFlush" - {
       "if a straight flush is present" - {
+        "it should be detected" in {
+          forAll(straightFlushCardsGen()) { cards =>
+            straightFlush(findDuplicateSuits(cards)) should not be empty
+          }
+        }
+
         "all cards have the same suit" in {
-          forAll(straightFlushCardsGen) { cards =>
-            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+          forAll(straightFlushCardsGen()) { cards =>
+            val hand = straightFlush(findDuplicateSuits(cards)).value
             hand.high.suit should (
               equal(hand.next1.suit) and
                 equal(hand.next2.suit) and
@@ -959,7 +1187,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
         "in a long straight, uses the highest card as the top" in {
           forAll(longStraightFlushGenerator) { cards =>
-            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+            val hand = straightFlush(findDuplicateSuits(cards)).value
             val top = cards match {
               // Ace-low straight matches the non-ace highest
               case Card(Ace, _) :: next :: Card(Six, _) :: Card(Five, _) :: Card(Four, _) :: Card(Three, _) :: Card(Two, _) :: Nil =>
@@ -975,15 +1203,15 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         }
 
         "works for an Ace-low straight flush" in {
-          forAll(aceLowStraightFlushGenerator) { cards =>
-            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+          forAll(aceLowStraightFlushGenerator()) { cards =>
+            val hand = straightFlush(findDuplicateSuits(cards)).value
             hand.low.rank shouldEqual Ace
           }
         }
 
         "ranks are all adjacent" in {
-          forAll(straightFlushCardsGen) { cards =>
-            val hand = straightFlush(cards, findDuplicateSuits(cards)).value
+          forAll(straightFlushCardsGen()) { cards =>
+            val hand = straightFlush(findDuplicateSuits(cards)).value
             val highRank = rankOrd(acesHigh = true)(hand.high.rank)
             val next1Rank = rankOrd(acesHigh = true)(hand.next1.rank)
             val next2Rank = rankOrd(acesHigh = true)(hand.next2.rank)
@@ -1004,21 +1232,21 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
             Ace of Hearts, Jack of Spades, Nine of Diamonds,
             Five of Hearts, Four of Hearts, Three of Hearts, Two of Hearts,
           )
-          straightFlush(cards, findDuplicateSuits(cards)) should not be empty
+          straightFlush(findDuplicateSuits(cards)) should not be empty
         }
       }
 
       "returns None if no straight flush is present" in {
         forAll(
           Gen.oneOf(
-            nothingConnectsCardsGen,
+            nothingConnectsCardsGen(),
             // or irrelevant hand with no straight flush
-            pairCardsGen, twoPairCardsGen, threeOfAKindCardsGen,
-            straightCardsGen, flushCardsGen, fullHouseCardsGen,
-            fourOfAKindCardsGen,
+            pairCardsGen(), twoPairCardsGen(), threeOfAKindCardsGen(),
+            straightCardsGen(), flushCardsGen(), fullHouseCardsGen(),
+            fourOfAKindCardsGen(),
           )
         ) { cards =>
-          straightFlush(cards, findDuplicateSuits(cards)) shouldEqual None
+          straightFlush(findDuplicateSuits(cards)) shouldEqual None
         }
       }
     }
