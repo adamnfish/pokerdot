@@ -3,12 +3,9 @@ package io.adamnfish.pokerdot
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
 import io.adamnfish.pokerdot.logic.{Games, Representations, Responses}
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.utils.Rng
 import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer}
 import io.circe.Json
 import zio._
-
-import java.time.ZonedDateTime
 
 
 object PokerDot {
@@ -21,7 +18,7 @@ object PokerDot {
       operation <- Serialisation.extractJson[String](operationJson, "Unexpected operation").attempt
       response <- operation match {
         case "create-game" =>
-          createGame(requestJson, appContext, initialSeed = Rng.randomSeed())
+          createGame(requestJson, appContext, initialSeed = appContext.rng.randomState())
         case "join-game" =>
           joinGame(requestJson, appContext)
         case "start-game" =>
@@ -63,7 +60,7 @@ object PokerDot {
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
       createGame <- extractCreateGame(requestJson).attempt
-      (_, game) = Games.newGame(createGame.gameName, trackStacks = false, appContext.dates).run(initialSeed)
+      game = Games.newGame(createGame.gameName, trackStacks = false, appContext.dates, initialSeed)
       host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, appContext.dates)
       gameWithHost = Games.addPlayer(game, host)
       gameDb = Representations.gameToDb(gameWithHost)
@@ -127,9 +124,9 @@ object PokerDot {
       _ <- Games.ensureNotStarted(rawGame).attempt
       _ <- Games.ensureHost(rawGame.players, startGame.playerKey).attempt
       now = appContext.dates.now()
-      startedGame = Games.start(rawGame, now, startGame.timerConfig, startGame.startingStack).value(rawGame.seed)
+      startedGame = Games.start(rawGame, now, startGame.timerConfig, startGame.startingStack)
       startedGameDb = Representations.gameToDb(startedGame)
-      playerDbs = Representations.allPlayerDbs(startedGame)
+      playerDbs = Representations.allPlayerDbs(startedGame.players)
       // update all players with dealt cards, stack size etc
       _ <- playerDbs.ioTraverse(appContext.db.writePlayer)
       // persist started game
@@ -145,7 +142,7 @@ object PokerDot {
   def updateTimer(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
       updateTimer <- extractUpdateTimer(requestJson).attempt
-      // ensure host
+      // ensure host / admin
       // ensure started
     } yield Responses.tbd() // Responses.gameStatuses(???, ???)
   }
@@ -158,6 +155,7 @@ object PokerDot {
         s"Cannot start game, game ID not found", "Couldn't find game to start",
       ))
       // ensure started
+      // ensure player key
       // ensure active player
       // ensure bet amount does not exceed stack
       // ensure bet is legal
@@ -174,6 +172,7 @@ object PokerDot {
       check <- extractCheck(requestJson).attempt
       // fetch game
       // ensure started
+      // ensure player key
       // ensure active player
       // ensure check is legal
       // deactivate this player
@@ -189,6 +188,7 @@ object PokerDot {
       fold <- extractFold(requestJson).attempt
       // fetch game
       // ensure started
+      // ensure player key
       // ensure active player // TODO: allow off-turn folds?
       // ensure fold is legal
       // deactivate this player
@@ -203,17 +203,44 @@ object PokerDot {
    *
    * If stacks are tracked this is only required between rounds, but in card-only games
    * each phase needs to be triggered.
+   *
+   * TODO: should this be split into separate endpoints with specific response formats?
+   *       the showdown endpoint is the tricky one now, but 'advance round' could be separate as well
+   *
+   * TODO: game setting for auto-advance?
+   *       perhaps separate settings for auto-advancing phase / showdown / round
    */
-  def advancePhase(requestJson: Json, appContext: AppContext): Attempt[Response[RoundWinnings]] = {
+  def advancePhase(requestJson: Json, appContext: AppContext): Attempt[Response[Message]] = {
     for {
       fold <- extractAdvancePhase(requestJson).attempt
+      maybeGame <- appContext.db.getGame(fold.gameId)
+      rawGameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot start game, game ID not found", "Couldn't find game to start",
+      ))
+      playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
+      game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       // fetch game
-      // ensure started
-      // ensure host // TODO: allow others / admins?
-      // reset all players for the next round
-      // save updated players
-      // save game
-    } yield Responses.tbd() // Responses.gameStatuses(???, FoldSummary(???))
+      _ <- Games.ensureStarted(game).attempt
+      // TODO: allow other players / admins?
+      _ <- Games.ensureHost(game.players, fold.playerKey).attempt
+
+      // the logic for advancing rounds is quite complicated!
+      advanceResult <- Games.advancePhase(game, appContext.rng).attempt
+      (updatedGame, updatedPlayers, winnings) = advanceResult
+
+      newGameDb = Representations.gameToDb(updatedGame)
+      // only do DB updates for players that have changed
+      updatedPlayerDbs = Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers)
+      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      _ <- appContext.db.writeGame(newGameDb)
+    } yield {
+      winnings match {
+        case Some((playerWinnings, potWinnings)) =>
+          Responses.roundWinnings(updatedGame, potWinnings, playerWinnings)
+        case None =>
+          Responses.gameStatuses(updatedGame, AdvancePhaseSummary())
+      }
+    }
   }
 
   /**
@@ -243,7 +270,8 @@ object PokerDot {
   }
 
   /**
-   * This endpoint does "nothing", but running this function wakes the server so subsequent requests load quickly.
+   * This endpoint does nothing here, but executing this function
+   * wakes the container so that subsequent requests load quickly.
    */
   def wake(appContext: AppContext): Attempt[Response[Status]] = {
     IO.succeed {

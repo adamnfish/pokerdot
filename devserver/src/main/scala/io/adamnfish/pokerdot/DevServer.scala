@@ -4,7 +4,7 @@ import io.adamnfish.pokerdot.Console.displayId
 import io.adamnfish.pokerdot.logic.Utils
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDb
-import io.adamnfish.pokerdot.services.Dates
+import io.adamnfish.pokerdot.services.{Dates, DevMessaging, DevRng, DevServerDB}
 import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
 import zio.IO
@@ -23,6 +23,10 @@ object DevServer {
     val app = Javalin.create()
     app.start(7000)
 
+    // initials seed defaults to 0, but can be changed at server start time
+    val initialSeed = args.headOption.map(_.toLong).getOrElse(0L)
+    val rng = new DevRng(initialSeed)
+
     app.ws("/api", { ws =>
       ws.onConnect { wctx =>
         val id = messaging.connect(wctx)
@@ -34,7 +38,7 @@ object DevServer {
       }
       ws.onMessage { wctx =>
         println(s"Message: ${displayId(wctx.getSessionId)} <- ${wctx.message}")
-        val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Dates)
+        val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Dates, rng)
         val program = PokerDot.pokerdot(wctx.message, appContext).catchAll { failures =>
           IO {
             println(s"[ERROR] Failures: ${failures.logString}")

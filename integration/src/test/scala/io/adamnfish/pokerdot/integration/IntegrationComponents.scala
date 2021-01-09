@@ -6,13 +6,15 @@ import io.adamnfish.pokerdot.TestDates
 import io.adamnfish.pokerdot.logic.Utils
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.persistence.DynamoDb
-import io.adamnfish.pokerdot.services.{Database, Messaging}
+import io.adamnfish.pokerdot.services.{Database, Messaging, Rng}
 import io.circe.{Encoder, Json, parser}
 import io.circe.generic.semiauto.deriveEncoder
 import org.scalactic.source.Position
 import org.scalatest.exceptions.TestFailedException
 import org.scanamo.LocalDynamoDB
 import zio.IO
+
+import scala.util.Random
 
 
 trait IntegrationComponents {
@@ -23,6 +25,10 @@ trait IntegrationComponents {
     val gameTableName = s"games-$randomSuffix"
     val playerTableName = s"players-$randomSuffix"
     val testDb = new DynamoDb(client, gameTableName, playerTableName)
+    val testRng = new Rng {
+      override def randomState(): Long = 0
+      override def nextState(state: Long): Long = new Random(state).nextLong()
+    }
 
     LocalDynamoDB.withTable(client)(gameTableName)("gameCode" -> S, "gameId" -> S) {
       LocalDynamoDB.withTable(client)(playerTableName)("gameId" -> S, "playerId" -> S) {
@@ -39,6 +45,7 @@ trait IntegrationComponents {
             }
           },
           TestDates,
+          testRng,
         )
         f(addressToContext, testDb)
       }

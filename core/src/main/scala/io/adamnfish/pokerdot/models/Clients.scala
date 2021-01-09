@@ -158,12 +158,14 @@ case class Ping(
 case class Wake(
 ) extends Request
 
-
-case class Response[M <: Message](
+// Variance is required because advancePhase returns different messages depending on the phase
+// this is probably a sign that the advancePhase endpoint should be split up
+case class Response[+M <: Message](
   messages: Map[PlayerAddress, M],
 )
 
 // Data sent to clients
+// TODO: consider a way to show hole cards during all-in when players can no longer act
 sealed trait Message extends Product
 case class Welcome(
   playerKey: PlayerKey,

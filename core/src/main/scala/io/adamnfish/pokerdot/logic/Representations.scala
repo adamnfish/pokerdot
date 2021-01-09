@@ -53,8 +53,12 @@ object Representations {
     )
   }
 
-  def allPlayerDbs(game: Game): List[PlayerDb] = {
-    game.players.map(playerToDb)
+  def allPlayerDbs(players: List[Player]): List[PlayerDb] = {
+    players.map(playerToDb)
+  }
+
+  def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): List[PlayerDb] = {
+    allPlayerDbs(players.filter(p => allowlist.contains(p.playerId)))
   }
 
   def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failures, Game] = {
@@ -67,7 +71,7 @@ object Representations {
         .fold[Either[Failures, Option[PlayerDb]]](Right(None)) { playerId =>
           lookupPlayerDb(gameDb.gameId, playerDbs)(playerId).map(Some(_))
         }
-      round = Play.generateRound(gameDb.phase).value(gameDb.seed)
+      round = Play.generateRound(gameDb.phase, gameDb.seed)
     } yield {
       Game(
         gameId = GameId(gameDb.gameId),
@@ -185,7 +189,7 @@ object Representations {
           flop3 = round.flop3,
           turn = round.turn,
           river = round.river,
-          holes = Play.holes(players)
+          holes = Play.lookupHoles(players)
         )
     }
   }

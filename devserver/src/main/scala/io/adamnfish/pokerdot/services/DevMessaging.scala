@@ -1,14 +1,10 @@
-package io.adamnfish.pokerdot
+package io.adamnfish.pokerdot.services
 
-import io.adamnfish.pokerdot.logic.Utils.Attempt
-import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, Message, PlayerAddress, Serialisation}
-import io.adamnfish.pokerdot.services.Messaging
+import io.adamnfish.pokerdot.models._
 import io.javalin.websocket.WsContext
 import zio.IO
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext
-import scala.util.control.NonFatal
 
 
 class DevMessaging extends Messaging {

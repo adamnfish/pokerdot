@@ -13,7 +13,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues {
   "games" - {
     "round trips a round's cards correctly" in {
-      val game = newGame("game name", trackStacks = false, Dates).value(1)
+      val game = newGame("game name", trackStacks = false, Dates, 1)
       val gameDb = gameToDb(game)
       val reconstructedGame = gameFromDb(gameDb, Nil).value
       reconstructedGame.round shouldEqual game.round

@@ -1,4 +1,4 @@
-package io.adamnfish.pokerdot
+package io.adamnfish.pokerdot.services
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType._

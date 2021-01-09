@@ -2,9 +2,8 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, playerWinnings, potWinnings, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
+import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateSuits, findDuplicates, flush, fourOfAKind, fullHouse, highCard, pair, playerWinnings, winnings, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.utils.Rng
 import io.adamnfish.pokerdot.utils.IntHelpers.abs
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
@@ -114,12 +113,29 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     val p3Id = PlayerId("p3-id")
     val p4Id = PlayerId("p4-id")
     val playerOrder = List(p1Id, p2Id, p3Id, p4Id)
+    val p1Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Ten of Hearts)
+    val p2Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Two of Hearts)
+    val p3Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Three of Hearts)
+    val p4Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Four of Hearts)
+    val playerHands = List(p1Id -> p1Hand, p2Id -> p2Hand, p3Id -> p3Hand, p4Id -> p4Hand)
+
+    "uses correct hand for each player" in {
+      playerWinnings(
+        List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 100,
+        p2Id -> 0,
+        p3Id -> 0,
+        p4Id -> 0,
+      )
+    }
 
     "pays out single winner from single pot" in {
       playerWinnings(
         List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
-        0, playerOrder
-      ) shouldEqual Map(
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
         p1Id -> 100,
         p2Id -> 0,
         p3Id -> 0,
@@ -133,8 +149,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id)),
           PotWinnings(50, Set(p1Id, p2Id, p3Id), Set(p1Id)),
         ),
-        0, playerOrder
-      ) shouldEqual Map(
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
         p1Id -> 150,
         p2Id -> 0,
         p3Id -> 0,
@@ -148,8 +164,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id)),
           PotWinnings(50, Set(p1Id, p2Id, p3Id), Set(p2Id)),
         ),
-        0, playerOrder
-      ) shouldEqual Map(
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
         p1Id -> 100,
         p2Id -> 50,
         p3Id -> 0,
@@ -162,8 +178,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         List(
           PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
         ),
-        0, playerOrder
-      ) shouldEqual Map(
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
         p1Id -> 50,
         p2Id -> 50,
         p3Id -> 0,
@@ -176,8 +192,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         List(
           PotWinnings(99, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p3Id)),
         ),
-        0, playerOrder
-      ) shouldEqual Map(
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
         p1Id -> 33,
         p2Id -> 33,
         p3Id -> 33,
@@ -190,8 +206,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         List(
           PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p3Id, p4Id)),
         ),
-        0, playerOrder
-      ) shouldEqual Map(
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
         p1Id -> 25,
         p2Id -> 25,
         p3Id -> 25,
@@ -205,10 +221,10 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           List(
             PotWinnings(51, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
           ),
-          0, playerOrder
-        ) shouldEqual Map(
-          p1Id -> 25,
+          0, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
           p2Id -> 26,
+          p1Id -> 25,
           p3Id -> 0,
           p4Id -> 0,
         )
@@ -219,8 +235,8 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           List(
             PotWinnings(51, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
           ),
-          1, playerOrder
-        ) shouldEqual Map(
+          1, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
           p1Id -> 26,
           p2Id -> 25,
           p3Id -> 0,
@@ -233,12 +249,12 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           List(
             PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
           ),
-          0, playerOrder
-        ) shouldEqual Map(
-          p1Id -> 20,
+          0, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
           p2Id -> 21,
-          p3Id -> 0,
           p4Id -> 21,
+          p1Id -> 20,
+          p3Id -> 0,
         )
       }
 
@@ -247,12 +263,12 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           List(
             PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
           ),
-          1, playerOrder
-        ) shouldEqual Map(
+          1, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
           p1Id -> 21,
+          p4Id -> 21,
           p2Id -> 20,
           p3Id -> 0,
-          p4Id -> 21,
         )
       }
 
@@ -261,159 +277,135 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           List(
             PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
           ),
-          2, playerOrder
-        ) shouldEqual Map(
+          2, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
           p1Id -> 21,
           p2Id -> 21,
-          p3Id -> 0,
           p4Id -> 20,
+          p3Id -> 0,
         )
       }
     }
   }
 
-  "potWinnings" - {
+  "winnings" - {
     // The simple cases handle the vast majority of games.
     // The edge cases get box-of-birds-mad, and need to be handled as well.
     // There are some detailed comments in the code
 
     val gameId = GameId("game-id")
-    val round = Round(Showdown,
-        Ace of Hearts, // burnt
-      King of Clubs, Queen of Diamonds, Jack of Spades, // flop
-        Ten of Hearts, // burnt
-      Nine of Clubs, // turn
-        Eight of Diamonds, // burnt
-      Seven of Hearts, // river
-    )
 
-    def testPlayer(pot: Int, card1: Card, card2: Card, id: String, folded: Boolean = false): Player = {
-      Player(
-        gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
-        pot = pot, 0, false,
-        folded = folded, false,
-        hole = Some(Hole(card1, card2)), false
-      )
-    }
-    def bustedPlayer(id: String): Player = {
-      Player(
-        gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
-        pot = 0, 0, false, folded = false,
-        busted = true,
-        hole = None, false
+    def testPlayerHand(pot: Int, card1: Card, card2: Card, id: String, folded: Boolean = false): PlayerHand = {
+      PlayerHand(
+        Player(
+          gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
+          pot = pot, 0, false,
+          folded = folded, false,
+          hole = Some(Hole(card1, card2)), false
+        ),
+        bestHand(card1, card2,
+          // community cards
+          King of Clubs, Queen of Diamonds, Jack of Spades, Nine of Clubs, Seven of Hearts
+        )
       )
     }
 
     "for simple cases" - {
       "two players involved, clear winner" in {
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "1")
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "2")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "1")
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "2")
 
-        potWinnings(round, List(playerPair, playerHighCard)) shouldEqual List(
+        winnings(List(playerPair, playerHighCard)) shouldEqual List(
           PotWinnings(
             potSize = 100,
-            participants = Set(playerPair.playerId, playerHighCard.playerId),
-            winners = Set(playerPair.playerId)
+            participants = Set(playerPair.player.playerId, playerHighCard.player.playerId),
+            winners = Set(playerPair.player.playerId)
           )
         )
       }
 
       "three players involved, clear winner" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerTrips = testPlayer(50, Seven of Clubs, Seven of Hearts, "3")
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayerHand(50, Seven of Clubs, Seven of Hearts, "3")
 
-        potWinnings(round, List(playerPair, playerHighCard, playerTrips)) shouldEqual List(
+        winnings(List(playerPair, playerHighCard, playerTrips)) shouldEqual List(
           PotWinnings(
             potSize = 150,
-            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
-            winners = Set(playerTrips.playerId)
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId, playerTrips.player.playerId),
+            winners = Set(playerTrips.player.playerId)
           )
         )
       }
 
       "a player folded" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerTrips = testPlayer(50, Seven of Clubs, Seven of Hearts, "3")
-        val foldedPlayer = testPlayer(25, Two of Hearts, Four of Diamonds, "4", folded = true)
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayerHand(50, Seven of Clubs, Seven of Hearts, "3")
+        val foldedPlayer = testPlayerHand(25, Two of Hearts, Four of Diamonds, "4", folded = true)
 
-        potWinnings(round, List(playerPair, playerHighCard, playerTrips, foldedPlayer)) shouldEqual List(
+        winnings(List(playerPair, playerHighCard, playerTrips, foldedPlayer)) shouldEqual List(
           PotWinnings(
             potSize = 175,
-            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
-            winners = Set(playerTrips.playerId)
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId, playerTrips.player.playerId),
+            winners = Set(playerTrips.player.playerId)
           )
         )
       }
 
       "multiple players folded" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val foldedPlayer = testPlayer(25, Two of Hearts, Four of Diamonds, "4", folded = true)
-        val foldedPlayer2 = testPlayer(25, Two of Spades, Four of Clubs, "4", folded = true)
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val foldedPlayer = testPlayerHand(25, Two of Hearts, Four of Diamonds, "4", folded = true)
+        val foldedPlayer2 = testPlayerHand(25, Two of Spades, Four of Clubs, "4", folded = true)
 
-        potWinnings(round, List(playerPair, playerHighCard, foldedPlayer, foldedPlayer2)) shouldEqual List(
+        winnings(List(playerPair, playerHighCard, foldedPlayer, foldedPlayer2)) shouldEqual List(
           PotWinnings(
             potSize = 150,
-            participants = Set(playerHighCard.playerId, playerPair.playerId),
-            winners = Set(playerPair.playerId)
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId),
+            winners = Set(playerPair.player.playerId)
           )
         )
       }
 
       "only one player remains" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val foldedPlayer1 = testPlayer(50, Three of Spades, Four of Hearts, "2", folded = true)
-        val foldedPlayer2 = testPlayer(25, Two of Hearts, Four of Diamonds, "4", folded = true)
-        val foldedPlayer3 = testPlayer(25, Two of Spades, Four of Clubs, "4", folded = true)
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val foldedPlayer1 = testPlayerHand(50, Three of Spades, Four of Hearts, "2", folded = true)
+        val foldedPlayer2 = testPlayerHand(25, Two of Hearts, Four of Diamonds, "4", folded = true)
+        val foldedPlayer3 = testPlayerHand(25, Two of Spades, Four of Clubs, "4", folded = true)
 
-        potWinnings(round, List(playerHighCard, foldedPlayer1, foldedPlayer2, foldedPlayer3)) shouldEqual List(
+        winnings(List(playerHighCard, foldedPlayer1, foldedPlayer2, foldedPlayer3)) shouldEqual List(
           PotWinnings(
             potSize = 150,
-            participants = Set(playerHighCard.playerId),
-            winners = Set(playerHighCard.playerId)
+            participants = Set(playerHighCard.player.playerId),
+            winners = Set(playerHighCard.player.playerId)
           )
         )
       }
 
       "if player with strongest hand folds, they do not win" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val foldedPlayerTrips = testPlayer(25, Seven of Clubs, Seven of Hearts, "3", folded = true)
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val foldedPlayerTrips = testPlayerHand(25, Seven of Clubs, Seven of Hearts, "3", folded = true)
 
-        potWinnings(round, List(playerPair, playerHighCard, foldedPlayerTrips)) shouldEqual List(
+        winnings(List(playerPair, playerHighCard, foldedPlayerTrips)) shouldEqual List(
           PotWinnings(
             potSize = 125,
-            participants = Set(playerHighCard.playerId, playerPair.playerId),
-            winners = Set(playerPair.playerId)
-          )
-        )
-      }
-
-      "unaffected by players out the game (busted)" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerBusted = bustedPlayer("3")
-
-        potWinnings(round, List(playerPair, playerHighCard, playerBusted)) shouldEqual List(
-          PotWinnings(
-            potSize = 100,
-            participants = Set(playerHighCard.playerId, playerPair.playerId),
-            winners = Set(playerPair.playerId)
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId),
+            winners = Set(playerPair.player.playerId)
           )
         )
       }
 
       "heads up, player folds" in {
-        val playerBlind = testPlayer(1, King of Spades, Four of Hearts, "1")
-        val playerFold = testPlayer(0, Five of Spades, Four of Clubs, "2", folded = true)
+        val playerBlind = testPlayerHand(1, King of Spades, Four of Hearts, "1")
+        val playerFold = testPlayerHand(0, Five of Spades, Four of Clubs, "2", folded = true)
 
-        potWinnings(round, List(playerBlind, playerFold)) shouldEqual List(
+        winnings(List(playerBlind, playerFold)) shouldEqual List(
           PotWinnings(
             potSize = 1,
-            participants = Set(playerBlind.playerId),
-            winners = Set(playerBlind.playerId)
+            participants = Set(playerBlind.player.playerId),
+            winners = Set(playerBlind.player.playerId)
           )
         )
       }
@@ -421,30 +413,30 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     "for split pots" - {
       "two players split a pot" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair1 = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerPair2 = testPlayer(50, King of Diamonds, Four of Spades, "3")
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerPair1 = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val playerPair2 = testPlayerHand(50, King of Diamonds, Four of Spades, "3")
 
-        potWinnings(round, List(playerHighCard, playerPair1, playerPair2)) shouldEqual List(
+        winnings(List(playerHighCard, playerPair1, playerPair2)) shouldEqual List(
           PotWinnings(
             potSize = 150,
-            participants = Set(playerHighCard.playerId, playerPair1.playerId, playerPair2.playerId),
-            winners = Set(playerPair1.playerId, playerPair2.playerId)
+            participants = Set(playerHighCard.player.playerId, playerPair1.player.playerId, playerPair2.player.playerId),
+            winners = Set(playerPair1.player.playerId, playerPair2.player.playerId)
           )
         )
       }
 
       "three players split a pot" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Three of Clubs, "1")
-        val playerPair1 = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerPair2 = testPlayer(50, King of Diamonds, Four of Spades, "3")
-        val playerPair3 = testPlayer(50, King of Hearts, Four of Clubs, "4")
+        val playerHighCard = testPlayerHand(50, Five of Spades, Three of Clubs, "1")
+        val playerPair1 = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val playerPair2 = testPlayerHand(50, King of Diamonds, Four of Spades, "3")
+        val playerPair3 = testPlayerHand(50, King of Hearts, Four of Clubs, "4")
 
-        potWinnings(round, List(playerHighCard, playerPair1, playerPair2, playerPair3)) shouldEqual List(
+        winnings(List(playerHighCard, playerPair1, playerPair2, playerPair3)) shouldEqual List(
           PotWinnings(
             potSize = 200,
-            participants = Set(playerHighCard.playerId, playerPair1.playerId, playerPair2.playerId, playerPair3.playerId),
-            winners = Set(playerPair1.playerId, playerPair2.playerId, playerPair3.playerId)
+            participants = Set(playerHighCard.player.playerId, playerPair1.player.playerId, playerPair2.player.playerId, playerPair3.player.playerId),
+            winners = Set(playerPair1.player.playerId, playerPair2.player.playerId, playerPair3.player.playerId)
           )
         )
       }
@@ -452,109 +444,109 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     "when a player is all-in (side-pots)" - {
       "winning player was all-in, second place gets the balance" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerTrips = testPlayer(10, Seven of Clubs, Seven of Hearts, "3")
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayerHand(10, Seven of Clubs, Seven of Hearts, "3")
 
-        potWinnings(round, List(playerHighCard, playerPair, playerTrips)) shouldEqual List(
+        winnings(List(playerHighCard, playerPair, playerTrips)) shouldEqual List(
           PotWinnings(
             potSize = 80,
-            participants = Set(playerHighCard.playerId, playerPair.playerId),
-            winners = Set(playerPair.playerId),
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId),
+            winners = Set(playerPair.player.playerId),
           ),
           PotWinnings(
             potSize = 30,
-            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
-            winners = Set(playerTrips.playerId),
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId, playerTrips.player.playerId),
+            winners = Set(playerTrips.player.playerId),
           ),
         )
       }
 
       "all-in player loses, another player can win whole balance" in {
-        val playerHighCard = testPlayer(10, Five of Spades, Four of Clubs, "1")
-        val playerPair = testPlayer(50, King of Spades, Four of Hearts, "2")
-        val playerTrips = testPlayer(50, Seven of Clubs, Seven of Hearts, "3")
+        val playerHighCard = testPlayerHand(10, Five of Spades, Four of Clubs, "1")
+        val playerPair = testPlayerHand(50, King of Spades, Four of Hearts, "2")
+        val playerTrips = testPlayerHand(50, Seven of Clubs, Seven of Hearts, "3")
 
-        potWinnings(round, List(playerHighCard, playerPair, playerTrips)) shouldEqual List(
+        winnings(List(playerHighCard, playerPair, playerTrips)) shouldEqual List(
           PotWinnings(
             potSize = 80,
-            participants = Set(playerPair.playerId, playerTrips.playerId),
-            winners = Set(playerTrips.playerId),
+            participants = Set(playerPair.player.playerId, playerTrips.player.playerId),
+            winners = Set(playerTrips.player.playerId),
           ),
           PotWinnings(
             potSize = 30,
-            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
-            winners = Set(playerTrips.playerId),
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId, playerTrips.player.playerId),
+            winners = Set(playerTrips.player.playerId),
           ),
         )
       }
 
       "side-pot gets split between 2 players, balance goes to a lesser winner" in {
-        val playerHighCard = testPlayer(50, Five of Spades, Four of Clubs, "1")
-        val playerHigherCard = testPlayer(50, Ace of Spades, Four of Clubs, "2")
-        val playerPair1 = testPlayer(10, King of Spades, Four of Hearts, "3")
-        val playerPair2 = testPlayer(10, King of Diamonds, Four of Spades, "4")
+        val playerHighCard = testPlayerHand(50, Five of Spades, Four of Clubs, "1")
+        val playerHigherCard = testPlayerHand(50, Ace of Spades, Four of Clubs, "2")
+        val playerPair1 = testPlayerHand(10, King of Spades, Four of Hearts, "3")
+        val playerPair2 = testPlayerHand(10, King of Diamonds, Four of Spades, "4")
 
-        potWinnings(round, List(playerHighCard, playerHigherCard, playerPair1, playerPair2)) shouldEqual List(
+        winnings(List(playerHighCard, playerHigherCard, playerPair1, playerPair2)) shouldEqual List(
           PotWinnings(
             potSize = 80,
-            participants = Set(playerHighCard.playerId, playerHigherCard.playerId),
-            winners = Set(playerHigherCard.playerId),
+            participants = Set(playerHighCard.player.playerId, playerHigherCard.player.playerId),
+            winners = Set(playerHigherCard.player.playerId),
           ),
           PotWinnings(
             potSize = 40,
-            participants = Set(playerHighCard.playerId, playerHigherCard.playerId, playerPair1.playerId, playerPair2.playerId),
-            winners = Set(playerPair1.playerId, playerPair2.playerId),
+            participants = Set(playerHighCard.player.playerId, playerHigherCard.player.playerId, playerPair1.player.playerId, playerPair2.player.playerId),
+            winners = Set(playerPair1.player.playerId, playerPair2.player.playerId),
           ),
         )
       }
 
       "side-pot gets split between 2 players, balance is split between 2 tied lesser players" in {
-        val playerHighCard1 = testPlayer(50, Ace of Spades, Four of Diamonds, "1")
-        val playerHighCard2 = testPlayer(50, Ace of Diamonds, Four of Clubs, "2")
-        val playerPair1 = testPlayer(20, King of Spades, Four of Hearts, "3")
-        val playerPair2 = testPlayer(20, King of Diamonds, Four of Spades, "4")
+        val playerHighCard1 = testPlayerHand(50, Ace of Spades, Four of Diamonds, "1")
+        val playerHighCard2 = testPlayerHand(50, Ace of Diamonds, Four of Clubs, "2")
+        val playerPair1 = testPlayerHand(20, King of Spades, Four of Hearts, "3")
+        val playerPair2 = testPlayerHand(20, King of Diamonds, Four of Spades, "4")
 
-        potWinnings(round, List(playerHighCard1, playerHighCard2, playerPair1, playerPair2)) shouldEqual List(
+        winnings(List(playerHighCard1, playerHighCard2, playerPair1, playerPair2)) shouldEqual List(
           PotWinnings(
             potSize = 60,
-            participants = Set(playerHighCard1.playerId, playerHighCard2.playerId),
-            winners = Set(playerHighCard1.playerId, playerHighCard2.playerId),
+            participants = Set(playerHighCard1.player.playerId, playerHighCard2.player.playerId),
+            winners = Set(playerHighCard1.player.playerId, playerHighCard2.player.playerId),
           ),
           PotWinnings(
             potSize = 80,
-            participants = Set(playerHighCard1.playerId, playerHighCard2.playerId, playerPair1.playerId, playerPair2.playerId),
-            winners = Set(playerPair1.playerId, playerPair2.playerId),
+            participants = Set(playerHighCard1.player.playerId, playerHighCard2.player.playerId, playerPair1.player.playerId, playerPair2.player.playerId),
+            winners = Set(playerPair1.player.playerId, playerPair2.player.playerId),
           ),
         )
       }
 
       "smallest all-in wins, next-smallest all-in is second, third-smallest all-in is third, fourth smallest all-in gets balance" in {
-        val playerHighCard = testPlayer(40, Ace of Spades, Four of Diamonds, "1")
-        val playerPair = testPlayer(30, Jack of Hearts, Two of Diamonds, "2")
-        val playerTrips = testPlayer(20, King of Spades, King of Diamonds, "3")
-        val playerStraight = testPlayer(10, Ten of Diamonds, Three of Spades, "4")
+        val playerHighCard = testPlayerHand(40, Ace of Spades, Four of Diamonds, "1")
+        val playerPair = testPlayerHand(30, Jack of Hearts, Two of Diamonds, "2")
+        val playerTrips = testPlayerHand(20, King of Spades, King of Diamonds, "3")
+        val playerStraight = testPlayerHand(10, Ten of Diamonds, Three of Spades, "4")
 
-        potWinnings(round, List(playerHighCard, playerPair, playerTrips, playerStraight)) shouldEqual List(
+        winnings(List(playerHighCard, playerPair, playerTrips, playerStraight)) shouldEqual List(
           PotWinnings(
             potSize = 10,
-            participants = Set(playerHighCard.playerId),
-            winners = Set(playerHighCard.playerId),
+            participants = Set(playerHighCard.player.playerId),
+            winners = Set(playerHighCard.player.playerId),
           ),
           PotWinnings(
             potSize = 20,
-            participants = Set(playerHighCard.playerId, playerPair.playerId),
-            winners = Set(playerPair.playerId),
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId),
+            winners = Set(playerPair.player.playerId),
           ),
           PotWinnings(
             potSize = 30,
-            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId),
-            winners = Set(playerTrips.playerId),
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId, playerTrips.player.playerId),
+            winners = Set(playerTrips.player.playerId),
           ),
           PotWinnings(
             potSize = 40,
-            participants = Set(playerHighCard.playerId, playerPair.playerId, playerTrips.playerId, playerStraight.playerId),
-            winners = Set(playerStraight.playerId),
+            participants = Set(playerHighCard.player.playerId, playerPair.player.playerId, playerTrips.player.playerId, playerStraight.player.playerId),
+            winners = Set(playerStraight.player.playerId),
           ),
         )
       }
@@ -565,13 +557,13 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         "2 players" in {
           forAll { (rawP1Pot: Int, rawP2Pot: Int, seed: Long) =>
             val (p1Pot, p2Pot) = (abs(rawP1Pot), abs(rawP2Pot))
-            val deck = Rng.shuffledDeck().value(seed)
+            val deck = Play.deckOrder(seed)
             val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: _ = deck
             val round = Round(Showdown, c1, c2, c3, c4, c5, c6, c7, c8)
-            val player1 = testPlayer(p1Pot, c9, c10, "1")
-            val player2 = testPlayer(p2Pot, c11, c12, "2")
+            val player1 = testPlayerHand(p1Pot, c9, c10, "1")
+            val player2 = testPlayerHand(p2Pot, c11, c12, "2")
 
-            val results = potWinnings(round, List(player1, player2))
+            val results = winnings(List(player1, player2))
             results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot)
           }
         }
@@ -579,14 +571,14 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         "3 players" in {
           forAll { (rawP1Pot: Int, rawP2Pot: Int, rawP3Pot: Int, seed: Long) =>
             val (p1Pot, p2Pot, p3Pot) = (abs(rawP1Pot), abs(rawP2Pot), abs(rawP3Pot))
-            val deck = Rng.shuffledDeck().value(seed)
+            val deck = Play.deckOrder(seed)
             val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: _ = deck
             val round = Round(Showdown, c1, c2, c3, c4, c5, c6, c7, c8)
-            val player1 = testPlayer(p1Pot, c9, c10, "1")
-            val player2 = testPlayer(p2Pot, c11, c12, "2")
-            val player3 = testPlayer(p3Pot, c13, c14, "3")
+            val player1 = testPlayerHand(p1Pot, c9, c10, "1")
+            val player2 = testPlayerHand(p2Pot, c11, c12, "2")
+            val player3 = testPlayerHand(p3Pot, c13, c14, "3")
 
-            val results = potWinnings(round, List(player1, player2, player3))
+            val results = winnings(List(player1, player2, player3))
             results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot)
           }
         }
@@ -594,15 +586,15 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         "4 players" in {
           forAll { (rawP1Pot: Int, rawP2Pot: Int, rawP3Pot: Int, rawP4Pot: Int, seed: Long) =>
             val (p1Pot, p2Pot, p3Pot, p4Pot) = (abs(rawP1Pot), abs(rawP2Pot), abs(rawP3Pot), abs(rawP4Pot))
-            val deck = Rng.shuffledDeck().value(seed)
+            val deck = Play.deckOrder(seed)
             val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: c15 :: c16 :: _ = deck
             val round = Round(Showdown, c1, c2, c3, c4, c5, c6, c7, c8)
-            val player1 = testPlayer(p1Pot, c9, c10, "1")
-            val player2 = testPlayer(p2Pot, c11, c12, "2")
-            val player3 = testPlayer(p3Pot, c13, c14, "3")
-            val player4 = testPlayer(p4Pot, c15, c16, "4")
+            val player1 = testPlayerHand(p1Pot, c9, c10, "1")
+            val player2 = testPlayerHand(p2Pot, c11, c12, "2")
+            val player3 = testPlayerHand(p3Pot, c13, c14, "3")
+            val player4 = testPlayerHand(p4Pot, c15, c16, "4")
 
-            val results = potWinnings(round, List(player1, player2, player3, player4))
+            val results = winnings(List(player1, player2, player3, player4))
             results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot + p4Pot)
           }
         }

@@ -61,11 +61,7 @@ object Responses {
   }
 
   def ok(playerAddress: PlayerAddress): Response[Status] = {
-    Response(
-      Map(
-        playerAddress -> Status("ok")
-      )
-    )
+    justRespond(Status("ok"), playerAddress)
   }
 
   def tbd[A <: Message](): Response[A] = {

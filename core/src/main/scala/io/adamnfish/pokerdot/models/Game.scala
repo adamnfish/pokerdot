@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.models
 
 import java.time.ZonedDateTime
-import io.adamnfish.pokerdot.services.{Database, Dates, Messaging}
+import io.adamnfish.pokerdot.services.{Database, Dates, Messaging, Rng}
 
 
 case class Game(
@@ -69,4 +69,5 @@ case class AppContext(
   db: Database,
   messaging: Messaging,
   dates: Dates,
+  rng: Rng,
 )

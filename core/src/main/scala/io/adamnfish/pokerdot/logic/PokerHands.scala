@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, PlayerHand, PlayerId, PotWinnings, Queen, Rank, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
+import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Flush, Four, FourOfAKind, FullHouse, Hand, Hearts, HighCard, Hole, Jack, King, Nine, Pair, Player, PlayerHand, PlayerId, PlayerWinnings, PotWinnings, Queen, Rank, Round, Seven, Six, Spades, Straight, StraightFlush, Suit, Ten, Three, ThreeOfAKind, Two, TwoPair}
 
 
 object PokerHands {
@@ -11,6 +11,24 @@ object PokerHands {
   val allSuits = List(
     Clubs, Diamonds, Spades, Hearts
   )
+
+  // TODO: probably include folded players, as long as they aren't eligible for wins
+  //       it would allow rabbit chasing
+  def bestHands(round: Round, players: List[Player]): List[PlayerHand] = {
+    for {
+      player <- players
+        .filterNot(p => p.busted || p.folded)
+      hole <- player.hole
+    } yield PlayerHand(player, bestHand(
+      round.flop1,
+      round.flop2,
+      round.flop3,
+      round.turn,
+      round.river,
+      hole.card1,
+      hole.card2,
+    ))
+  }
 
   /**
    * Calculate the winnings for each player.
@@ -24,22 +42,7 @@ object PokerHands {
    * We check for results on a pot-by-pot basis, at each level selecting the
    * strongest hand that is eligible.
    */
-  def potWinnings(round: Round, players: List[Player]): List[PotWinnings] = {
-    val playerHands =
-      for {
-        player <- players
-          .filterNot(_.busted)
-        hole <- player.hole
-      } yield PlayerHand(player, bestHand(
-        round.flop1,
-        round.flop2,
-        round.flop3,
-        round.turn,
-        round.river,
-        hole.card1,
-        hole.card2,
-      ))
-
+  def winnings(playerHands: List[PlayerHand]): List[PotWinnings] = {
     // All players, arranged by hand strength.
     // It's List[List[...]] because equal hand strengths should be tied
     val playersByStrength = playerHands
@@ -52,8 +55,8 @@ object PokerHands {
 
     // distinct player contributions in ascending order give the side pots with the main (largest) pot last
     // typically there will only be a single entry here, which is the main pot.
-    // If one or more players are all in then their pot contribution will differ, creating side pots.
-    val potLevels = players
+    // If one or more players are all-in then their pot contribution will differ, creating side pots.
+    val potLevels = playerHands.map(_.player)
       // folded players can't win, so their contributions won't create a pot
       .filterNot(_.folded)
       .map(_.pot)
@@ -143,8 +146,8 @@ object PokerHands {
     potWinnings
   }
 
-  def playerWinnings(potsWinnings: List[PotWinnings], button: Int, playerOrder: List[PlayerId]): Map[PlayerId, Int] = {
-    potsWinnings.foldRight[Map[PlayerId, Int]](playerOrder.map((_, 0)).toMap) { case (potWinnings, acc) =>
+  def playerWinnings(potsWinnings: List[PotWinnings], button: Int, playerOrder: List[PlayerId], playerHands: List[(PlayerId, Hand)]): List[PlayerWinnings] = {
+    val playerWinningsAmounts = potsWinnings.foldRight[Map[PlayerId, Int]](playerOrder.map((_, 0)).toMap) { case (potWinnings, acc) =>
       val splitAmount = potWinnings.potSize / potWinnings.winners.size
       val remainder = potWinnings.potSize % potWinnings.winners.size
       val winningPlayers = playerOrder.filter(potWinnings.winners.contains)
@@ -164,6 +167,11 @@ object PokerHands {
         )
       }
     }
+    playerHands.reverse.map { case (playerId, hand) =>
+      PlayerWinnings(playerId, hand,
+        playerWinningsAmounts.getOrElse(playerId, 0)
+      )
+    }.sortBy(_.winnings).reverse
   }
 
   /**

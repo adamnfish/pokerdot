@@ -3,7 +3,6 @@ package io.adamnfish.pokerdot.models
 import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.models.Serialisation.parseUpdateTimerRequest
 import org.scalatest.freespec.AnyFreeSpec
-import io.circe.parser.parse
 import org.scalatest.matchers.should.Matchers
 
 

@@ -1,38 +1,33 @@
 package io.adamnfish.pokerdot.logic
 
-import java.util.UUID
-import io.adamnfish.pokerdot.logic.Play.{dealHoles, generateRound}
+import io.adamnfish.pokerdot.logic.Play.dealHoles
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.Dates
-import io.adamnfish.pokerdot.utils.Rng
-import io.adamnfish.pokerdot.utils.Rng.Seed
+import io.adamnfish.pokerdot.services.{Dates, Rng}
+
+import java.util.UUID
 
 
 /**
  * Game implementation functionality.
  */
 object Games {
-  def newGame(gameName: String, trackStacks: Boolean, dates: Dates): Seed[Game] = {
-    for {
-      gameSeed <- Rng.next
-      round <- generateRound(PreFlop)
-    } yield {
-      Game(
-        gameId = GameId(UUID.randomUUID().toString),
-        expiry = dates.expires(),
-        gameName = gameName,
-        players = Nil,
-        spectators = Nil,
-        seed = gameSeed,
-        round = round,
-        inTurn = None,
-        button = 0,
-        started = false,
-        startTime = dates.now(),
-        trackStacks = trackStacks,
-        timer = None,
-      )
-    }
+  def newGame(gameName: String, trackStacks: Boolean, dates: Dates, initialState: Long): Game = {
+    val round = Play.generateRound(PreFlop, initialState)
+    Game(
+      gameId = GameId(UUID.randomUUID().toString),
+      expiry = dates.expires(),
+      gameName = gameName,
+      players = Nil,
+      spectators = Nil,
+      seed = initialState,
+      round = round,
+      inTurn = None,
+      button = 0,
+      started = false,
+      startTime = dates.now(),
+      trackStacks = trackStacks,
+      timer = None,
+    )
   }
 
   def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, dates: Dates): Player = {
@@ -78,7 +73,6 @@ object Games {
     gameId.gid.take(4)
   }
 
-
   def normaliseGameCode(joinGame: JoinGame): JoinGame = {
     joinGame.copy(
       gameCode = joinGame.gameCode
@@ -88,31 +82,25 @@ object Games {
     )
   }
 
-  def start(game: Game, now: Long, timerLevels: List[TimerLevel], startingStacks: Option[Int]): Seed[Game] = {
-    dealHoles(game.players).map { players =>
-      game.copy(
-        players = players,
-        started = true,
-        startTime = now,
-        trackStacks = startingStacks.isDefined,
-        button = 0,
-        timer =
-          if (timerLevels.isEmpty) {
-            None
-          } else {
-            Some(TimerStatus(now, None, timerLevels))
-          },
-      )
-    }
+  def start(game: Game, now: Long, timerLevels: List[TimerLevel], startingStacks: Option[Int]): Game = {
+    val deck = Play.deckOrder(game.seed)
+    val dealtPlayers = dealHoles(game.players, deck)
+    game.copy(
+      players = dealtPlayers,
+      started = true,
+      startTime = now,
+      trackStacks = startingStacks.isDefined,
+      button = 0,
+      timer =
+        if (timerLevels.isEmpty) {
+          None
+        } else {
+          Some(TimerStatus(now, None, timerLevels))
+        },
+    )
   }
 
-  def advancePhase(game: Game): Either[Failures, (Game, List[Player], List[PotWinnings])] = {
-    // ensure the round is finished
-    // all players are passed, folded, busted
-
-    val activePlayers = game.players.filter { player =>
-      !player.busted && !player.folded
-    }
+  def advancePhase(game: Game, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
     val betAmount = game.players.map(_.bet).max
     val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount))
 
@@ -133,58 +121,82 @@ object Games {
     } else {
       game.round.phase match {
         case PreFlop =>
+          val updatedPlayers = game.players.map(resetPlayerForNextPhase)
           Right(
             game.copy(
               round = game.round.copy(phase = Flop),
-              players = game.players.map(resetPlayerForNextPhase),
+              players = updatedPlayers,
             ),
-            activePlayers,
-            Nil,
+            filteredPlayerIds(updatedPlayers) { player =>
+              !player.busted && !player.folded
+            },
+            None,
           )
         case Flop =>
+          val updatedPlayers = game.players.map(resetPlayerForNextPhase)
           Right(
             game.copy(
               round = game.round.copy(phase = Turn),
-              players = game.players.map(resetPlayerForNextPhase),
+              players = updatedPlayers,
             ),
-            activePlayers,
-            Nil,
+            filteredPlayerIds(updatedPlayers) { player =>
+              !player.busted && !player.folded
+            },
+            None,
           )
         case Turn =>
+          val updatedPlayers = game.players.map(resetPlayerForNextPhase)
           Right(
             game.copy(
               round = game.round.copy(phase = River),
-              players = game.players.map(resetPlayerForNextPhase),
+              players = updatedPlayers,
             ),
-            activePlayers,
-            Nil,
+            filteredPlayerIds(updatedPlayers) { player =>
+              !player.busted && !player.folded
+            },
+            None,
           )
         case River =>
-          val potsWinnings = PokerHands.potWinnings(game.round, game.players)
-          val playersWinnings = PokerHands.playerWinnings(potsWinnings, game.button, game.players.map(_.playerId))
+          val playerHands = PokerHands.bestHands(game.round, game.players)
+          val potsWinnings = PokerHands.winnings(playerHands)
+          val playersWinnings = PokerHands.playerWinnings(potsWinnings, game.button,
+            playerOrder = game.players.map(_.playerId),
+            playerHands = playerHands.map(ph => ph.player.playerId -> ph.hand),
+          )
+          val updatedPlayers = game.players.map(resetPlayerForShowdown(playersWinnings))
           Right(
             game.copy(
               round = game.round.copy(phase = Showdown),
-              players = game.players.map(resetPlayerForShowdown(playersWinnings)),
+              players = updatedPlayers,
             ),
-            activePlayers,
-            potsWinnings
+            filteredPlayerIds(updatedPlayers) { player =>
+              !player.busted && !player.folded
+            },
+            Some((playersWinnings, potsWinnings)),
           )
         case Showdown =>
+          val nextState = rng.nextState(game.seed)
+          val nextDeck = Play.deckOrder(nextState)
+          // finalise player payments, bust players if required, shuffle, deal new cards, set up new round
           Right(
             game.copy(
               round = game.round.copy(phase = PreFlop),
-              players = game.players.map(resetPlayerForNextRound),
+              players = dealHoles(game.players.map(resetPlayerForNextRound), nextDeck),
+              seed = nextState
             ),
-            // between rounds we'll update everyone that's still in the game
+            // between rounds we'll update everyone that's still in the game to deal cards,
             // including players that have folded
-            game.players.filter { player =>
+            filteredPlayerIds(game.players) { player =>
               !player.busted
             },
-            Nil,
+            None,
           )
       }
     }
+  }
+
+  private def filteredPlayerIds(players: List[Player])(pred: Player => Boolean): Set[PlayerId] = {
+    players.filter(pred).map(_.playerId).toSet
   }
 
   /**
@@ -203,22 +215,26 @@ object Games {
    * In the showdown we've updated player stacks, but left their pots intact.
    * This allows the UI to better show the before / after states for the showdown.
    */
-  def resetPlayerForShowdown(playersWinnings: Map[PlayerId, Int])(player: Player): Player = {
+  def resetPlayerForShowdown(playersWinnings: List[PlayerWinnings])(player: Player): Player = {
     resetPlayerForNextPhase(player).copy(
-      stack = player.stack + playersWinnings.getOrElse(player.playerId, 0)
+      stack = player.stack + playersWinnings.find(_.playerId == player.playerId).map(_.winnings).getOrElse(0)
     )
   }
 
   /**
    * As with next phase, this resets the phase state.
    * We're also done with the pots at this point having already updated player stacks before the showdown.
-   * Additionally, with a new round starting we can reset the fold status of all players.
+   * Additionally, with a new round starting we can reset the fold status of all players and bust any players
+   * that have run out of money.
    */
   def resetPlayerForNextRound(player: Player): Player = {
-    resetPlayerForNextPhase(player).copy(
+    val resetPlayer = resetPlayerForNextPhase(player).copy(
       pot = 0,
       folded = false,
     )
+    if (resetPlayer.stack <= 0) {
+      resetPlayer.copy(busted = true)
+    } else resetPlayer
   }
 
   def requireGame(gameDbOpt: Option[GameDb], gid: String): Either[Failures, GameDb] = {
@@ -243,6 +259,16 @@ object Games {
       )
     }
     else Right(())
+  }
+
+  def ensureStarted(game: Game): Either[Failures, Unit] = {
+    if (game.started) Right(())
+    else Left {
+      Failures(
+        "game has not started",
+        "The game has not started",
+      )
+    }
   }
 
   def ensureNoDuplicateScreenName(game: Game, screenName: String): Either[Failures, Unit] = {

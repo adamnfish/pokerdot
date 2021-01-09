@@ -14,23 +14,23 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
   "generateRound" - {
     "generates different cards for different seeds" in {
       forAll { (seed: Long) =>
-        val round1 = generateRound(PreFlop).value(seed)
-        val round2 = generateRound(PreFlop).value(seed + 1)
+        val round1 = generateRound(PreFlop, seed)
+        val round2 = generateRound(PreFlop, seed + 1)
         round1 should not equal round2
       }
     }
 
     "generates the same cards from the same seeds" in {
       forAll { seed: Long =>
-        val round1 = generateRound(PreFlop).value(seed)
-        val round2 = generateRound(PreFlop).value(seed)
+        val round1 = generateRound(PreFlop, seed)
+        val round2 = generateRound(PreFlop, seed)
         round1 shouldEqual round2
       }
     }
 
     "there are no duplicate cards in a generated round" in {
       forAll { seed: Long =>
-        val round = generateRound(PreFlop).value(seed)
+        val round = generateRound(PreFlop, seed)
         val cards = List(round.burn1, round.flop1, round.flop2, round.flop3, round.burn2, round.turn, round.burn3, round.river)
         cards shouldEqual cards.distinct
       }
@@ -52,7 +52,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       val players = List(
         player1, player2, player3
       )
-      holes(players) shouldEqual List(
+      lookupHoles(players) shouldEqual List(
         player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
         player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
         player3.playerId -> Hole(Three of Clubs, Three of Diamonds),
@@ -63,7 +63,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       val players = List(
         player1, player2, player3.copy(busted = true)
       )
-      holes(players) shouldEqual List(
+      lookupHoles(players) shouldEqual List(
         player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
         player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
       )
@@ -73,7 +73,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       val players = List(
         player1, player2, player3.copy(folded = true)
       )
-      holes(players) shouldEqual List(
+      lookupHoles(players) shouldEqual List(
         player1.playerId -> Hole(Ace of Clubs, Ace of Diamonds),
         player2.playerId -> Hole(Two of Clubs, Two of Diamonds),
       )
