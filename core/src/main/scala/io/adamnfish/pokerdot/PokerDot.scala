@@ -86,14 +86,14 @@ object PokerDot {
         "Couldn't find game, is the code correct?",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
-      // player IDs aren't persisted in the game's DB record until the game starts
+      // player/spectator IDs aren't persisted in the game's DB record until the game starts
       // so we patch them in here so we can re-use existing functionality
       gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureNotStarted(game).attempt
       _ <- Games.ensureNotAlreadyPlaying(game.players, appContext.playerAddress).attempt
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName).attempt
-      _ <- Games.ensurePlayerCount(game.players).attempt
+      _ <- Games.ensurePlayerCount(game.players.length).attempt
       player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.dates)
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player)
@@ -123,6 +123,7 @@ object PokerDot {
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureNotStarted(rawGame).attempt
       _ <- Games.ensureHost(rawGame.players, startGame.playerKey).attempt
+      _ <- Games.ensureStartingPlayerCount(rawGame.players.length).attempt
       now = appContext.dates.now()
       startedGame = Games.start(rawGame, now, startGame.timerConfig, startGame.startingStack)
       startedGameDb = Representations.gameToDb(startedGame)
@@ -173,7 +174,7 @@ object PokerDot {
       // fetch game
       // ensure started
       // ensure player key
-      // ensure active player
+      // ensure active player // TODO: allow off-turn checks?
       // ensure check is legal
       // deactivate this player
       // update active player in game
@@ -212,8 +213,8 @@ object PokerDot {
    */
   def advancePhase(requestJson: Json, appContext: AppContext): Attempt[Response[Message]] = {
     for {
-      fold <- extractAdvancePhase(requestJson).attempt
-      maybeGame <- appContext.db.getGame(fold.gameId)
+      advancePhase <- extractAdvancePhase(requestJson).attempt
+      maybeGame <- appContext.db.getGame(advancePhase.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
         s"Cannot start game, game ID not found", "Couldn't find game to start",
       ))
@@ -222,7 +223,7 @@ object PokerDot {
       // fetch game
       _ <- Games.ensureStarted(game).attempt
       // TODO: allow other players / admins?
-      _ <- Games.ensureHost(game.players, fold.playerKey).attempt
+      _ <- Games.ensureHost(game.players, advancePhase.playerKey).attempt
 
       // the logic for advancing rounds is quite complicated!
       advanceResult <- Games.advancePhase(game, appContext.rng).attempt

@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{ActionSummary, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorDb, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.models.{ActionSummary, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorSummary, Turn, TurnSummary}
 
 
 object Representations {
@@ -40,16 +40,27 @@ object Representations {
       busted = player.busted,
       hole = player.hole,
       isHost = player.isHost,
+      isSpectator = false,
     )
   }
 
-  def spectatorToDb(spectator: Spectator): SpectatorDb = {
-    SpectatorDb(
+  def spectatorToDb(spectator: Spectator): PlayerDb = {
+    PlayerDb(
       gameId = spectator.gameId.gid,
       playerId = spectator.playerId.pid,
+      expiry = spectator.expiry,
       playerAddress = spectator.playerAddress.address,
       playerKey = spectator.playerKey.key,
       screenName = spectator.screenName,
+      stack = 0,
+      pot = 0,
+      bet = 0,
+      checked = false,
+      folded = false,
+      busted = false,
+      hole = None,
+      isHost = spectator.isHost,
+      isSpectator = true,
     )
   }
 
@@ -114,6 +125,7 @@ object Representations {
     Spectator(
       gameId = GameId(playerDb.gameId),
       playerId = PlayerId(playerDb.playerId),
+      expiry = playerDb.expiry,
       playerAddress = PlayerAddress(playerDb.playerAddress),
       playerKey = PlayerKey(playerDb.playerKey),
       screenName = playerDb.screenName,

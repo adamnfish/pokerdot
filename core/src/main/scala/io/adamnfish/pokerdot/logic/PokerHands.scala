@@ -552,8 +552,8 @@ object PokerHands {
     suit match {
       case Clubs    => 0
       case Diamonds => 1
-      case Spades   => 2
-      case Hearts   => 3
+      case Hearts   => 2
+      case Spades   => 3
     }
   }
 }

@@ -1,7 +1,5 @@
 package io.adamnfish.pokerdot.models
 
-import java.time.ZonedDateTime
-
 
 case class GameDb(
   gameCode: String, // partition
@@ -35,12 +33,5 @@ case class PlayerDb(
   busted: Boolean,
   hole: Option[Hole],
   isHost: Boolean,
-)
-
-case class SpectatorDb(
-  gameId: String,   // partition
-  playerId: String, // sort
-  playerAddress: String,
-  playerKey: String,
-  screenName: String,
+  isSpectator: Boolean,
 )

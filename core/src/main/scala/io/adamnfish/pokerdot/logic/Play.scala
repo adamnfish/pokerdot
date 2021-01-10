@@ -34,14 +34,16 @@ object Play {
     random.shuffle(Cards.deck)
   }
 
-  // Do not deal to busted players!
+  /**
+   * Deals player cards, skipping the cards that will have already been used for the round
+   */
   def dealHoles(players: List[Player], deck: List[Card]): List[Player] = {
     players.filterNot(_.busted).zipWithIndex.map { case (player, i) =>
       player.copy(
         hole =
           for {
-            c1 <- deck.lift(i + 8)
-            c2 <- deck.lift(i + 9)
+            c1 <- deck.lift((2 * i) + 8)
+            c2 <- deck.lift((2 * i) + 9)
           } yield Hole(c1, c2)
       )
     }

@@ -51,6 +51,20 @@ object Games {
     )
   }
 
+  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, dates: Dates): Spectator = {
+    val playerId = PlayerId(UUID.randomUUID().toString)
+    val playerKey = PlayerKey(UUID.randomUUID().toString)
+    Spectator(
+      gameId = gameId,
+      playerId = playerId,
+      expiry = dates.expires(),
+      playerAddress = playerAddress,
+      playerKey = playerKey,
+      screenName = screenName,
+      isHost = isHost,
+    )
+  }
+
   def updatePlayerAddress(player: Player, playerAddress: PlayerAddress): Player = {
     player.copy(
       playerAddress = playerAddress
@@ -58,14 +72,23 @@ object Games {
   }
 
   def addPlayerIds(gameDb: GameDb, playerDbs: List[PlayerDb]): GameDb = {
+    val playersFromDbs = playerDbs.filterNot(_.isSpectator)
+    val spectatorsFromDbs = playerDbs.filter(_.isSpectator)
     gameDb.copy(
-      playerIds = gameDb.playerIds ++ playerDbs.map(_.playerId)
+      playerIds = gameDb.playerIds ++ playersFromDbs.map(_.playerId),
+      spectatorIds = gameDb.spectatorIds ++ spectatorsFromDbs.map(_.playerId)
     )
   }
 
   def addPlayer(game: Game, player: Player): Game = {
     game.copy(
       players = player :: game.players
+    )
+  }
+
+  def addSpectator(game: Game, spectator: Spectator): Game = {
+    game.copy(
+      spectators = spectator :: game.spectators
     )
   }
 
@@ -85,8 +108,11 @@ object Games {
   def start(game: Game, now: Long, timerLevels: List[TimerLevel], startingStacks: Option[Int]): Game = {
     val deck = Play.deckOrder(game.seed)
     val dealtPlayers = dealHoles(game.players, deck)
+    val dealtPlayersWithInitialStacks = dealtPlayers.map { p =>
+      p.copy(stack = startingStacks.fold(0)(p.stack + _))
+    }
     game.copy(
-      players = dealtPlayers,
+      players = dealtPlayersWithInitialStacks,
       started = true,
       startTime = now,
       trackStacks = startingStacks.isDefined,
@@ -283,8 +309,8 @@ object Games {
       Right(())
   }
 
-  def ensurePlayerCount(players: List[Player]): Either[Failures, Unit] = {
-    if (players.size > 20) {
+  def ensurePlayerCount(n: Int): Either[Failures, Unit] = {
+    if (n >= 20) {
       Left {
         Failures(
           "Max player count exceeded",
@@ -293,6 +319,19 @@ object Games {
       }
     } else {
       Right(())
+    }
+  }
+
+  def ensureStartingPlayerCount(n: Int): Either[Failures, Unit] = {
+    if (n > 1) {
+      Right(())
+    } else {
+      Left {
+        Failures(
+          "Cannot start with one player",
+          "A game requires at least 2 players",
+        )
+      }
     }
   }
 
@@ -323,6 +362,27 @@ object Games {
         Left {
           Failures(
             "Invalid player key",
+            "Couldn't authenticate you for this game",
+          )
+        }
+    }
+  }
+
+  def ensureSpectatorKey(spectators: List[Spectator], playerId: PlayerId, playerKey: PlayerKey): Either[Failures, Spectator] = {
+    spectators.find(_.playerId == playerId) match {
+      case None =>
+        Left {
+          Failures(
+            "Couldn't validate key for spectator that does not exist",
+            "Couldn't find you in the game",
+          )
+        }
+      case Some(spectator) if spectator.playerKey == playerKey =>
+        Right(spectator)
+      case _ =>
+        Left {
+          Failures(
+            "Invalid spectator key",
             "Couldn't authenticate you for this game",
           )
         }

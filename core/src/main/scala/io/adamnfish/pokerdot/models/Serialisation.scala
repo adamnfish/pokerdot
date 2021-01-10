@@ -189,7 +189,7 @@ object Serialisation {
   private implicit val fullHouseEncoder: Encoder[FullHouse] = deriveEncoder[FullHouse]
   private implicit val fourOfAKindEncoder: Encoder[FourOfAKind] = deriveEncoder[FourOfAKind]
   private implicit val straightFlushEncoder: Encoder[StraightFlush] = deriveEncoder[StraightFlush]
-  private implicit val handEncoder: Encoder[Hand] = Encoder.instance {
+  private[models] implicit val handEncoder: Encoder[Hand] = Encoder.instance {
     case highCard: HighCard =>
       highCardEncoder.apply(highCard)
         .mapObject(o => o.add("hand", Json.fromString("high-card")))
@@ -245,17 +245,22 @@ object Serialisation {
   private implicit val turnSummaryEncoder: Encoder[TurnSummary] = deriveEncoder[TurnSummary]
   private implicit val riverSummaryEncoder: Encoder[RiverSummary] = deriveEncoder[RiverSummary]
   private implicit val showdownSummaryEncoder: Encoder[ShowdownSummary] = deriveEncoder[ShowdownSummary]
-  private implicit val roundSummaryEncoder: Encoder[RoundSummary] = Encoder.instance {
+  private[models] implicit val roundSummaryEncoder: Encoder[RoundSummary] = Encoder.instance {
     case preFlopSummary: PreFlopSummary =>
       preflopSummaryEncoder.apply(preFlopSummary)
+        .mapObject(o => o.add("phase", Json.fromString("pre-flop")))
     case flopSummary: FlopSummary =>
       flopSummaryEncoder.apply(flopSummary)
+        .mapObject(o => o.add("phase", Json.fromString("flop")))
     case turnSummary: TurnSummary =>
       turnSummaryEncoder.apply(turnSummary)
+        .mapObject(o => o.add("phase", Json.fromString("turn")))
     case riverSummary: RiverSummary =>
       riverSummaryEncoder.apply(riverSummary)
+        .mapObject(o => o.add("phase", Json.fromString("river")))
     case showdownSummary: ShowdownSummary =>
       showdownSummaryEncoder.apply(showdownSummary)
+        .mapObject(o => o.add("phase", Json.fromString("showdown")))
   }
 
   private implicit val gameStartedSummaryEncoder: Encoder[GameStartedSummary] = deriveEncoder[GameStartedSummary]
@@ -268,7 +273,7 @@ object Serialisation {
   private implicit val startTimerSummaryEncoder: Encoder[StartTimerSummary] = deriveEncoder[StartTimerSummary]
   private implicit val editTimerSummaryEncoder: Encoder[EditTimerSummary] = deriveEncoder[EditTimerSummary]
   private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
-  private implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
+  private[models] implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
     case gameStartedSummary: GameStartedSummary =>
       gameStartedSummaryEncoder.apply(gameStartedSummary)
         .mapObject(o => o.add("action", Json.fromString("game-started")))

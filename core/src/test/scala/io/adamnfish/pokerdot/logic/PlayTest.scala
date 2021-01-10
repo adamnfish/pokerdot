@@ -4,6 +4,7 @@ import io.adamnfish.pokerdot.{TestDates, TestHelpers}
 import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
+import io.adamnfish.pokerdot.logic.Games.newPlayer
 import io.adamnfish.pokerdot.models.{Ace, Clubs, Diamonds, GameId, Hole, PlayerAddress, PreFlop, Three, Two}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -37,7 +38,80 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
   }
 
-  "holes" - {
+  "deckOrder" - {
+    "returns the same deck order for the same seed" in {
+      forAll { seed: Long =>
+        val deck1 = deckOrder(seed)
+        val deck2 = deckOrder(seed)
+        deck1 shouldEqual deck2
+      }
+    }
+
+    "returns different decks for different seeds" in {
+      // this is very unlikely to fail accidentally,
+      // but it is not impossible that three different seeds produce the same deck
+      forAll { (seed1: Long, seed2: Long, seed3: Long) =>
+        whenever (seed1 != seed2 && seed2 != seed3 && seed3 != seed1) {
+          val deck1 = deckOrder(seed1)
+          val deck2 = deckOrder(seed2)
+          val deck3 = deckOrder(seed3)
+          (deck1 == deck2 && deck2 == deck3 && deck3 == deck1) shouldEqual false
+        }
+      }
+    }
+  }
+
+  "dealHoles" - {
+    val gameId = GameId("game-id")
+    val players = List(
+      newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestDates),
+      newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestDates),
+      newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestDates),
+      newPlayer(gameId, "player-4", false, PlayerAddress("player-address-4"), TestDates),
+      newPlayer(gameId, "player-5", false, PlayerAddress("player-address-5"), TestDates),
+      newPlayer(gameId, "player-6", false, PlayerAddress("player-address-6"), TestDates),
+    )
+
+    "deals the same cards to each player each time, with the same seed" in {
+      forAll { seed: Long =>
+        val deck = deckOrder(seed)
+        val players1 = dealHoles(players, deck)
+        val players2 = dealHoles(players, deck)
+        players1.map(_.hole) shouldEqual players2.map(_.hole)
+      }
+    }
+
+    "the round's cards are not dealt to players" in {
+      forAll { seed: Long =>
+        val round = generateRound(PreFlop, seed)
+        val deck = deckOrder(seed)
+        val allPlayerCards = dealHoles(players, deck)
+          .flatMap { player =>
+            player.hole.toList
+              .flatMap(h => List(h.card1, h.card2))
+          }
+          .toSet
+        val roundCards = Set(
+          round.burn1, round.flop1, round.flop2, round.flop3, round.burn2, round.turn, round.burn3, round.river
+        )
+        allPlayerCards.intersect(roundCards) shouldBe empty
+      }
+    }
+
+    "players are never dealt the same cards as each other" in {
+      forAll { seed: Long =>
+        val deck = deckOrder(seed)
+        val allPlayerCards = dealHoles(players, deck)
+          .flatMap { player =>
+            player.hole.toList
+              .flatMap(h => List(h.card1, h.card2))
+          }
+        allPlayerCards shouldEqual allPlayerCards.distinct
+      }
+    }
+  }
+
+  "lookupHoles" - {
     val player1 =
       Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"), TestDates)
         .copy(hole = Some(Hole(Ace of Clubs, Ace of Diamonds)))

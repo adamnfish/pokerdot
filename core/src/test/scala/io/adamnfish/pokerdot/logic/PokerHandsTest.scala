@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateSuits, findDuplicateRanks, flush, fourOfAKind, fullHouse, highCard, pair, playerWinnings, winnings, rankOrd, straight, straightFlush, threeOfAKind, twoPair}
+import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateRanks, findDuplicateSuits, flush, fourOfAKind, fullHouse, handOrd, highCard, pair, playerWinnings, rankOrd, straight, straightFlush, suitOrd, threeOfAKind, twoPair, winnings}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.IntHelpers.abs
 import org.scalacheck.Gen
@@ -285,6 +285,10 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         }
       }
     }
+  }
+
+  "bestHands" - {
+    "TODO" ignore {}
   }
 
   "playerWinnings" - {
@@ -739,7 +743,6 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
             val (p1Pot, p2Pot) = (abs(rawP1Pot), abs(rawP2Pot))
             val deck = Play.deckOrder(seed)
             val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: _ = deck
-            val round = Round(Showdown, c1, c2, c3, c4, c5, c6, c7, c8)
             val player1 = testPlayerHand(p1Pot, c9, c10, "1")
             val player2 = testPlayerHand(p2Pot, c11, c12, "2")
 
@@ -753,7 +756,6 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
             val (p1Pot, p2Pot, p3Pot) = (abs(rawP1Pot), abs(rawP2Pot), abs(rawP3Pot))
             val deck = Play.deckOrder(seed)
             val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: _ = deck
-            val round = Round(Showdown, c1, c2, c3, c4, c5, c6, c7, c8)
             val player1 = testPlayerHand(p1Pot, c9, c10, "1")
             val player2 = testPlayerHand(p2Pot, c11, c12, "2")
             val player3 = testPlayerHand(p3Pot, c13, c14, "3")
@@ -768,7 +770,6 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
             val (p1Pot, p2Pot, p3Pot, p4Pot) = (abs(rawP1Pot), abs(rawP2Pot), abs(rawP3Pot), abs(rawP4Pot))
             val deck = Play.deckOrder(seed)
             val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: c15 :: c16 :: _ = deck
-            val round = Round(Showdown, c1, c2, c3, c4, c5, c6, c7, c8)
             val player1 = testPlayerHand(p1Pot, c9, c10, "1")
             val player2 = testPlayerHand(p2Pot, c11, c12, "2")
             val player3 = testPlayerHand(p3Pot, c13, c14, "3")
@@ -1252,7 +1253,60 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
   }
 
-  "cardRankOrd" - {
+  "findDuplicateRanks" - {
+    "if no duplicates are found, returns the all the cards individually" in {
+      forAll(nothingConnectsCardsGen()) {
+        case cards @ c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: Nil =>
+          findDuplicateRanks(cards).toMap shouldEqual Map(
+            c1.rank -> List(c1),
+            c2.rank -> List(c2),
+            c3.rank -> List(c3),
+            c4.rank -> List(c4),
+            c5.rank -> List(c5),
+            c6.rank -> List(c6),
+            c7.rank -> List(c7),
+          )
+        case _ =>
+          fail("invalid card generation")
+      }
+    }
+
+    "if a duplicate exists, they are grouped" in {
+      forAll(nothingConnectsCardsGen()) {
+        case cards @ c1 :: c2 :: _ =>
+          val cr1 = c1.rank of Spades
+          val cr2 = c1.rank of Clubs
+          val cardsByRank = findDuplicateRanks(List(cr1, cr2, c2))
+          cardsByRank.toMap.get(c1.rank).value.toSet shouldEqual Set(cr1, cr2)
+        case _ =>
+          fail("invalid card generation")
+      }
+    }
+  }
+
+  "findDuplicateSuits" - {
+    "if no duplicates are found, returns all the cards by themselves" in {
+      val cardsBySuit = findDuplicateSuits(List(Two of Hearts, Three of Spades, Four of Clubs, Five of Diamonds))
+      cardsBySuit shouldEqual Map(
+        Hearts -> List(Two of Hearts),
+        Spades -> List(Three of Spades),
+        Clubs -> List(Four of Clubs),
+        Diamonds -> List(Five of Diamonds),
+      )
+    }
+
+    "if a duplicate exists, they are grouped" in {
+      val cardsBySuit = findDuplicateSuits(List(Two of Hearts, Three of Hearts, Four of Clubs, Five of Hearts))
+      cardsBySuit.get(Hearts).value shouldEqual List(Two of Hearts, Three of Hearts, Five of Hearts)
+    }
+  }
+
+  "handOrd" - {
+    // these tests are very verbose and tedious
+    // this behaviour powers "winnings", which is well-tested
+  }
+
+  "cardOrd" - {
     "orders example correctly" in {
       val cards = List(
         Ten of Spades,
@@ -1306,9 +1360,46 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
     "Equal rank cards are sorted by suit" in {
       forAll { rank: Rank =>
-        val cardsOfRank = List(rank of Clubs, rank of Diamonds, rank of Spades, rank of Hearts)
+        val cardsOfRank = List(rank of Clubs, rank of Diamonds, rank of Hearts, rank of Spades)
         val shuffled = Random.shuffle(cardsOfRank)
         shuffled.sortBy(cardOrd(true)) shouldEqual cardsOfRank
+      }
+    }
+  }
+
+  "rankOrd" - {
+    "orders ranks with ace low" in {
+      forAll { seed: Long =>
+        val shuffledRanks = new Random(seed).shuffle(
+          Cards.deck.map(_.rank).distinct
+        )
+        shuffledRanks.sortBy(rankOrd(acesHigh = false)) shouldEqual List(
+          Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King
+        )
+      }
+    }
+
+    "orders ranks with ace high" in {
+      forAll { seed: Long =>
+        val shuffledRanks = new Random(seed).shuffle(
+          Cards.deck.map(_.rank).distinct
+        )
+        shuffledRanks.sortBy(rankOrd(acesHigh = true)) shouldEqual List(
+          Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace
+        )
+      }
+    }
+  }
+
+  "suitOrd" - {
+    "orders suits sensibly" in {
+      forAll { seed: Long =>
+        val shuffledSuits = new Random(seed).shuffle(
+          List(Diamonds, Clubs, Hearts, Spades)
+        )
+        shuffledSuits.sortBy(suitOrd) shouldEqual List(
+          Clubs, Diamonds, Hearts, Spades
+        )
       }
     }
   }

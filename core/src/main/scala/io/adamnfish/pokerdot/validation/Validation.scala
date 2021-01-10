@@ -1,11 +1,10 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.logic.Utils.RichAttempt
 import io.adamnfish.pokerdot.models.Serialisation.{parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateTimerRequest}
-import io.adamnfish.pokerdot.models.{AdvancePhase, Attempt, Bet, Check, CreateGame, Failure, Failures, Fold, JoinGame, Ping, StartGame, TimerLevel, UpdateTimer}
+import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.validation.Validators._
 import io.circe.Json
-import zio.IO
+
 
 object Validation {
   private[validation] def validate[A](a: A, context: String, validator: Validator[A]): List[Failure] = {

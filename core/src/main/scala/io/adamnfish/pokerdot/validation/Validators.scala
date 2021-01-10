@@ -7,16 +7,16 @@ object Validators {
   // VALIDATORS
   type Validator[A] = (A, String) => List[Failure]
 
-  val nonEmpty: Validator[String] = { (iter, context) =>
-    if (iter.isEmpty) {
+  val nonEmpty: Validator[String] = { (str, context) =>
+    if (str.isEmpty) {
       List(
         Failure("Validation failure: empty", s"$context is required", Some(context))
       )
     } else Nil
   }
 
-  def nonEmptyList[A]: Validator[List[A]] = { (tmp, context) =>
-    if (tmp.isEmpty) {
+  def nonEmptyList[A]: Validator[List[A]] = { (as, context) =>
+    if (as.isEmpty) {
       List(
         Failure("Validation failure: empty", s"$context is required", Some(context))
       )

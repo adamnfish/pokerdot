@@ -1,6 +1,5 @@
 package io.adamnfish.pokerdot.models
 
-import java.time.ZonedDateTime
 import io.adamnfish.pokerdot.services.{Database, Dates, Messaging, Rng}
 
 
@@ -52,6 +51,7 @@ case class Player(
 case class Spectator(
   gameId: GameId,
   playerId: PlayerId,
+  expiry: Long,
   playerAddress: PlayerAddress,
   playerKey: PlayerKey,
   screenName: String,

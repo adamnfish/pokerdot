@@ -1,12 +1,10 @@
 package io.adamnfish.pokerdot.integration
 
-import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
 import io.adamnfish.pokerdot.models.{CreateGame, PlayerAddress, PreFlop}
+import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-
-import java.time.ZonedDateTime
 
 
 class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with IntegrationComponents with TestHelpers with OptionValues {

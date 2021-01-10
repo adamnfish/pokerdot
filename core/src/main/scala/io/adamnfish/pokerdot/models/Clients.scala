@@ -159,13 +159,16 @@ case class Wake(
 ) extends Request
 
 // Variance is required because advancePhase returns different messages depending on the phase
-// this is probably a sign that the advancePhase endpoint should be split up
+// this my be a sign that the advancePhase endpoint should be split up.
+// However, with features like "auto-advance" this may be required in the future, so it isn't
+// worth refactoring around this requirement for now.
 case class Response[+M <: Message](
   messages: Map[PlayerAddress, M],
 )
 
 // Data sent to clients
 // TODO: consider a way to show hole cards during all-in when players can no longer act
+//       actually, this is already in the round summary for showdown, so we should add it there for other phases
 sealed trait Message extends Product
 case class Welcome(
   playerKey: PlayerKey,
