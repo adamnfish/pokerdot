@@ -1,6 +1,8 @@
 package io.adamnfish.pokerdot.integration
 
-import io.adamnfish.pokerdot.models.{CreateGame, PlayerAddress, PreFlop}
+import io.adamnfish.pokerdot.TestHelpers.parseReq
+import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.performCreateGame
+import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -8,7 +10,6 @@ import org.scalatest.matchers.should.Matchers
 
 
 class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with IntegrationComponents with TestHelpers with OptionValues {
-  val validRequest = CreateGame("screen name", "game name")
   val hostAddress = PlayerAddress("host-address")
   val initialSeed = 1L
 
@@ -21,21 +22,20 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
 
     "is successful" in {
       withAppContext { (context, _) =>
-        PokerDot.createGame(parseReq(request), context(hostAddress), initialSeed) is ASuccess
+        performCreateGame(request, context(hostAddress), initialSeed) is ASuccess
       }
     }
 
-    // TODO: improve this test to check the game details
     "sends a status message out to the host" in {
       withAppContext { (context, _) =>
-        val response = PokerDot.createGame(parseReq(request), context(hostAddress), initialSeed).value()
+        val response = performCreateGame(request, context(hostAddress), initialSeed).value()
         response.messages.size shouldEqual 1
       }
     }
 
     "returns a correct welcome message" in {
       withAppContext { (context, _) =>
-        val response = PokerDot.createGame(parseReq(request), context(hostAddress), initialSeed).value()
+        val response = performCreateGame(request, context(hostAddress), initialSeed).value()
 
         response.messages.get(hostAddress).value should have(
           "screenName" as "player name",
@@ -44,10 +44,23 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
       }
     }
 
+    "returns a correct game summary" in {
+      withAppContext { (context, _) =>
+        val response = performCreateGame(request, context(hostAddress), initialSeed).value()
+        val gameSummary = response.messages.get(hostAddress).value.game
+        gameSummary should have(
+          "gameName" as "game name",
+          "started" as false,
+          "inTurn" as None,
+          "round" as PreFlopSummary(),
+        )
+      }
+    }
+
     "persists the saved game to the database" - {
       "with key fields" in {
         withAppContext { (context, db) =>
-          val response = PokerDot.createGame(parseReq(request), context(hostAddress), initialSeed).value()
+          val response = performCreateGame(request, context(hostAddress), initialSeed).value()
           val welcomeMessage = response.messages.get(hostAddress).value
           val gameDb = db.getGame(welcomeMessage.gameId).value().value
           gameDb should have(
@@ -61,7 +74,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
       "with an appropriate expiry" in {
         withAppContext { (context, db) =>
           val appContext = context(hostAddress)
-          val response = PokerDot.createGame(parseReq(request), context(hostAddress), initialSeed).value()
+          val response = performCreateGame(request, appContext, initialSeed).value()
           val welcomeMessage = response.messages.get(hostAddress).value
           val gameDb = db.getGame(welcomeMessage.gameId).value().value
 
@@ -73,7 +86,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
     "persists the saved host to the database" - {
       "with some key fields" in {
         withAppContext { (context, db) =>
-          val response = PokerDot.createGame(parseReq(request), context(hostAddress), initialSeed).value()
+          val response = performCreateGame(request, context(hostAddress), initialSeed).value()
           val welcomeMessage = response.messages.get(hostAddress).value
           val hostDb = db.getPlayers(welcomeMessage.gameId).value().head
           hostDb should have(
@@ -87,7 +100,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
       "with an appropriate expiry" in {
         withAppContext { (context, db) =>
           val appContext = context(hostAddress)
-          val response = PokerDot.createGame(parseReq(request), appContext, initialSeed).value()
+          val response = performCreateGame(request, appContext, initialSeed).value()
           val welcomeMessage = response.messages.get(hostAddress).value
           val hostDb = db.getPlayers(welcomeMessage.gameId).value().head
 
@@ -95,5 +108,10 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
         }
       }
     }
+  }
+}
+object CreateGameIntegrationTest {
+  def performCreateGame(request: String, context: AppContext, seed: Long): Attempt[Response[Welcome]] = {
+    PokerDot.createGame(parseReq(request), context, seed)
   }
 }

@@ -78,7 +78,8 @@ trait TestHelpers extends Matchers {
   sealed trait AttemptStatus
   case object ASuccess extends AttemptStatus
   case object AFailure extends AttemptStatus
-
+}
+object TestHelpers {
   def parseReq(jsonStr: String)(implicit pos: Position): Json = {
     parser.parse(jsonStr) match {
       case Left(parsingFailure) =>

@@ -1,6 +1,7 @@
 package io.adamnfish.pokerdot.models
 
 import io.adamnfish.pokerdot.TestHelpers
+import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.models.Serialisation._
 import org.scalatest.freespec.AnyFreeSpec
