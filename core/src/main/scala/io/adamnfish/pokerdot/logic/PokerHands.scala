@@ -12,6 +12,34 @@ object PokerHands {
     Clubs, Diamonds, Spades, Hearts
   )
 
+  /**
+   * Fetch the best hand for a player, which will be something between "high card" and "straight flush".
+   *
+   * Note that "royal flush" is a special case of "straight flush" (high card is an Ace).
+   */
+  def bestHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card, card6: Option[Card], card7: Option[Card]): Hand = {
+    val sevenCards = (
+      List(
+        card1, card2, card3, card4, card5
+      ) ++ card6 ++ card7
+      ).sortBy(cardOrd(acesHigh = true)).reverse
+
+    // We'll need to call these over and over, let's do it once here
+    val duplicateRanks = findDuplicateRanks(sevenCards)
+    val duplicateSuits = findDuplicateSuits(sevenCards)
+
+    // check for the strongest first and fallback to lesser hands
+    straightFlush(duplicateSuits) orElse
+      fourOfAKind(sevenCards, duplicateRanks)     orElse
+      fullHouse(sevenCards, duplicateRanks)       orElse
+      flush(sevenCards, duplicateSuits)       orElse
+      straight(sevenCards)                    orElse
+      threeOfAKind(sevenCards, duplicateRanks)    orElse
+      twoPair(sevenCards, duplicateRanks)         orElse
+      pair(sevenCards, duplicateRanks)            getOrElse
+      highCard(sevenCards)
+  }
+
   // TODO: probably include folded players, as long as they aren't eligible for wins
   //       it would allow rabbit chasing, which people enjoy
   def bestHands(round: Round, players: List[Player]): List[PlayerHand] = {
@@ -188,34 +216,6 @@ object PokerHands {
         playerWinningsAmounts.getOrElse(playerId, 0)
       )
     }.sortBy(_.winnings).reverse
-  }
-
-  /**
-   * Fetch the best hand for a player, which will be something between "high card" and "straight flush".
-   *
-   * Note that "royal flush" is a special case of "straight flush" (high card is an Ace).
-   */
-  def bestHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card, card6: Option[Card], card7: Option[Card]): Hand = {
-    val sevenCards = (
-      List(
-        card1, card2, card3, card4, card5
-      ) ++ card6 ++ card7
-    ).sortBy(cardOrd(acesHigh = true)).reverse
-
-    // We'll need to call these over and over, let's do it once here
-    val duplicateRanks = findDuplicateRanks(sevenCards)
-    val duplicateSuits = findDuplicateSuits(sevenCards)
-
-    // check for the strongest first and fallback to lesser hands
-    straightFlush(duplicateSuits) orElse
-      fourOfAKind(sevenCards, duplicateRanks)     orElse
-      fullHouse(sevenCards, duplicateRanks)       orElse
-      flush(sevenCards, duplicateSuits)       orElse
-      straight(sevenCards)                    orElse
-      threeOfAKind(sevenCards, duplicateRanks)    orElse
-      twoPair(sevenCards, duplicateRanks)         orElse
-      pair(sevenCards, duplicateRanks)            getOrElse
-        highCard(sevenCards)
   }
 
   def findDuplicateRanks(cards: List[Card]): List[(Rank, List[Card])] = {

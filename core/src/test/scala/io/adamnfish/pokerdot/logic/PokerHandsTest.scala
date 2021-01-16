@@ -1,8 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
+import io.adamnfish.pokerdot.{PokerGenerators, TestDates, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, cardOrd, findDuplicateRanks, findDuplicateSuits, flush, fourOfAKind, fullHouse, handOrd, highCard, pair, playerWinnings, rankOrd, straight, straightFlush, suitOrd, threeOfAKind, twoPair, winnings}
+import io.adamnfish.pokerdot.logic.Games.newPlayer
+import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, bestHands, cardOrd, findDuplicateRanks, findDuplicateSuits, flush, fourOfAKind, fullHouse, handOrd, highCard, pair, playerWinnings, rankOrd, straight, straightFlush, suitOrd, threeOfAKind, twoPair, winnings}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.utils.IntHelpers.abs
 import org.scalacheck.Gen
@@ -288,188 +289,66 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
   }
 
   "bestHands" - {
-    "TODO" ignore {}
-  }
-
-  "playerWinnings" - {
-    val p1Id = PlayerId("p1-id")
-    val p2Id = PlayerId("p2-id")
-    val p3Id = PlayerId("p3-id")
-    val p4Id = PlayerId("p4-id")
-    val playerOrder = List(p1Id, p2Id, p3Id, p4Id)
-    val p1Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Ten of Hearts)
-    val p2Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Two of Hearts)
-    val p3Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Three of Hearts)
-    val p4Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Four of Hearts)
-    val playerHands = List(p1Id -> p1Hand, p2Id -> p2Hand, p3Id -> p3Hand, p4Id -> p4Hand)
-
-    "uses correct hand for each player" in {
-      playerWinnings(
-        List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 100,
-        p2Id -> 0,
-        p3Id -> 0,
-        p4Id -> 0,
-      )
-    }
-
-    "pays out single winner from single pot" in {
-      playerWinnings(
-        List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 100,
-        p2Id -> 0,
-        p3Id -> 0,
-        p4Id -> 0,
-      )
-    }
-
-    "pays out single winner from multiple pots" in {
-      playerWinnings(
-        List(
-          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id)),
-          PotWinnings(50, Set(p1Id, p2Id, p3Id), Set(p1Id)),
-        ),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 150,
-        p2Id -> 0,
-        p3Id -> 0,
-        p4Id -> 0,
-      )
-    }
-
-    "pays out multiple single winners from multiple pots" in {
-      playerWinnings(
-        List(
-          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id)),
-          PotWinnings(50, Set(p1Id, p2Id, p3Id), Set(p2Id)),
-        ),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 100,
-        p2Id -> 50,
-        p3Id -> 0,
-        p4Id -> 0,
-      )
-    }
-
-    "pays out a single split pot with 2 winners" in {
-      playerWinnings(
-        List(
-          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
-        ),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 50,
-        p2Id -> 50,
-        p3Id -> 0,
-        p4Id -> 0,
-      )
-    }
-
-    "pays out a single split pot with 3 winners" in {
-      playerWinnings(
-        List(
-          PotWinnings(99, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p3Id)),
-        ),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 33,
-        p2Id -> 33,
-        p3Id -> 33,
-        p4Id -> 0,
-      )
-    }
-
-    "pays out a single split pot where all players tie" in {
-      playerWinnings(
-        List(
-          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p3Id, p4Id)),
-        ),
-        0, playerOrder, playerHands
-      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-        p1Id -> 25,
-        p2Id -> 25,
-        p3Id -> 25,
-        p4Id -> 25,
-      )
-    }
-
-    "split pots with remainder" - {
-      "pays left of dealer in position 0" in {
-        playerWinnings(
-          List(
-            PotWinnings(51, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
-          ),
-          0, playerOrder, playerHands
-        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-          p2Id -> 26,
-          p1Id -> 25,
-          p3Id -> 0,
-          p4Id -> 0,
-        )
+    "returns the same hand as `bestHand` for each player" - {
+      "with all 7 cards" in {
+        forAll(nothingConnectsCardsGen()) {
+          case f1 :: f2 :: f3 :: h1 :: h2 :: t :: r :: Nil =>
+            val round = Round(
+              Showdown,
+              Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
+            )
+            val players = (1 to 10).toList.map { i =>
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+                .copy(hole = Some(Hole(h1, h2)))
+            }
+            val playerHands = bestHands(round, players)
+            val expectedBestHand = bestHand(f1, f2, f3, h1, h2, Some(t), Some(r))
+            playerHands shouldEqual players.map(p => PlayerHand(p, expectedBestHand))
+          case _ =>
+            fail("incorrect card generation")
+        }
       }
 
-      "pays left of dealer in position 1 (wraps to first player)" in {
-        playerWinnings(
-          List(
-            PotWinnings(51, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
-          ),
-          1, playerOrder, playerHands
-        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-          p1Id -> 26,
-          p2Id -> 25,
-          p3Id -> 0,
-          p4Id -> 0,
-        )
+      "with 5 cards after the flop" in {
+        forAll(nothingConnectsCardsGen()) {
+          case f1 :: f2 :: f3 :: h1 :: h2 :: t :: r :: Nil =>
+            val round = Round(
+              Flop,
+              Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
+            )
+            val players = (1 to 10).toList.map { i =>
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+                .copy(hole = Some(Hole(h1, h2)))
+            }
+            val playerHands = bestHands(round, players)
+            val expectedBestHand = bestHand(f1, f2, f3, h1, h2, None, None)
+            playerHands shouldEqual players.map(p => PlayerHand(p, expectedBestHand))
+          case _ =>
+            fail("incorrect card generation")
+        }
       }
 
-      "pays next 2 players when remainder is 2 for a three-way split pot and button is 0" in {
-        playerWinnings(
-          List(
-            PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
-          ),
-          0, playerOrder, playerHands
-        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-          p2Id -> 21,
-          p4Id -> 21,
-          p1Id -> 20,
-          p3Id -> 0,
-        )
-      }
-
-      "pays next 2 players when remainder is 2 for a three-way split pot and button is 1" in {
-        playerWinnings(
-          List(
-            PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
-          ),
-          1, playerOrder, playerHands
-        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-          p1Id -> 21,
-          p4Id -> 21,
-          p2Id -> 20,
-          p3Id -> 0,
-        )
-      }
-
-      "pays next 2 players when remainder is 2 for a three-way split pot and button is 2" in {
-        playerWinnings(
-          List(
-            PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
-          ),
-          2, playerOrder, playerHands
-        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
-          p1Id -> 21,
-          p2Id -> 21,
-          p4Id -> 20,
-          p3Id -> 0,
-        )
+      "with 6 cards after the turn" in {
+        forAll(nothingConnectsCardsGen()) {
+          case f1 :: f2 :: f3 :: h1 :: h2 :: t :: r :: Nil =>
+            val round = Round(
+              Turn,
+              Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
+            )
+            val players = (1 to 10).toList.map { i =>
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+                .copy(hole = Some(Hole(h1, h2)))
+            }
+            val playerHands = bestHands(round, players)
+            val expectedBestHand = bestHand(f1, f2, f3, h1, h2, Some(t), Some(r))
+            playerHands shouldEqual players.map(p => PlayerHand(p, expectedBestHand))
+          case _ =>
+            fail("incorrect card generation")
+        }
       }
     }
+
+    "TODO - different hands example as well" ignore {}
   }
 
   "winnings" - {
@@ -779,6 +658,187 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
             results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot + p4Pot)
           }
         }
+      }
+    }
+  }
+
+  "playerWinnings" - {
+    val p1Id = PlayerId("p1-id")
+    val p2Id = PlayerId("p2-id")
+    val p3Id = PlayerId("p3-id")
+    val p4Id = PlayerId("p4-id")
+    val playerOrder = List(p1Id, p2Id, p3Id, p4Id)
+    val p1Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Ten of Hearts)
+    val p2Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Two of Hearts)
+    val p3Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Three of Hearts)
+    val p4Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Four of Hearts)
+    val playerHands = List(p1Id -> p1Hand, p2Id -> p2Hand, p3Id -> p3Hand, p4Id -> p4Hand)
+
+    "uses correct hand for each player" in {
+      playerWinnings(
+        List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 100,
+        p2Id -> 0,
+        p3Id -> 0,
+        p4Id -> 0,
+      )
+    }
+
+    "pays out single winner from single pot" in {
+      playerWinnings(
+        List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 100,
+        p2Id -> 0,
+        p3Id -> 0,
+        p4Id -> 0,
+      )
+    }
+
+    "pays out single winner from multiple pots" in {
+      playerWinnings(
+        List(
+          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id)),
+          PotWinnings(50, Set(p1Id, p2Id, p3Id), Set(p1Id)),
+        ),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 150,
+        p2Id -> 0,
+        p3Id -> 0,
+        p4Id -> 0,
+      )
+    }
+
+    "pays out multiple single winners from multiple pots" in {
+      playerWinnings(
+        List(
+          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id)),
+          PotWinnings(50, Set(p1Id, p2Id, p3Id), Set(p2Id)),
+        ),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 100,
+        p2Id -> 50,
+        p3Id -> 0,
+        p4Id -> 0,
+      )
+    }
+
+    "pays out a single split pot with 2 winners" in {
+      playerWinnings(
+        List(
+          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
+        ),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 50,
+        p2Id -> 50,
+        p3Id -> 0,
+        p4Id -> 0,
+      )
+    }
+
+    "pays out a single split pot with 3 winners" in {
+      playerWinnings(
+        List(
+          PotWinnings(99, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p3Id)),
+        ),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 33,
+        p2Id -> 33,
+        p3Id -> 33,
+        p4Id -> 0,
+      )
+    }
+
+    "pays out a single split pot where all players tie" in {
+      playerWinnings(
+        List(
+          PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p3Id, p4Id)),
+        ),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+        p1Id -> 25,
+        p2Id -> 25,
+        p3Id -> 25,
+        p4Id -> 25,
+      )
+    }
+
+    "split pots with remainder" - {
+      "pays left of dealer in position 0" in {
+        playerWinnings(
+          List(
+            PotWinnings(51, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
+          ),
+          0, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+          p2Id -> 26,
+          p1Id -> 25,
+          p3Id -> 0,
+          p4Id -> 0,
+        )
+      }
+
+      "pays left of dealer in position 1 (wraps to first player)" in {
+        playerWinnings(
+          List(
+            PotWinnings(51, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id)),
+          ),
+          1, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+          p1Id -> 26,
+          p2Id -> 25,
+          p3Id -> 0,
+          p4Id -> 0,
+        )
+      }
+
+      "pays next 2 players when remainder is 2 for a three-way split pot and button is 0" in {
+        playerWinnings(
+          List(
+            PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
+          ),
+          0, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+          p2Id -> 21,
+          p4Id -> 21,
+          p1Id -> 20,
+          p3Id -> 0,
+        )
+      }
+
+      "pays next 2 players when remainder is 2 for a three-way split pot and button is 1" in {
+        playerWinnings(
+          List(
+            PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
+          ),
+          1, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+          p1Id -> 21,
+          p4Id -> 21,
+          p2Id -> 20,
+          p3Id -> 0,
+        )
+      }
+
+      "pays next 2 players when remainder is 2 for a three-way split pot and button is 2" in {
+        playerWinnings(
+          List(
+            PotWinnings(62, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id, p2Id, p4Id)),
+          ),
+          2, playerOrder, playerHands
+        ).map(pw => pw.playerId -> pw.winnings) shouldEqual List(
+          p1Id -> 21,
+          p2Id -> 21,
+          p4Id -> 20,
+          p3Id -> 0,
+        )
       }
     }
   }

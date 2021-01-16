@@ -15,7 +15,7 @@ case class TimerStatus(
   levels: List[TimerLevel],
 )
 
-sealed trait TimerLevel
+sealed trait TimerLevel extends Product
 case class RoundLevel(
   durationSeconds: Int,
   smallBlind: Int,

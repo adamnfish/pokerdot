@@ -51,8 +51,11 @@ object Validation {
       validate(startGame.gameId.gid, "game ID", isUUID) ++
         validate(startGame.playerId.pid, "player ID", isUUID) ++
         validate(startGame.playerKey.key, "player ID", isUUID) ++
+        validate(startGame.playerOrder, "player order", nonEmptyList[PlayerId]) ++
         startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", isUUID)) ++
-        startGame.timerConfig.flatMap(tl => validate(tl, "timerLevel", timerLevel))
+        startGame.timerConfig
+          .map(tls => validate(tls, "timerConfig", nonEmptyList[TimerLevel]))
+          .getOrElse(Nil)
     )
   }
 
@@ -68,7 +71,7 @@ object Validation {
       validate(bet.gameId.gid, "game ID", isUUID) ++
         validate(bet.playerId.pid, "player ID", isUUID) ++
         validate(bet.playerKey.key, "player ID", isUUID) ++
-        validate(bet.betAmount, "betAmount", positiveInteger)
+        validate(bet.betAmount, "betAmount", greaterThanZero)
     )
   }
 
@@ -129,7 +132,9 @@ object Validation {
       validate(updateTimer.gameId.gid, "game ID", isUUID) ++
         validate(updateTimer.playerId.pid, "player ID", isUUID) ++
         validate(updateTimer.playerKey.key, "player ID", isUUID) ++
-        updateTimer.timerLevels.toList.flatMap(tls => validate(tls, "timerLevels", nonEmptyList[TimerLevel]))
+        updateTimer.timerLevels
+          .map(tls => validate(tls, "timerLevels", nonEmptyList[TimerLevel]))
+          .getOrElse(Nil)
     )
   }
 

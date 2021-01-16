@@ -1,10 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{TestDates, TestHelpers}
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer, newSpectator}
-import io.adamnfish.pokerdot.logic.Representations.{gameFromDb, gameToDb, playerFromDb, playerToDb, spectatorFromDb, spectatorToDb}
+import io.adamnfish.pokerdot.logic.Representations._
 import io.adamnfish.pokerdot.models.{GameId, PlayerAddress}
-import io.adamnfish.pokerdot.services.Dates
+import io.adamnfish.pokerdot.{TestDates, TestHelpers}
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

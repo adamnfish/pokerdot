@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.models.{Attempt, BreakLevel, Failure, Failures, RoundLevel, TimerLevel}
-import zio.IO
+import io.adamnfish.pokerdot.models.{BreakLevel, Failure, RoundLevel, TimerLevel}
+
 
 object Validators {
   // VALIDATORS

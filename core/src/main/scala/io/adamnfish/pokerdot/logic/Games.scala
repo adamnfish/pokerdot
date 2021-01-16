@@ -105,7 +105,7 @@ object Games {
     )
   }
 
-  def start(game: Game, now: Long, timerLevels: List[TimerLevel], startingStacks: Option[Int]): Game = {
+  def start(game: Game, now: Long, timerLevelsOpt: Option[List[TimerLevel]], startingStacks: Option[Int]): Game = {
     val deck = Play.deckOrder(game.seed)
     val dealtPlayers = dealHoles(game.players, deck)
     val dealtPlayersWithInitialStacks = dealtPlayers.map { p =>
@@ -118,10 +118,11 @@ object Games {
       trackStacks = startingStacks.isDefined,
       button = 0,
       timer =
-        if (timerLevels.isEmpty) {
-          None
-        } else {
-          Some(TimerStatus(now, None, timerLevels))
+        timerLevelsOpt.flatMap {
+          case Nil =>
+            None
+          case timerLevels =>
+            Some(TimerStatus(now, None, timerLevels))
         },
     )
   }

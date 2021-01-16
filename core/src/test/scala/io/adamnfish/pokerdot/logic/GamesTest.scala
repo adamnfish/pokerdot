@@ -280,7 +280,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
     "sets up some key fields" in {
       forAll { startTime: Long =>
-        start(game, startTime, Nil, None) should have(
+        start(game, startTime, None, None) should have(
           "started" as true,
           "startTime" as startTime,
           "button" as 0,
@@ -291,22 +291,22 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     "trackStacks" - {
       "is true if initial stack levels are provided" in {
         forAll { startingStacks: Int =>
-          start(game, 0L, Nil, Some(startingStacks)).trackStacks shouldEqual true
+          start(game, 0L, None, Some(startingStacks)).trackStacks shouldEqual true
         }
       }
 
       "is false if no initial stack levels are provided" in {
-        start(game, 0L, Nil, None).trackStacks shouldEqual false
+        start(game, 0L, None, None).trackStacks shouldEqual false
       }
     }
 
     "timer status" - {
       "is set if present" - {
-        val timerLevels = List(
+        val timerLevels = Some(List(
           RoundLevel(10, 1),
           BreakLevel(10),
           RoundLevel(10, 2),
-        )
+        ))
         "start time uses the 'now'" in {
           forAll { startTime: Long =>
             val gameTimer = start(game, startTime, timerLevels, None).timer.value
@@ -321,12 +321,12 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
         "uses the provided timer levels" in {
           val gameTimer = start(game, 1000L, timerLevels, None).timer.value
-          gameTimer.levels shouldEqual timerLevels
+          gameTimer.levels shouldEqual timerLevels.get
         }
       }
 
       "is empty if no timer is provided" in {
-        start(game, 1000L, Nil, None).timer shouldEqual None
+        start(game, 1000L, None, None).timer shouldEqual None
       }
     }
 
@@ -334,8 +334,8 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       "deals the same cards for the same seed" in {
         forAll { initialSeed: Long =>
           val seededGame = newGame("game name", false, TestDates, initialSeed)
-          val round1 = start(seededGame, 1000L, Nil, None).round
-          val round2 = start(seededGame, 1000L, Nil, None).round
+          val round1 = start(seededGame, 1000L, None, None).round
+          val round2 = start(seededGame, 1000L, None, None).round
           round1 should have(
             "burn1" as round2.burn1,
             "flop1" as round2.flop1,
@@ -350,7 +350,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       }
 
       "the round's phase starts at PreFlop" in {
-        start(game, 1000L, Nil, None).round.phase shouldEqual PreFlop
+        start(game, 1000L, None, None).round.phase shouldEqual PreFlop
       }
     }
 
@@ -362,20 +362,20 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
       "player holes are the same for the same seed" in {
         forAll { seed: Long =>
-          val players1 = start(game.copy(seed = seed, players = players), 1000L, Nil, None).players
-          val players2 = start(game.copy(seed = seed, players = players), 1000L, Nil, None).players
+          val players1 = start(game.copy(seed = seed, players = players), 1000L, None, None).players
+          val players2 = start(game.copy(seed = seed, players = players), 1000L, None, None).players
           players1.map(_.hole) shouldEqual players2.map(_.hole)
         }
       }
 
       "starting stacks" - {
         "are 0 if no starting stacks are specified" in {
-          start(game.copy(players = players), 1000L, Nil, None).players.map(_.stack) should contain only 0
+          start(game.copy(players = players), 1000L, None, None).players.map(_.stack) should contain only 0
         }
 
         "set to the specified amount, if present" in {
           forAll { startingStack: Int =>
-            start(game.copy(players = players), 1000L, Nil, Some(startingStack)).players.map(_.stack) should contain only startingStack
+            start(game.copy(players = players), 1000L, None, Some(startingStack)).players.map(_.stack) should contain only startingStack
           }
         }
       }
