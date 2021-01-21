@@ -5,7 +5,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.newPlayer
-import io.adamnfish.pokerdot.models.{Ace, Clubs, Diamonds, GameId, Hole, PlayerAddress, PreFlop, Three, Two}
+import io.adamnfish.pokerdot.models.{Ace, Clubs, Diamonds, Flop, GameId, Hole, PlayerAddress, PreFlop, River, Showdown, Three, Turn, Two}
+import org.scalacheck.Gen
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -15,25 +16,39 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
   "generateRound" - {
     "generates different cards for different seeds" in {
       forAll { (seed: Long) =>
-        val round1 = generateRound(PreFlop, seed)
-        val round2 = generateRound(PreFlop, seed + 1)
+        val round1 = generateRound(PreFlop, 0, seed)
+        val round2 = generateRound(PreFlop, 0, seed + 1)
         round1 should not equal round2
       }
     }
 
     "generates the same cards from the same seeds" in {
       forAll { seed: Long =>
-        val round1 = generateRound(PreFlop, seed)
-        val round2 = generateRound(PreFlop, seed)
+        val round1 = generateRound(PreFlop, 0, seed)
+        val round2 = generateRound(PreFlop, 0, seed)
         round1 shouldEqual round2
       }
     }
 
     "there are no duplicate cards in a generated round" in {
       forAll { seed: Long =>
-        val round = generateRound(PreFlop, seed)
+        val round = generateRound(PreFlop, 0, seed)
         val cards = List(round.burn1, round.flop1, round.flop2, round.flop3, round.burn2, round.turn, round.burn3, round.river)
         cards shouldEqual cards.distinct
+      }
+    }
+
+    "uses the provided small blind amount" in {
+      forAll { smallBlind: Int =>
+        val round = generateRound(PreFlop, smallBlind, 0L)
+        round.smallBlind shouldEqual smallBlind
+      }
+    }
+
+    "uses the provided phase" in {
+      forAll(Gen.oneOf(PreFlop, Flop ,Turn ,River, Showdown)) { phase =>
+        val round = generateRound(phase, 0, 0L)
+        round.phase shouldEqual phase
       }
     }
   }
@@ -83,7 +98,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "the round's cards are not dealt to players" in {
       forAll { seed: Long =>
-        val round = generateRound(PreFlop, seed)
+        val round = generateRound(PreFlop, 0, seed)
         val deck = deckOrder(seed)
         val allPlayerCards = dealHoles(players, deck)
           .flatMap { player =>
@@ -192,6 +207,57 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     "a busted player does not need to act for any amount" in {
       forAll { (betAmount: Int) =>
         playerIsYetToAct(betAmount)(player.copy(busted = true)) shouldEqual false
+      }
+    }
+  }
+
+  "currentBetAmount" - {
+    "returns the highest bet amount of all players" in {
+      forAll { (b1: Int, b2: Int, b3: Int) =>
+        val players = List(
+          newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestDates)
+            .copy(bet = b1),
+          newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestDates)
+            .copy(bet = b2),
+          newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestDates)
+            .copy(bet = b3),
+        )
+        val result = currentBetAmount(players)
+        result should (be >= b1 and be >= b2 and be >= b3)
+      }
+    }
+  }
+
+  "nextPlayer" - {
+    "when a player is already active" - {
+      "returns the next player" in {
+
+      }
+
+      "skips a folded player" in {
+
+      }
+
+      "skips a busted player" in {
+
+      }
+
+      "wraps around the players list to find the next" in {
+
+      }
+
+      "wraps around the players list when skipping a folded player" in {
+
+      }
+
+      "wraps around the players list when skipping a busted player" in {
+
+      }
+    }
+
+    "when no player is currently active" - {
+      "activates the player to the left of the player that is on the button" in {
+
       }
     }
   }

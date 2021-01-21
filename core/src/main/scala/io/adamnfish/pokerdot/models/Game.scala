@@ -11,7 +11,7 @@ case class Game(
   spectators: List[Spectator],
   seed: Long,
   round: Round,
-  inTurn: Option[Player],
+  inTurn: Option[PlayerId],
   button: Int, // 0-indexed dealer position
   started: Boolean,
   startTime: Long,
@@ -35,6 +35,8 @@ case class Player(
   busted: Boolean,
   hole: Option[Hole],
   isHost: Boolean,
+  isAdmin: Boolean,
+  blind: Blind,
 )
 
 /**
@@ -56,6 +58,7 @@ case class Spectator(
   playerKey: PlayerKey,
   screenName: String,
   isHost: Boolean,
+  isAdmin: Boolean,
 )
 
 case class GameId(gid: String) extends AnyVal

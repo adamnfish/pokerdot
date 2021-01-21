@@ -55,7 +55,23 @@ object Validation {
         startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", isUUID)) ++
         startGame.timerConfig
           .map(tls => validate(tls, "timerConfig", nonEmptyList[TimerLevel]))
-          .getOrElse(Nil)
+          .getOrElse(Nil) ++ {
+        startGame.startingStack.fold[List[Failure]](Nil) { _ =>
+          // if we're tracking stacks then we need to know the blinds
+          // this can come from the timer config or explicitly (but not both)
+          (startGame.initialSmallBlind, startGame.timerConfig) match {
+            case (Some(_), Some(_)) => List(Failure(
+              "Small blind and timer config provided for game start",
+              "If you have set up a timer then you can't also set the initial small blind.",
+            ))
+            case (None, None) => List(Failure(
+              "Neither small blind nor timer config provided for start game with stacks",
+              "For the game to track player money it needs to know the blind amounts. You can specify this directly, or set up a timer that keeps track of blinds throughout the game.",
+            ))
+            case _ => Nil
+          }
+        }
+      }
     )
   }
 

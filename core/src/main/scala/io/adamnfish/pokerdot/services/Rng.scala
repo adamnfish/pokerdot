@@ -1,7 +1,6 @@
 package io.adamnfish.pokerdot.services
 
 import java.security.SecureRandom
-import scala.util.Random
 
 
 trait Rng {
@@ -15,7 +14,8 @@ class RandomRng extends Rng {
     new SecureRandom().nextLong()
   }
 
+  // True random in PROD, for each round
   override def nextState(state: Long): Long = {
-    new Random(state).nextLong()
+    new SecureRandom().nextLong()
   }
 }

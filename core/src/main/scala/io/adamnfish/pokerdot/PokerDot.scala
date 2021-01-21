@@ -135,29 +135,20 @@ object PokerDot {
     } yield Responses.gameStatuses(startedGame, GameStartedSummary())
   }
 
-  /**
-   * Allows control of the timer. Typically this is just play/pause, but may also be editing the phases.
-   *
-   * Pausing / playing is done by setting the optional pauseTime and by faking the start time, respectively.
-   */
-  def updateTimer(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
-    for {
-      updateTimer <- extractUpdateTimer(requestJson).attempt
-      // ensure host / admin
-      // ensure started
-    } yield Responses.tbd() // Responses.gameStatuses(???, ???)
-  }
-
   def bet(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
       bet <- extractBet(requestJson).attempt
       maybeGame <- appContext.db.getGame(bet.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot start game, game ID not found", "Couldn't find game to start",
+        s"Cannot bet, game ID not found", "Couldn't find game to start",
       ))
-      // ensure started
+      playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
+      rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
+      _ <- Games.ensureStarted(rawGame).attempt
       // ensure player key
+      player <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey).attempt
       // ensure active player
+//      _ <-
       // ensure bet amount does not exceed stack
       // ensure bet is legal
       // update this player's moneys, and deactivate
@@ -222,19 +213,17 @@ object PokerDot {
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       // fetch game
       _ <- Games.ensureStarted(game).attempt
-      // TODO: allow other players / admins?
-      _ <- Games.ensureHost(game.players, advancePhase.playerKey).attempt
-
+      _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
       // the logic for advancing rounds is quite complicated!
       advanceResult <- Games.advancePhase(game, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings) = advanceResult
-
       newGameDb = Representations.gameToDb(updatedGame)
       // only do DB updates for players that have changed
       updatedPlayerDbs = Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers)
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       _ <- appContext.db.writeGame(newGameDb)
     } yield {
+      // TODO: this is too much logic for the controller
       winnings match {
         case Some((playerWinnings, potWinnings)) =>
           Responses.roundWinnings(updatedGame, potWinnings, playerWinnings)
@@ -242,6 +231,19 @@ object PokerDot {
           Responses.gameStatuses(updatedGame, AdvancePhaseSummary())
       }
     }
+  }
+
+  /**
+   * Allows control of the timer. Typically this is just play/pause, but may also be editing the phases.
+   *
+   * Pausing / playing is done by setting the optional pauseTime and by faking the start time, respectively.
+   */
+  def updateTimer(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    for {
+      updateTimer <- extractUpdateTimer(requestJson).attempt
+      // ensure host / admin
+      // ensure started
+    } yield Responses.tbd() // Responses.gameStatuses(???, ???)
   }
 
   /**
@@ -259,6 +261,7 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(pingRequest.gameId)
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       // TODO: handle players or spectators here
+      // maybe check if requester is a player / spectator and delegate accordingly?
       // check player
       player <- Games.ensurePlayerKey(game.players, pingRequest.playerId, pingRequest.playerKey).attempt
       // logic
@@ -268,6 +271,14 @@ object PokerDot {
       message = Representations.gameStatus(game, updatedPlayer, NoActionSummary())
       _ <- appContext.db.writePlayer(updatedPlayerDb)
     } yield Responses.justRespond(message, appContext.playerAddress)
+  }
+
+  def playerPing(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    ???
+  }
+
+  def spectatorPing(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    ???
   }
 
   /**

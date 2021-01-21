@@ -9,11 +9,14 @@ import scala.util.Random
  * Poker functionality.
  */
 object Play {
-  def generateRound(phase: Phase, state: Long): Round = {
+  /**
+   * TODO: take player count to skip player cards (means we deal in the correct order)
+   */
+  def generateRound(phase: Phase, smallBlind: Int, state: Long): Round = {
     deckOrder(state) match {
       case burn1 :: flop1 :: flop2 :: flop3 :: burn2 :: turn :: burn3 :: river :: _ =>
         Round(
-          phase,
+          phase, smallBlind,
           burn1 = burn1,
           flop1 = flop1,
           flop2 = flop2,
@@ -35,7 +38,10 @@ object Play {
   }
 
   /**
-   * Deals player cards, skipping the cards that will have already been used for the round
+   * Deals player cards, skipping the cards that will have already been used for the round.
+   *
+   * // TODO: take button index to deal in correct order,
+   *          also deal from the top of the deck instead of after the community cards
    */
   def dealHoles(players: List[Player], deck: List[Card]): List[Player] = {
     players.filterNot(_.busted).zipWithIndex.map { case (player, i) =>
@@ -59,6 +65,21 @@ object Play {
   }
 
   /**
+   * The dealer does not necessarily advance round the table each round. Rather,
+   * the goal is to ensure that the every player gets their turn with the Big Blind.
+   *
+   * This function works out the next arrangement of blinds and button and returns
+   * the index of the dealer/button, the small blind (which may be omitted in a round),
+   * and the big blind.
+   */
+  def setupNextRound(players: List[Player], currentButton: Int, smallBlind: Int): (Int, Option[Int], Int) = {
+    val playerCount = players.length
+    val playersInRoundOrder = (players ++ players).drop(currentButton % playerCount).take(playerCount)
+    val newBigBlindIndex = -1
+    ???
+  }
+
+  /**
    * If the player is in this round (i.e. not busted or folded), check if they have acted at this bid level.
    */
   def playerIsYetToAct(betAmount: Int)(player: Player): Boolean = {
@@ -71,5 +92,32 @@ object Play {
       // and they are still playing in the phase
       !player.checked
     }
+  }
+
+  def currentBetAmount(players: List[Player]): Int = {
+    players.filterNot(p => p.busted || p.folded).map(_.bet).max
+  }
+
+  def nextPlayer(players: List[Player], currentActive: Option[PlayerId], button: Int): Option[PlayerId] = {
+    val nextPlayer = for {
+      activePlayerId <- currentActive
+      activePlayerIndex <- {
+        val i = players.indexWhere(_.playerId == activePlayerId)
+        if (i == -1) None
+        else Some(i)
+      }
+      nextIndex = (activePlayerIndex + 1) % players.length
+      next <- nextActiveFromIndex(players, nextIndex)
+    } yield next
+
+    nextPlayer.orElse {
+      // back to start player if there is no active player
+      nextActiveFromIndex(players, (button + 1) % players.length)
+    }
+  }
+
+  private[logic] def nextActiveFromIndex(players: List[Player], index: Int): Option[PlayerId] = {
+    val reorderedPlayers = (players ++ players).drop(index % players.length).take(players.length)
+    reorderedPlayers.find(playerIsYetToAct(currentBetAmount(players))).map(_.playerId)
   }
 }

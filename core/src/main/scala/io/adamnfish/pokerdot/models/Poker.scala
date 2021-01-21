@@ -18,6 +18,7 @@ case class Hole(
 
 case class Round(
   phase: Phase,
+  smallBlind: Int,
   burn1: Card,
   flop1: Card,
   flop2: Card,
@@ -34,6 +35,11 @@ case object Flop     extends Phase
 case object Turn     extends Phase
 case object River    extends Phase
 case object Showdown extends Phase
+
+sealed trait Blind
+case object NoBlind    extends Blind
+case object SmallBlind extends Blind
+case object BigBlind   extends Blind
 
 sealed trait Rank extends Product {
   override def toString: String = Cards.rankStr(this)

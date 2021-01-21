@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{ActionSummary, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, Spectator, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.models.{ActionSummary, BigBlind, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, NoBlind, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, SmallBlind, Spectator, SpectatorSummary, Turn, TurnSummary}
 
 
 object Representations {
@@ -15,7 +15,8 @@ object Representations {
       spectatorIds = game.spectators.map(_.playerId.pid),
       seed = game.seed,
       phase = game.round.phase,
-      inTurn = game.inTurn.map(_.playerId.pid),
+      smallBlind = game.round.smallBlind,
+      inTurn = game.inTurn.map(_.pid),
       button = game.button,
       started = game.started,
       startTime = game.startTime,
@@ -40,6 +41,12 @@ object Representations {
       busted = player.busted,
       hole = player.hole,
       isHost = player.isHost,
+      isAdmin = player.isAdmin,
+      blind = player.blind match {
+        case NoBlind => 0
+        case SmallBlind => 1
+        case BigBlind => 2
+      },
       isSpectator = false,
     )
   }
@@ -60,6 +67,8 @@ object Representations {
       busted = false,
       hole = None,
       isHost = spectator.isHost,
+      isAdmin = spectator.isAdmin,
+      blind = 0,
       isSpectator = true,
     )
   }
@@ -82,7 +91,7 @@ object Representations {
         .fold[Either[Failures, Option[PlayerDb]]](Right(None)) { playerId =>
           lookupPlayerDb(gameDb.gameId, playerDbs)(playerId).map(Some(_))
         }
-      round = Play.generateRound(gameDb.phase, gameDb.seed)
+      round = Play.generateRound(gameDb.phase, gameDb.smallBlind, gameDb.seed)
     } yield {
       Game(
         gameId = GameId(gameDb.gameId),
@@ -91,7 +100,7 @@ object Representations {
         spectators = spectatorDbs.map(spectatorFromDb),
         seed = gameDb.seed,
         round = round,
-        inTurn = inTurn.map(playerFromDb),
+        inTurn = inTurn.map(pdb => PlayerId(pdb.playerId)),
         button = gameDb.button,
         started = gameDb.started,
         startTime = gameDb.startTime,
@@ -118,6 +127,12 @@ object Representations {
       busted = playerDb.busted,
       hole = playerDb.hole,
       isHost = playerDb.isHost,
+      isAdmin = playerDb.isAdmin,
+      blind = playerDb.blind match {
+        case 1 => SmallBlind
+        case 2 => BigBlind
+        case _ => NoBlind
+      }
     )
   }
 
@@ -130,6 +145,7 @@ object Representations {
       playerKey = PlayerKey(playerDb.playerKey),
       screenName = playerDb.screenName,
       isHost = playerDb.isHost,
+      isAdmin = playerDb.isAdmin,
     )
   }
 
@@ -213,7 +229,8 @@ object Representations {
       players = game.players.map(summarisePlayer),
       spectators = game.spectators.map(summariseSpectator),
       round = summariseRound(game.round, game.players),
-      inTurn = game.inTurn.map(summarisePlayer),
+      smallBlind = game.round.smallBlind,
+      inTurn = game.inTurn,
       button = game.button,
       started = game.started,
       startTime = game.startTime,

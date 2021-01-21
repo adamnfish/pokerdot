@@ -80,7 +80,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     "cards can be regenerated from the current game seed" in {
       forAll { (seed: Long) =>
         val game = newGame("gameName", false, TestDates, seed)
-        val regeneratedRound = generateRound(PreFlop, game.seed)
+        val regeneratedRound = generateRound(PreFlop, 0, game.seed)
         game.round shouldEqual regeneratedRound
       }
     }
@@ -642,6 +642,44 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     "fails if the provided player does not exist in the game" in {
       val nonPlayerKey = PlayerKey("not-in-the-game")
       ensureHost(players, nonPlayerKey).isLeft shouldEqual true
+    }
+  }
+
+  "ensureAdmin" - {
+    val gameId = GameId("game-id")
+    val admin = newPlayer(gameId, "host", true, PlayerAddress("host-address"), TestDates)
+    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-1-address"), TestDates)
+    val players = List(admin, player1)
+
+    "succeeds if the provided player is the host" in {
+      ensureAdmin(players, admin.playerKey).value shouldEqual admin
+    }
+
+    "fails if the provided player is not the host" in {
+      ensureAdmin(players, player1.playerKey).isLeft shouldEqual true
+    }
+
+    "fails if the provided player does not exist in the game" in {
+      val nonPlayerKey = PlayerKey("not-in-the-game")
+      ensureAdmin(players, nonPlayerKey).isLeft shouldEqual true
+    }
+  }
+
+  "ensureActive" - {
+    "succeeds if the player is active" in {
+      val pid = PlayerId("player-id")
+      ensureActive(Some(pid), pid).isRight shouldEqual true
+    }
+
+    "fails if the player is not active" in {
+      ensureActive(
+        Some(PlayerId("active-player-id")),
+        PlayerId("different-player-id")
+      ).isLeft shouldEqual true
+    }
+
+    "fails if no player is active" in {
+      ensureActive(None, PlayerId("player")).isLeft shouldEqual true
     }
   }
 }

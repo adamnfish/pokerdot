@@ -46,19 +46,21 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       extractStartGame(json).value shouldEqual StartGame(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         startingStack = None,
+        initialSmallBlind = None,
         timerConfig = Some(List(RoundLevel(300, 5), BreakLevel(60), RoundLevel(500, 10))),
         playerOrder = List(PlayerId(player1Id), PlayerId(player2Id), PlayerId(player3Id))
       )
     }
 
-    "with stacks" in {
+    "with stacks and small blind" in {
       val jsonStr =
         s"""{"operation":"start-game","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey","playerOrder":["$player1Id","$player2Id","$player3Id"],
-           |"startingStack":100}""".stripMargin
+           |"startingStack":100,"initialSmallBlind":1}""".stripMargin
       val json = parse(jsonStr).value
       extractStartGame(json).value shouldEqual StartGame(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         startingStack = Some(100),
+        initialSmallBlind = Some(1),
         timerConfig = None,
         playerOrder = List(PlayerId(player1Id), PlayerId(player2Id), PlayerId(player3Id))
       )
@@ -73,6 +75,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       extractStartGame(json).value shouldEqual StartGame(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         startingStack = Some(100),
+        initialSmallBlind = None,
         timerConfig = Some(List(RoundLevel(300, 5), BreakLevel(60), RoundLevel(500, 10))),
         playerOrder = List(PlayerId(player1Id), PlayerId(player2Id), PlayerId(player3Id))
       )
@@ -200,30 +203,83 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
   }
 
   "validate StartGame" - {
-    val request = StartGame(
+    val timerExample = List(RoundLevel(300, 1), BreakLevel(60), RoundLevel(300, 2))
+    val rawRequest = StartGame(
       GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
-      Some(1000), Some(List(RoundLevel(300, 1), BreakLevel(60), RoundLevel(300, 2))),
+      None, None, None,
       List(PlayerId(player1Id), PlayerId(player2Id), PlayerId(player3Id))
     )
 
-    "returns the request for a valid join game request" in {
-      validate(request).value shouldEqual request
+    "for valid requests" - {
+      "with no stack information" in {
+        val request = rawRequest.copy(
+          startingStack = None,
+          initialSmallBlind = None,
+          timerConfig = None,
+        )
+        validate(request).value shouldEqual request
+      }
+
+      "with timer but no stack information" in {
+        val request = rawRequest.copy(
+          startingStack = None,
+          initialSmallBlind = None,
+          timerConfig = Some(timerExample),
+        )
+        validate(request).value shouldEqual request
+      }
+
+      "with stack and timer information" in {
+        val request = rawRequest.copy(
+          startingStack = Some(1000),
+          timerConfig = Some(timerExample),
+          initialSmallBlind = None,
+        )
+        validate(request).value shouldEqual request
+      }
+
+      "with stack and small blind information" in {
+        val request = rawRequest.copy(
+          startingStack = Some(1000),
+          timerConfig = None,
+          initialSmallBlind = Some(1),
+        )
+        validate(request).value shouldEqual request
+      }
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate(rawRequest.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate(rawRequest.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate(rawRequest.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
     }
 
     "returns a failure if player order is empty" in {
-      validate(request.copy(playerOrder = Nil)).isLeft shouldEqual true
+      validate(rawRequest.copy(playerOrder = Nil)).isLeft shouldEqual true
+    }
+
+    "if the game is tracking stacks, fails if there is neither a timer config nor an initial stack amount" in {
+      val request = rawRequest.copy(
+        startingStack = Some(1000),
+        timerConfig = None,
+        initialSmallBlind = None,
+      )
+      validate(request).isLeft shouldEqual true
+    }
+
+    "if the game is tracking stacks, fails if both timer config and initial stack amount are provided" in {
+      val request = rawRequest.copy(
+        startingStack = Some(1000),
+        timerConfig = Some(timerExample),
+        initialSmallBlind = Some(1),
+      )
+      validate(request).isLeft shouldEqual true
     }
   }
 

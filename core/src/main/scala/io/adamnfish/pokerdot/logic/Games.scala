@@ -12,7 +12,7 @@ import java.util.UUID
  */
 object Games {
   def newGame(gameName: String, trackStacks: Boolean, dates: Dates, initialState: Long): Game = {
-    val round = Play.generateRound(PreFlop, initialState)
+    val round = Play.generateRound(PreFlop, 0, initialState)
     Game(
       gameId = GameId(UUID.randomUUID().toString),
       expiry = dates.expires(),
@@ -47,7 +47,9 @@ object Games {
       folded = false,
       busted = false,
       hole = None,
-      isHost = isHost
+      isHost = isHost,
+      isAdmin = isHost,
+      blind = NoBlind,
     )
   }
 
@@ -62,6 +64,7 @@ object Games {
       playerKey = playerKey,
       screenName = screenName,
       isHost = isHost,
+      isAdmin = isHost,
     )
   }
 
@@ -108,8 +111,19 @@ object Games {
   def start(game: Game, now: Long, timerLevelsOpt: Option[List[TimerLevel]], startingStacks: Option[Int]): Game = {
     val deck = Play.deckOrder(game.seed)
     val dealtPlayers = dealHoles(game.players, deck)
-    val dealtPlayersWithInitialStacks = dealtPlayers.map { p =>
-      p.copy(stack = startingStacks.fold(0)(p.stack + _))
+    val dealtPlayersWithInitialStacks = dealtPlayers.zipWithIndex.map { case (p, i) =>
+      val (blind, blindAmount) = i match {
+        case 1 => (SmallBlind, game.round.smallBlind)   // left of dealer
+        case 2 => (BigBlind, game.round.smallBlind * 2) // left of small blind
+        case _ => (NoBlind, 0)
+      }
+      p.copy(
+        stack = startingStacks.fold(0) { initialStackAmount =>
+          p.stack + initialStackAmount - blindAmount
+        },
+        bet = blindAmount,
+        blind = blind,
+      )
     }
     game.copy(
       players = dealtPlayersWithInitialStacks,
@@ -128,7 +142,7 @@ object Games {
   }
 
   def advancePhase(game: Game, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
-    val betAmount = game.players.map(_.bet).max
+    val betAmount = Play.currentBetAmount(game.players)
     val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount))
 
     if (playersYetToAct.nonEmpty) {
@@ -152,6 +166,7 @@ object Games {
           Right(
             game.copy(
               round = game.round.copy(phase = Flop),
+              inTurn = Play.nextPlayer(updatedPlayers, game.inTurn, game.button),
               players = updatedPlayers,
             ),
             filteredPlayerIds(updatedPlayers) { player =>
@@ -164,6 +179,7 @@ object Games {
           Right(
             game.copy(
               round = game.round.copy(phase = Turn),
+              inTurn = Play.nextPlayer(updatedPlayers, game.inTurn, game.button),
               players = updatedPlayers,
             ),
             filteredPlayerIds(updatedPlayers) { player =>
@@ -176,6 +192,7 @@ object Games {
           Right(
             game.copy(
               round = game.round.copy(phase = River),
+              inTurn = Play.nextPlayer(updatedPlayers, game.inTurn, game.button),
               players = updatedPlayers,
             ),
             filteredPlayerIds(updatedPlayers) { player =>
@@ -194,6 +211,7 @@ object Games {
           Right(
             game.copy(
               round = game.round.copy(phase = Showdown),
+              inTurn = None,
               players = updatedPlayers,
             ),
             filteredPlayerIds(updatedPlayers) { player =>
@@ -202,12 +220,18 @@ object Games {
             Some((playersWinnings, potsWinnings)),
           )
         case Showdown =>
+          // finalise player payments, reset (and bust) players
+          // shuffle, deal new cards, set up new round
           val nextState = rng.nextState(game.seed)
           val nextDeck = Play.deckOrder(nextState)
-          // finalise player payments, bust players if required, shuffle, deal new cards, set up new round
+          val updatedPlayers = game.players.map(resetPlayerForNextRound)
+          val newButton = game.button % updatedPlayers.length
+          // TODO: calculate the position of the button and blinds, and see that blinds are paid
           Right(
             game.copy(
               round = game.round.copy(phase = PreFlop),
+              button = newButton, // dealer advances
+              inTurn = Play.nextPlayer(updatedPlayers, None, newButton),
               players = dealHoles(game.players.map(resetPlayerForNextRound), nextDeck),
               seed = nextState
             ),
@@ -224,6 +248,10 @@ object Games {
 
   private def filteredPlayerIds(players: List[Player])(pred: Player => Boolean): Set[PlayerId] = {
     players.filter(pred).map(_.playerId).toSet
+  }
+
+  def calculateSmallBlind(timerStatus: TimerStatus, now: Long): Int = {
+    ???
   }
 
   /**
@@ -282,7 +310,7 @@ object Games {
     if (game.started) Left {
       Failures(
         "game has already started",
-        "The game has already started",
+        "The game has already started.",
       )
     }
     else Right(())
@@ -293,7 +321,7 @@ object Games {
     else Left {
       Failures(
         "game has not started",
-        "The game has not started",
+        "The game has not started.",
       )
     }
   }
@@ -315,7 +343,7 @@ object Games {
       Left {
         Failures(
           "Max player count exceeded",
-          "There are already 20 players in this game, which is the maximum number",
+          "There are already 20 players in this game, which is the maximum number.",
         )
       }
     } else {
@@ -330,7 +358,7 @@ object Games {
       Left {
         Failures(
           "Cannot start with one player",
-          "A game requires at least 2 players",
+          "A game requires at least 2 players.",
         )
       }
     }
@@ -341,7 +369,7 @@ object Games {
       Left {
         Failures(
           "Duplicate player address, joining game failed",
-          "You can't join the same game twice",
+          "You can't join the same game twice.",
         )
       }
     else
@@ -354,7 +382,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate key for player that does not exist",
-            "Couldn't find you in the game",
+            "Couldn't find you in the game.",
           )
         }
       case Some(player) if player.playerKey == playerKey =>
@@ -363,7 +391,7 @@ object Games {
         Left {
           Failures(
             "Invalid player key",
-            "Couldn't authenticate you for this game",
+            "Couldn't authenticate you for this game.",
           )
         }
     }
@@ -375,7 +403,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate key for spectator that does not exist",
-            "Couldn't find you in the game",
+            "Couldn't find you in the game.",
           )
         }
       case Some(spectator) if spectator.playerKey == playerKey =>
@@ -384,7 +412,7 @@ object Games {
         Left {
           Failures(
             "Invalid spectator key",
-            "Couldn't authenticate you for this game",
+            "Couldn't authenticate you for this game.",
           )
         }
     }
@@ -396,7 +424,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate host key for player that does not exist",
-            "Couldn't find you in the game",
+            "Couldn't find you in the game.",
           )
         }
       case Some(player) if player.isHost =>
@@ -405,9 +433,43 @@ object Games {
         Left {
           Failures(
             "Invalid player key, not the host",
-            "You are not the game's host"
+            "You are not the game's host."
           )
         }
+    }
+  }
+
+  def ensureAdmin(players: List[Player], playerKey: PlayerKey): Either[Failures, Player] = {
+    players.find(_.playerKey == playerKey) match {
+      case None =>
+        Left {
+          Failures(
+            "Couldn't validate host key for player that does not exist",
+            "Couldn't find you in the game.",
+          )
+        }
+      case Some(player) if player.isHost =>
+        Right(player)
+      case _ =>
+        Left {
+          Failures(
+            "Invalid player key, not an admin",
+            "You are not a game admin."
+          )
+        }
+    }
+  }
+
+  def ensureActive(inTurn: Option[PlayerId], playerId: PlayerId): Either[Failures, Unit] = {
+    if (inTurn.contains(playerId)) {
+      Right(())
+    } else {
+      Left {
+        Failures(
+          "Active player check failed",
+          "It is not your turn to act.",
+        )
+      }
     }
   }
 }

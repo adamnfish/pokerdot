@@ -7,12 +7,13 @@ case class GameSummary(
   players: List[PlayerSummary],
   spectators: List[SpectatorSummary],
   round: RoundSummary,
-  inTurn: Option[PlayerSummary],
+  smallBlind: Int,
+  inTurn: Option[PlayerId],
   button: Int,
   started: Boolean,
   startTime: Long,
   trackStacks: Boolean,
-  timer: Option[TimerStatus]
+  timer: Option[TimerStatus],
 )
 
 case class PlayerSummary(
@@ -117,6 +118,7 @@ case class StartGame(
   playerId: PlayerId,
   playerKey: PlayerKey,
   startingStack: Option[Int],
+  initialSmallBlind: Option[Int],
   timerConfig: Option[List[TimerLevel]],
   playerOrder: List[PlayerId],
 ) extends Request

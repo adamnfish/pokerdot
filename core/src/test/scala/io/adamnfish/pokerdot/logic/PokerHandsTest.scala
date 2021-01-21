@@ -294,7 +294,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         forAll(nothingConnectsCardsGen()) {
           case f1 :: f2 :: f3 :: h1 :: h2 :: t :: r :: Nil =>
             val round = Round(
-              Showdown,
+              Showdown, 0,
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
@@ -313,7 +313,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         forAll(nothingConnectsCardsGen()) {
           case f1 :: f2 :: f3 :: h1 :: h2 :: t :: r :: Nil =>
             val round = Round(
-              Flop,
+              Flop, 0,
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
@@ -332,7 +332,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         forAll(nothingConnectsCardsGen()) {
           case f1 :: f2 :: f3 :: h1 :: h2 :: t :: r :: Nil =>
             val round = Round(
-              Turn,
+              Turn, 0,
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
@@ -364,7 +364,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
           pot = pot, 0, false,
           folded = folded, false,
-          hole = Some(Hole(card1, card2)), false
+          hole = Some(Hole(card1, card2)), false, false, NoBlind
         ),
         bestHand(card1, card2,
           // community cards

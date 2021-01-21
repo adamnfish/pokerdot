@@ -10,6 +10,7 @@ case class GameDb(
   spectatorIds: List[String],
   seed: Long,
   phase: Phase,
+  smallBlind: Int,
   inTurn: Option[String],
   button: Int,
   started: Boolean,
@@ -33,5 +34,7 @@ case class PlayerDb(
   busted: Boolean,
   hole: Option[Hole],
   isHost: Boolean,
+  isAdmin: Boolean,
+  blind: Int,
   isSpectator: Boolean,
 )
