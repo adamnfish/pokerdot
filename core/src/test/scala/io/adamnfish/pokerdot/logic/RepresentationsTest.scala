@@ -1,8 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
+import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer, newSpectator}
 import io.adamnfish.pokerdot.logic.Representations._
-import io.adamnfish.pokerdot.models.{GameId, PlayerAddress}
+import io.adamnfish.pokerdot.models.{Ace, Clubs, GameId, Hole, PlayerAddress, Queen, Spades}
 import io.adamnfish.pokerdot.{TestDates, TestHelpers}
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -77,11 +78,63 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   }
 
   "summariseSelf" - {
-    "TODO" ignore {}
+    "hole" - {
+      val hole = Hole(Queen of Clubs, Ace of Spades)
+      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), TestDates)
+
+      "is included if present, even if the hole is not visible" in {
+        summariseSelf(
+          player.copy(
+            hole = Some(hole),
+            holeVisible = false,
+          )
+        ).hole shouldEqual Some(hole)
+      }
+
+      "is included if present, when hole is marked is visible" in {
+        summariseSelf(
+          player.copy(
+            hole = Some(hole),
+            holeVisible = true,
+          )
+        ).hole shouldEqual Some(hole)
+      }
+
+      "is empty if the self player has no hole" in {
+        summariseSelf(
+          player.copy(
+            hole = None,
+            holeVisible = true,
+          )
+        ).hole shouldEqual None
+      }
+    }
+
+    "TODO: more tests" ignore {}
   }
 
   "summarisePlayer" - {
-    "TODO" ignore {}
+    "hole" - {
+      val hole = Hole(Queen of Clubs, Ace of Spades)
+      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), TestDates)
+        .copy(
+          hole = Some(hole),
+        )
+
+      "is included if the hole is marked as visible" in {
+        summarisePlayer(
+          player.copy(holeVisible = true)
+        ).hole shouldEqual Some(hole)
+      }
+
+      "is omitted if marked as not visible" in {
+        summarisePlayer(
+          player.copy(holeVisible = false)
+        ).hole shouldEqual None
+      }
+    }
+
+    "TODO: more tests" ignore {}
   }
 
   "summariseSpectator" - {

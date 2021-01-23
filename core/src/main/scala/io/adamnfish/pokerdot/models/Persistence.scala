@@ -33,6 +33,7 @@ case class PlayerDb(
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],
+  holeVisible: Boolean,
   isHost: Boolean,
   isAdmin: Boolean,
   blind: Int,

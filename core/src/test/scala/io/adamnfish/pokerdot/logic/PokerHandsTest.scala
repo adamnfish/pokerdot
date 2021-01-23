@@ -364,7 +364,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
           pot = pot, 0, false,
           folded = folded, false,
-          hole = Some(Hole(card1, card2)), false, false, NoBlind
+          hole = Some(Hole(card1, card2)), true, false, false, NoBlind
         ),
         bestHand(card1, card2,
           // community cards

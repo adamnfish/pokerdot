@@ -40,6 +40,7 @@ object Representations {
       folded = player.folded,
       busted = player.busted,
       hole = player.hole,
+      holeVisible = player.holeVisible,
       isHost = player.isHost,
       isAdmin = player.isAdmin,
       blind = player.blind match {
@@ -66,6 +67,7 @@ object Representations {
       folded = false,
       busted = false,
       hole = None,
+      holeVisible = false,
       isHost = spectator.isHost,
       isAdmin = spectator.isAdmin,
       blind = 0,
@@ -132,7 +134,8 @@ object Representations {
         case 1 => SmallBlind
         case 2 => BigBlind
         case _ => NoBlind
-      }
+      },
+      holeVisible = playerDb.holeVisible,
     )
   }
 
@@ -249,6 +252,8 @@ object Representations {
       folded = player.folded,
       busted = player.busted,
       hole = player.hole,
+      isHost = player.isHost,
+      isAdmin = player.isAdmin,
     )
   }
 
@@ -256,6 +261,8 @@ object Representations {
     SpectatorSummary(
       playerId = spectator.playerId,
       screenName = spectator.screenName,
+      isHost = spectator.isHost,
+      isAdmin = spectator.isAdmin,
     )
   }
 
@@ -268,6 +275,11 @@ object Representations {
       bet = player.bet,
       folded = player.folded,
       busted = player.busted,
+      isHost = player.isHost,
+      isAdmin = player.isAdmin,
+      hole =
+        if (player.holeVisible) player.hole
+        else None
     )
   }
 
@@ -275,6 +287,8 @@ object Representations {
     SpectatorSummary(
       playerId = spectator.playerId,
       screenName = spectator.screenName,
+      isHost = spectator.isHost,
+      isAdmin = spectator.isAdmin,
     )
   }
 }

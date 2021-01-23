@@ -47,6 +47,7 @@ object Games {
       folded = false,
       busted = false,
       hole = None,
+      holeVisible = false,
       isHost = isHost,
       isAdmin = isHost,
       blind = NoBlind,
@@ -221,6 +222,7 @@ object Games {
           )
         case Showdown =>
           // finalise player payments, reset (and bust) players
+          // show player holes
           // shuffle, deal new cards, set up new round
           val nextState = rng.nextState(game.seed)
           val nextDeck = Play.deckOrder(nextState)

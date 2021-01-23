@@ -24,6 +24,9 @@ case class PlayerSummary(
   bet: Int,
   folded: Boolean,
   busted: Boolean,
+  isHost: Boolean,
+  isAdmin: Boolean,
+  hole: Option[Hole]
 )
 
 sealed trait Self
@@ -31,6 +34,8 @@ sealed trait Self
 case class SpectatorSummary(
   playerId: PlayerId,
   screenName: String,
+  isHost: Boolean,
+  isAdmin: Boolean,
 ) extends Self
 
 case class SelfSummary(
@@ -42,6 +47,8 @@ case class SelfSummary(
   folded: Boolean,
   busted: Boolean,
   hole: Option[Hole],
+  isHost: Boolean,
+  isAdmin: Boolean,
 ) extends Self
 
 sealed trait RoundSummary extends Product

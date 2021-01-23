@@ -29,14 +29,14 @@ object PokerHands {
     val duplicateSuits = findDuplicateSuits(sevenCards)
 
     // check for the strongest first and fallback to lesser hands
-    straightFlush(duplicateSuits) orElse
-      fourOfAKind(sevenCards, duplicateRanks)     orElse
-      fullHouse(sevenCards, duplicateRanks)       orElse
-      flush(sevenCards, duplicateSuits)       orElse
-      straight(sevenCards)                    orElse
-      threeOfAKind(sevenCards, duplicateRanks)    orElse
-      twoPair(sevenCards, duplicateRanks)         orElse
-      pair(sevenCards, duplicateRanks)            getOrElse
+    straightFlush(duplicateSuits)              orElse
+      fourOfAKind(sevenCards, duplicateRanks)  orElse
+      fullHouse(sevenCards, duplicateRanks)    orElse
+      flush(sevenCards, duplicateSuits)        orElse
+      straight(sevenCards)                     orElse
+      threeOfAKind(sevenCards, duplicateRanks) orElse
+      twoPair(sevenCards, duplicateRanks)      orElse
+      pair(sevenCards, duplicateRanks)         getOrElse
       highCard(sevenCards)
   }
 
@@ -85,6 +85,9 @@ object PokerHands {
    *
    * We check for results on a pot-by-pot basis, at each level selecting the
    * strongest hand that is eligible.
+   *
+   * Note that for simplicity and testability, this returns a description
+   * of the winnings, which must then be applied to the game's players.
    */
   def winnings(playerHands: List[PlayerHand]): List[PotWinnings] = {
     // All players, arranged by hand strength.

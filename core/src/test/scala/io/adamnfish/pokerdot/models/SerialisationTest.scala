@@ -182,7 +182,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers {
 
   "actionSummaryEncoder" - {
     val playerSummary = PlayerSummary(
-      PlayerId("pid"), "screen name", 0, 0, 0, folded = false, busted = false
+      PlayerId("pid"), "screen name", 0, 0, 0, folded = false, busted = false, isHost = false, isAdmin = false, hole = None
     )
 
     "gameStartedSummary encoding includes correct the action name" in {
