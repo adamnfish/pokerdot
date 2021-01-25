@@ -86,7 +86,8 @@ object Play {
     if (player.folded || player.busted) {
       false
     } else if (player.bet < betAmount) {
-      true
+      // if the player is all-in then they cannot act any further
+      player.stack > 0
     } else {
       // player's contribution is equal (or higher - shouldn't happen) than the current bid amount
       // and they are still playing in the phase
@@ -95,29 +96,38 @@ object Play {
   }
 
   def currentBetAmount(players: List[Player]): Int = {
-    players.filterNot(p => p.busted || p.folded).map(_.bet).max
+    if (players.isEmpty) 0
+    else players.map(_.bet).max
   }
 
   def nextPlayer(players: List[Player], currentActive: Option[PlayerId], button: Int): Option[PlayerId] = {
-    val nextPlayer = for {
-      activePlayerId <- currentActive
-      activePlayerIndex <- {
-        val i = players.indexWhere(_.playerId == activePlayerId)
-        if (i == -1) None
-        else Some(i)
-      }
-      nextIndex = (activePlayerIndex + 1) % players.length
-      next <- nextActiveFromIndex(players, nextIndex)
-    } yield next
+    if (players.isEmpty) None
+    else {
+      val nextPlayer = for {
+        activePlayerId <- currentActive
+        activePlayerIndex <- indexWhere(players)(_.playerId == activePlayerId)
+        nextIndex = (activePlayerIndex + 1) % players.length
+        next <- nextActiveFromIndex(players, nextIndex)
+      } yield next
 
-    nextPlayer.orElse {
-      // back to start player if there is no active player
-      nextActiveFromIndex(players, (button + 1) % players.length)
+      nextPlayer.orElse {
+        // if there is no active player to count from, we count from the button instead
+        nextActiveFromIndex(players, (button + 1) % players.length)
+      }
     }
   }
 
   private[logic] def nextActiveFromIndex(players: List[Player], index: Int): Option[PlayerId] = {
     val reorderedPlayers = (players ++ players).drop(index % players.length).take(players.length)
     reorderedPlayers.find(playerIsYetToAct(currentBetAmount(players))).map(_.playerId)
+  }
+
+  /**
+   * Converts from stdlib's `-1 = empty` to an Option
+   */
+  private[logic] def indexWhere[A](as: List[A])(p: A => Boolean): Option[Int] = {
+    val i = as.indexWhere(p)
+    if (i == -1) None
+    else Some(i)
   }
 }

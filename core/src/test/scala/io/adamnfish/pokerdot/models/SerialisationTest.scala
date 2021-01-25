@@ -4,12 +4,48 @@ import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.models.Serialisation._
+import io.circe.Json
+import io.circe.generic.semiauto.deriveDecoder
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import io.circe.syntax._
+import org.scalatest.EitherValues
 
 
-class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers {
+class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with EitherValues {
+  "parse" - {
+    "for invalid input" - {
+      "fails" in {
+        parse("""nope""", "Test message", None).isLeft shouldEqual true
+      }
+
+      "uses the provided message in the failure" in {
+        val failures = parse("""nope""", "Test message", None).left.value
+        failures.failures.exists(_.userMessage == "Test message") shouldEqual true
+      }
+
+      "uses the provided context in the failure" in {
+        val failures = parse("""nope""", "Test message", Some("context")).left.value
+        failures.failures.exists(_.context.contains("context")) shouldEqual true
+      }
+    }
+  }
+
+  "extractJson" - {
+    case class Test(field: String)
+    implicit val testDecoder = deriveDecoder[Test]
+
+    "succeeds if the JSON is valid" in {
+      val result = extractJson(Json.fromFields(List(("field", Json.fromString("value")))), "Test message")
+      result.value shouldEqual Test(field = "value")
+    }
+
+    "fails if the JSON is not in the correct shape" in {
+      val result = extractJson(Json.fromFields(List(("differentField", Json.fromString("value")))), "Test message")
+      result.isLeft shouldEqual true
+    }
+  }
+
   "parseUpdateTimerRequest" - {
     "parses a pause request" in {
       val json = parseReq(

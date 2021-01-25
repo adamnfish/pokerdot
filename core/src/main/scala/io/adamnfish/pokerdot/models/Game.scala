@@ -11,6 +11,8 @@ case class Game(
   spectators: List[Spectator],
   seed: Long,
   round: Round,
+  // TODO: perhaps this field can be removed?
+  //       it is always derivable, I think?
   inTurn: Option[PlayerId],
   button: Int, // 0-indexed dealer position
   started: Boolean,

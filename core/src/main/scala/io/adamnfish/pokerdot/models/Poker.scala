@@ -29,14 +29,14 @@ case class Round(
   river: Card,
 )
 
-sealed trait Phase
+sealed trait Phase extends Product
 case object PreFlop  extends Phase
 case object Flop     extends Phase
 case object Turn     extends Phase
 case object River    extends Phase
 case object Showdown extends Phase
 
-sealed trait Blind
+sealed trait Blind extends Product
 case object NoBlind    extends Blind
 case object SmallBlind extends Blind
 case object BigBlind   extends Blind

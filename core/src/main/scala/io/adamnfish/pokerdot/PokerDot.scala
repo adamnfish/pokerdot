@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{Games, Representations, Responses}
+import io.adamnfish.pokerdot.logic.{AdvancePhaseLogic, Games, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer}
 import io.circe.Json
@@ -214,8 +214,7 @@ object PokerDot {
       // fetch game
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
-      // the logic for advancing rounds is quite complicated!
-      advanceResult <- Games.advancePhase(game, appContext.rng).attempt
+      advanceResult <- AdvancePhaseLogic.advancePhase(game, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)
       // only do DB updates for players that have changed

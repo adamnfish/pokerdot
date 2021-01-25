@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Play.dealHoles
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.{Dates, Rng}
+import io.adamnfish.pokerdot.services.Dates
 
 import java.util.UUID
 
@@ -142,120 +142,6 @@ object Games {
     )
   }
 
-  def advancePhase(game: Game, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
-    val betAmount = Play.currentBetAmount(game.players)
-    val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount))
-
-    if (playersYetToAct.nonEmpty) {
-      val message =
-        playersYetToAct match {
-          case lastPlayer :: Nil =>
-            s"${lastPlayer.screenName} needs to act before the round is finished"
-          case _ =>
-            s"${playersYetToAct.size} players still need to act"
-        }
-      Left(
-        Failures(
-          s"Cannot advance phase while ${playersYetToAct.length} players have not yet acted",
-          message,
-        )
-      )
-    } else {
-      game.round.phase match {
-        case PreFlop =>
-          val updatedPlayers = game.players.map(resetPlayerForNextPhase)
-          Right(
-            game.copy(
-              round = game.round.copy(phase = Flop),
-              inTurn = Play.nextPlayer(updatedPlayers, game.inTurn, game.button),
-              players = updatedPlayers,
-            ),
-            filteredPlayerIds(updatedPlayers) { player =>
-              !player.busted && !player.folded
-            },
-            None,
-          )
-        case Flop =>
-          val updatedPlayers = game.players.map(resetPlayerForNextPhase)
-          Right(
-            game.copy(
-              round = game.round.copy(phase = Turn),
-              inTurn = Play.nextPlayer(updatedPlayers, game.inTurn, game.button),
-              players = updatedPlayers,
-            ),
-            filteredPlayerIds(updatedPlayers) { player =>
-              !player.busted && !player.folded
-            },
-            None,
-          )
-        case Turn =>
-          val updatedPlayers = game.players.map(resetPlayerForNextPhase)
-          Right(
-            game.copy(
-              round = game.round.copy(phase = River),
-              inTurn = Play.nextPlayer(updatedPlayers, game.inTurn, game.button),
-              players = updatedPlayers,
-            ),
-            filteredPlayerIds(updatedPlayers) { player =>
-              !player.busted && !player.folded
-            },
-            None,
-          )
-        case River =>
-          val playerHands = PokerHands.bestHands(game.round, game.players)
-          val potsWinnings = PokerHands.winnings(playerHands)
-          val playersWinnings = PokerHands.playerWinnings(potsWinnings, game.button,
-            playerOrder = game.players.map(_.playerId),
-            playerHands = playerHands.map(ph => ph.player.playerId -> ph.hand),
-          )
-          val updatedPlayers = game.players.map(resetPlayerForShowdown(playersWinnings))
-          Right(
-            game.copy(
-              round = game.round.copy(phase = Showdown),
-              inTurn = None,
-              players = updatedPlayers,
-            ),
-            filteredPlayerIds(updatedPlayers) { player =>
-              !player.busted && !player.folded
-            },
-            Some((playersWinnings, potsWinnings)),
-          )
-        case Showdown =>
-          // finalise player payments, reset (and bust) players
-          // show player holes
-          // shuffle, deal new cards, set up new round
-          val nextState = rng.nextState(game.seed)
-          val nextDeck = Play.deckOrder(nextState)
-          val updatedPlayers = game.players.map(resetPlayerForNextRound)
-          val newButton = game.button % updatedPlayers.length
-          // TODO: calculate the position of the button and blinds, and see that blinds are paid
-          Right(
-            game.copy(
-              round = game.round.copy(phase = PreFlop),
-              button = newButton, // dealer advances
-              inTurn = Play.nextPlayer(updatedPlayers, None, newButton),
-              players = dealHoles(game.players.map(resetPlayerForNextRound), nextDeck),
-              seed = nextState
-            ),
-            // between rounds we'll update everyone that's still in the game to deal cards,
-            // including players that have folded
-            filteredPlayerIds(game.players) { player =>
-              !player.busted
-            },
-            None,
-          )
-      }
-    }
-  }
-
-  private def filteredPlayerIds(players: List[Player])(pred: Player => Boolean): Set[PlayerId] = {
-    players.filter(pred).map(_.playerId).toSet
-  }
-
-  def calculateSmallBlind(timerStatus: TimerStatus, now: Long): Int = {
-    ???
-  }
-
   /**
    * Copies the round's bet over to the player's pot contribution and resets the checked state.
    *
@@ -288,6 +174,7 @@ object Games {
     val resetPlayer = resetPlayerForNextPhase(player).copy(
       pot = 0,
       folded = false,
+      blind = NoBlind, // the next blind position(s) will be calculated elsewhere
     )
     if (resetPlayer.stack <= 0) {
       resetPlayer.copy(busted = true)

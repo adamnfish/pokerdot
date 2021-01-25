@@ -11,6 +11,8 @@ import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.util.Random
+
 
 class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues {
   "generateRound" - {
@@ -46,7 +48,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "uses the provided phase" in {
-      forAll(Gen.oneOf(PreFlop, Flop ,Turn ,River, Showdown)) { phase =>
+      forAll(Gen.oneOf(PreFlop, Flop, Turn, River, Showdown)) { phase =>
         val round = generateRound(phase, 0, 0L)
         round.phase shouldEqual phase
       }
@@ -66,7 +68,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       // this is very unlikely to fail accidentally,
       // but it is not impossible that three different seeds produce the same deck
       forAll { (seed1: Long, seed2: Long, seed3: Long) =>
-        whenever (seed1 != seed2 && seed2 != seed3 && seed3 != seed1) {
+        whenever(seed1 != seed2 && seed2 != seed3 && seed3 != seed1) {
           val deck1 = deckOrder(seed1)
           val deck2 = deckOrder(seed2)
           val deck3 = deckOrder(seed3)
@@ -178,13 +180,21 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           stack = 1000,
         )
 
-    "unmodified test player" - {
+    "unchecked player" - {
       "needs to act when bet amount equals their own input" in {
         playerIsYetToAct(100)(player) shouldEqual true
       }
 
       "needs to act when bet amount exceeds their own input" in {
         playerIsYetToAct(200)(player) shouldEqual true
+      }
+
+      "does not need to act if they are all-in" in {
+        playerIsYetToAct(2000)(
+          player.copy(
+            stack = 0,
+          )
+        ) shouldEqual false
       }
     }
 
@@ -229,36 +239,103 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
   }
 
   "nextPlayer" - {
+    val p1 = newPlayer(GameId("game-id"), "p1", false, PlayerAddress("p1-address"), TestDates)
+      .copy(stack = 1000)
+    val p2 = newPlayer(GameId("game-id"), "p2", false, PlayerAddress("p2-address"), TestDates)
+      .copy(stack = 1000)
+    val p3 = newPlayer(GameId("game-id"), "p3", false, PlayerAddress("p3-address"), TestDates)
+      .copy(stack = 1000)
+    val p4 = newPlayer(GameId("game-id"), "p4", false, PlayerAddress("p4-address"), TestDates)
+      .copy(stack = 1000)
+
     "when a player is already active" - {
       "returns the next player" in {
-
+        nextPlayer(List(p1, p2, p3, p4), Some(p1.playerId), 0) shouldEqual Some(p2.playerId)
       }
 
       "skips a folded player" in {
-
+        nextPlayer(List(
+          p1,
+          p2.copy(folded = true),
+          p3,
+          p4,
+        ), Some(p1.playerId), 0) shouldEqual Some(p3.playerId)
       }
 
       "skips a busted player" in {
-
+        nextPlayer(List(
+          p1,
+          p2.copy(busted = true),
+          p3,
+          p4,
+        ), Some(p1.playerId), 0) shouldEqual Some(p3.playerId)
       }
 
       "wraps around the players list to find the next" in {
-
+        nextPlayer(List(p1, p2, p3, p4), Some(p4.playerId), 0) shouldEqual Some(p1.playerId)
       }
 
       "wraps around the players list when skipping a folded player" in {
-
+        nextPlayer(List(
+          p1,
+          p2,
+          p3,
+          p4.copy(folded = true),
+        ), Some(p3.playerId), 0) shouldEqual Some(p1.playerId)
       }
 
       "wraps around the players list when skipping a busted player" in {
+        nextPlayer(List(
+          p1,
+          p2,
+          p3,
+          p4.copy(busted = true),
+        ), Some(p3.playerId), 0) shouldEqual Some(p1.playerId)
+      }
 
+      "returns None if no players are eligible to become active" in {
+        val ineligiblePlayers = List(p1, p2, p3, p4).map(_.copy(folded = true))
+        nextPlayer(ineligiblePlayers, Some(p3.playerId), 0) shouldEqual None
       }
     }
 
     "when no player is currently active" - {
-      "activates the player to the left of the player that is on the button" in {
+      "activates the player to the left of the button" - {
+        "for button index 0" in {
+          nextPlayer(List(p1, p2, p3, p4), None, 0) shouldEqual Some(p2.playerId)
+        }
 
+        "for button index 1" in {
+          nextPlayer(List(p1, p2, p3, p4), None, 1) shouldEqual Some(p3.playerId)
+        }
+
+        "for button index 2" in {
+          nextPlayer(List(p1, p2, p3, p4), None, 2) shouldEqual Some(p4.playerId)
+        }
+
+        "wraps round to the first player for button index 3" in {
+          nextPlayer(List(p1, p2, p3, p4), None, 3) shouldEqual Some(p1.playerId)
+        }
       }
+
+      "returns None if no players are eligible to become active" in {
+        val ineligiblePlayers = List(p1, p2, p3, p4).map(_.copy(folded = true))
+        nextPlayer(ineligiblePlayers, None, 0) shouldEqual None
+      }
+    }
+  }
+
+  "indexWhere" - {
+    "returned index is equal to the stdlib's index when present" in {
+      forAll { seed: Long =>
+        val rng = new Random(seed)
+        val shuffled = rng.shuffle(List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
+        indexWhere(shuffled)(_ == 1) shouldEqual Some(shuffled.indexWhere(_ == 1))
+      }
+    }
+
+    "returns None if the predicate is not satisfied" in {
+      indexWhere(List(1, 2, 3))(_ == 4) shouldEqual None
     }
   }
 }
