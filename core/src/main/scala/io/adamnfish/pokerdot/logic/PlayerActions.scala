@@ -2,14 +2,38 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Games._
 import io.adamnfish.pokerdot.logic.Play.dealHoles
-import io.adamnfish.pokerdot.models.{Failures, Flop, Game, PlayerId, PlayerWinnings, PotWinnings, PreFlop, River, Showdown, Turn}
+import io.adamnfish.pokerdot.models.{Failures, Flop, Game, Player, PlayerId, PlayerWinnings, PotWinnings, PreFlop, River, Showdown, Turn}
 import io.adamnfish.pokerdot.services.Rng
 
 
 /**
  * This logic is quite complex so it gets its own object and tests.
  */
-object AdvancePhaseLogic {
+object PlayerActions {
+  def bet(game: Game, playerId: PlayerId): Either[Failures, (Game, Player)] = {
+    // ensure bet amount does not exceed stack
+    // ensure bet is legal
+    // update this player's moneys, and deactivate
+    // uncheck other players, they will need the opportunity to respond to this bet
+    // update active player in game
+    ???
+  }
+
+  def check(game: Game, playerId: PlayerId): Either[Failures, (Game, Player)] = {
+    // ensure check is legal
+    // deactivate this player
+    // update active player in game
+    // set player's checked to `true`
+    ???
+  }
+
+  def fold(game: Game, playerId: PlayerId): Either[Failures, (Game, Player)] = {
+    // ensure fold is legal
+    // deactivate this player
+    // update active player in game
+    ???
+  }
+
   /**
    * Checks the round is ready to be advanced, then delegates
    * to the current round's advancement logic.
@@ -42,7 +66,7 @@ object AdvancePhaseLogic {
 
   private[logic] def ensurePlayersHaveFinishedActing(game: Game): Either[Failures, Unit] = {
     val betAmount = Play.currentBetAmount(game.players)
-    val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount))
+    val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount, game.players))
     if (playersYetToAct.nonEmpty) {
       val message =
         playersYetToAct match {

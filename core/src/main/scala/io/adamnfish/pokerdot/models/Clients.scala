@@ -157,6 +157,7 @@ case class AdvancePhase(
   gameId: GameId,
   playerKey: PlayerKey,
   playerId: PlayerId,
+  // TODO: option to deal all cards and advance straight to showdown
 ) extends Request
 // implementation detail requests
 case class Ping(

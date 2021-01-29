@@ -173,7 +173,14 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "playerIsYetToAct" - {
     val player =
-      Games.newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+        .copy(
+          hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
+          bet = 100,
+          stack = 1000,
+        )
+    val otherPlayer =
+      newPlayer(GameId("game-id"), "other-player-name", false, PlayerAddress("other-player-address"), TestDates)
         .copy(
           hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
           bet = 100,
@@ -182,41 +189,92 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "unchecked player" - {
       "needs to act when bet amount equals their own input" in {
-        playerIsYetToAct(100)(player) shouldEqual true
+        playerIsYetToAct(100, List(player, otherPlayer))(player) shouldEqual true
       }
 
       "needs to act when bet amount exceeds their own input" in {
-        playerIsYetToAct(200)(player) shouldEqual true
+        playerIsYetToAct(200, List(player, otherPlayer))(player) shouldEqual true
       }
 
       "does not need to act if they are all-in" in {
-        playerIsYetToAct(2000)(
+        playerIsYetToAct(2000, List(player, otherPlayer))(
           player.copy(
             stack = 0,
           )
         ) shouldEqual false
       }
+
+      "does not need to act if all other players have folded (if they have at least matched the current bet)" in {
+        playerIsYetToAct(100, List(
+          player,
+          otherPlayer.copy(folded = true),
+        ))(
+          player
+        ) shouldEqual false
+      }
+
+      "if all other players are all-in" - {
+        val player2 =
+          newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("player-2-address"), TestDates)
+            .copy(
+              hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
+              bet = 100,
+              stack = 0,
+            )
+        val player3 =
+          newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("player-3-address"), TestDates)
+            .copy(
+              hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
+              bet = 90,
+              stack = 0,
+            )
+        val player4 =
+          newPlayer(GameId("game-id"), "player-4", false, PlayerAddress("player-4-address"), TestDates)
+            .copy(
+              hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
+              bet = 90,
+              stack = 0,
+            )
+
+        "does not need to act if they have equaled the highest all-in player's stake" in {
+          playerIsYetToAct(100, List(player, player2, player3, player4))(
+            player.copy(bet = 100)
+          ) shouldEqual false
+        }
+
+        "does not need to act if they have exceeded the highest all-in player's stake" in {
+          playerIsYetToAct(150, List(player, player2, player3, player4))(
+            player.copy(bet = 150)
+          ) shouldEqual false
+        }
+
+        "needs to act if they have not exceeded the highest all-in player's stake" in {
+          playerIsYetToAct(100, List(player, player2, player3, player4))(
+            player.copy(bet = 20)
+          ) shouldEqual true
+        }
+      }
     }
 
     "checked player" - {
       "does not need to act when bet amount equals their own input" in {
-        playerIsYetToAct(100)(player.copy(checked = true)) shouldEqual false
+        playerIsYetToAct(100, List(player, otherPlayer))(player.copy(checked = true)) shouldEqual false
       }
 
       "needs to act when bet amount exceeds their own input" in {
-        playerIsYetToAct(200)(player.copy(checked = true)) shouldEqual true
+        playerIsYetToAct(200, List(player, otherPlayer))(player.copy(checked = true)) shouldEqual true
       }
     }
 
     "a folded player does not need to act for any amount" in {
       forAll { (betAmount: Int) =>
-        playerIsYetToAct(betAmount)(player.copy(folded = true)) shouldEqual false
+        playerIsYetToAct(betAmount, List(player, otherPlayer))(player.copy(folded = true)) shouldEqual false
       }
     }
 
     "a busted player does not need to act for any amount" in {
       forAll { (betAmount: Int) =>
-        playerIsYetToAct(betAmount)(player.copy(busted = true)) shouldEqual false
+        playerIsYetToAct(betAmount, List(player, otherPlayer))(player.copy(busted = true)) shouldEqual false
       }
     }
   }

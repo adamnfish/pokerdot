@@ -79,8 +79,17 @@ object Representations {
     players.map(playerToDb)
   }
 
-  def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): List[PlayerDb] = {
-    allPlayerDbs(players.filter(p => allowlist.contains(p.playerId)))
+  def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): Either[Failures, List[PlayerDb]] = {
+    if(players.map(_.playerId).toSet.intersect(allowlist) == allowlist) {
+      Right(allPlayerDbs(players.filter(p => allowlist.contains(p.playerId))))
+    } else {
+      Left {
+        Failures(
+          "Trying to get playerDb for player ID that does not exist",
+          "There was a problem trying to save a user that could not be found.",
+        )
+      }
+    }
   }
 
   def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failures, Game] = {

@@ -65,33 +65,37 @@ object Play {
   }
 
   /**
-   * The dealer does not necessarily advance round the table each round. Rather,
-   * the goal is to ensure that the every player gets their turn with the Big Blind.
-   *
-   * This function works out the next arrangement of blinds and button and returns
-   * the index of the dealer/button, the small blind (which may be omitted in a round),
-   * and the big blind.
-   */
-  def setupNextRound(players: List[Player], currentButton: Int, smallBlind: Int): (Int, Option[Int], Int) = {
-    val playerCount = players.length
-    val playersInRoundOrder = (players ++ players).drop(currentButton % playerCount).take(playerCount)
-    val newBigBlindIndex = -1
-    ???
-  }
-
-  /**
    * If the player is in this round (i.e. not busted or folded), check if they have acted at this bid level.
    */
-  def playerIsYetToAct(betAmount: Int)(player: Player): Boolean = {
-    if (player.folded || player.busted) {
+  def playerIsYetToAct(betAmount: Int, players: List[Player])(player: Player): Boolean = {
+    if (player.stack == 0 || player.folded || player.busted) {
+      // players can't act if they are out the round
+      // but they also cannot act if they are all-in
       false
     } else if (player.bet < betAmount) {
+      // player is expected to match the current bet amount, if able
       // if the player is all-in then they cannot act any further
       player.stack > 0
     } else {
-      // player's contribution is equal (or higher - shouldn't happen) than the current bid amount
+      // player's contribution is equal or higher than the current bid amount
       // and they are still playing in the phase
-      !player.checked
+      // here we need to look at other players to decide if the round is still 'active'
+      players.filterNot { p =>
+        // exclude players that are out of money (all-in), or not in the round
+        p.stack == 0 || p.folded || p.busted
+      } match {
+        case active :: Nil if active.playerId == player.playerId =>
+          // this player is the only player that can still act
+          // we already checked they have matched the current bet amount
+          // so they don't need to act
+          false
+        case Nil =>
+          // no active players, likely means everyone is equally all-in
+          false
+        case activePlayers =>
+          // there are multiple active players, so it's up to this player whether they want to act
+          !player.checked
+      }
     }
   }
 
@@ -119,7 +123,7 @@ object Play {
 
   private[logic] def nextActiveFromIndex(players: List[Player], index: Int): Option[PlayerId] = {
     val reorderedPlayers = (players ++ players).drop(index % players.length).take(players.length)
-    reorderedPlayers.find(playerIsYetToAct(currentBetAmount(players))).map(_.playerId)
+    reorderedPlayers.find(playerIsYetToAct(currentBetAmount(players), players)).map(_.playerId)
   }
 
   /**

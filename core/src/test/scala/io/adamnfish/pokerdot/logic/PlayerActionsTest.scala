@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.AdvancePhaseLogic.{advancePhase, ensurePlayersHaveFinishedActing}
+import io.adamnfish.pokerdot.logic.PlayerActions.{advancePhase, ensurePlayersHaveFinishedActing}
 import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer}
 import io.adamnfish.pokerdot.models.{Flop, PlayerAddress, PreFlop, River, Turn}
@@ -11,14 +11,18 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 
-class AdvancePhaseLogicTest extends AnyFreeSpec with Matchers with TestHelpers with ScalaCheckDrivenPropertyChecks with OptionValues {
+class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with ScalaCheckDrivenPropertyChecks with OptionValues {
   "advancePhase" - {
     "for the simple phases" - {
       val game = newGame("Game name", trackStacks = true, TestDates, 1L)
       val p1 = newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
+        .copy(stack = 1000)
       val p2 = newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
+        .copy(stack = 1000)
       val p3 = newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
+        .copy(stack = 1000)
       val p4 = newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestDates)
+        .copy(stack = 1000)
 
       "game phase is advanced" in {
         val expected = Map(
@@ -406,6 +410,50 @@ class AdvancePhaseLogicTest extends AnyFreeSpec with Matchers with TestHelpers w
           )
         ).isRight shouldEqual true
       }
+    }
+
+    "succeeds if a player doesn't need to act because everyone else has folded" in {
+      ensurePlayersHaveFinishedActing(
+        game.copy(
+          players = List(
+            p1.copy(
+              bet = 50,
+              folded = true,
+            ),
+            p2.copy(
+              bet = 50,
+              folded = true,
+            ),
+            p3.copy(
+              bet = 50,
+              stack = 0,
+              checked = false,
+            ),
+          )
+        )
+      ).isRight shouldEqual true
+    }
+
+    "succeeds if a player doesn't need to act because everyone else is all-in" in {
+      ensurePlayersHaveFinishedActing(
+        game.copy(
+          players = List(
+            p1.copy(
+              bet = 50,
+              stack = 0,
+            ),
+            p2.copy(
+              bet = 50,
+              stack = 0,
+            ),
+            p3.copy(
+              bet = 50,
+              stack = 1000,
+              checked = false,
+            ),
+          )
+        )
+      ).isRight shouldEqual true
     }
 
     "fails if a player has not yet bet" in {

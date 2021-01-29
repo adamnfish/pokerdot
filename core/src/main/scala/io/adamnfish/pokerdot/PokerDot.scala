@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{AdvancePhaseLogic, Games, Representations, Responses}
+import io.adamnfish.pokerdot.logic.{PlayerActions, Games, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer}
 import io.circe.Json
@@ -145,49 +145,75 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureStarted(rawGame).attempt
-      // ensure player key
-      player <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey).attempt
-      // ensure active player
-//      _ <-
-      // ensure bet amount does not exceed stack
-      // ensure bet is legal
-      // update this player's moneys, and deactivate
-      // update active player in game
-      // set player's checked to `false`
+      _ <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey).attempt
+      _ <- Games.ensureActive(rawGame.inTurn, bet.playerId).attempt
+      gameAndPlayer <- PlayerActions.bet(rawGame, bet.playerId).attempt
+      (newGame, updatedPlayer) = gameAndPlayer
+      // obtain DB representations for persistence
+      updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(bet.playerId)).attempt
+      newGameDb = Representations.gameToDb(newGame)
       // save this player
+      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
-    } yield Responses.tbd() // Responses.gameStatuses(???, BetSummary(???))
+      _ <- appContext.db.writeGame(newGameDb)
+    } yield Responses.gameStatuses(
+      newGame,
+      BetSummary(Representations.summarisePlayer(updatedPlayer))
+    )
   }
 
   def check(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
       check <- extractCheck(requestJson).attempt
-      // fetch game
-      // ensure started
-      // ensure player key
-      // ensure active player // TODO: allow off-turn checks?
-      // ensure check is legal
-      // deactivate this player
-      // update active player in game
-      // set player's checked to `true`
-      // save player (if updated?)
+      maybeGame <- appContext.db.getGame(check.gameId)
+      gameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot bet, game ID not found", "Couldn't find game to start",
+      ))
+      playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
+      rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
+      _ <- Games.ensureStarted(rawGame).attempt
+      _ <- Games.ensurePlayerKey(rawGame.players, check.playerId, check.playerKey).attempt
+      _ <- Games.ensureActive(rawGame.inTurn, check.playerId).attempt // TODO: allow off-turn checks?
+      gameAndPlayer <- PlayerActions.check(rawGame, check.playerId).attempt
+      (newGame, updatedPlayer) = gameAndPlayer
+      // obtain DB representations for persistence
+      updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(check.playerId)).attempt
+      newGameDb = Representations.gameToDb(newGame)
+      // save this player
+      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
-    } yield Responses.tbd() // Responses.gameStatuses(???, CheckSummary(???))
+      _ <- appContext.db.writeGame(newGameDb)
+    } yield Responses.gameStatuses(
+      newGame,
+      CheckSummary(Representations.summarisePlayer(updatedPlayer))
+    )
   }
 
   def fold(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
       fold <- extractFold(requestJson).attempt
-      // fetch game
-      // ensure started
-      // ensure player key
-      // ensure active player // TODO: allow off-turn folds?
-      // ensure fold is legal
-      // deactivate this player
-      // update active player in game
-      // save player (if updated?)
+      maybeGame <- appContext.db.getGame(fold.gameId)
+      gameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot bet, game ID not found", "Couldn't find game to start",
+      ))
+      playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
+      rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
+      _ <- Games.ensureStarted(rawGame).attempt
+      _ <- Games.ensurePlayerKey(rawGame.players, fold.playerId, fold.playerKey).attempt
+      _ <- Games.ensureActive(rawGame.inTurn, fold.playerId).attempt // TODO: allow off-turn folds?
+      gameAndPlayer <- PlayerActions.fold(rawGame, fold.playerId).attempt
+      (newGame, updatedPlayer) = gameAndPlayer
+      // obtain DB representations for persistence
+      updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(fold.playerId)).attempt
+      newGameDb = Representations.gameToDb(newGame)
+      // save this player
+      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
-    } yield Responses.tbd() // Responses.gameStatuses(???, FoldSummary(???))
+      _ <- appContext.db.writeGame(newGameDb)
+    } yield Responses.gameStatuses(
+      newGame,
+      FoldSummary(Representations.summarisePlayer(updatedPlayer))
+    )
   }
 
   /**
@@ -214,11 +240,11 @@ object PokerDot {
       // fetch game
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
-      advanceResult <- AdvancePhaseLogic.advancePhase(game, appContext.rng).attempt
+      advanceResult <- PlayerActions.advancePhase(game, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)
       // only do DB updates for players that have changed
-      updatedPlayerDbs = Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers)
+      updatedPlayerDbs <- Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers).attempt
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       _ <- appContext.db.writeGame(newGameDb)
     } yield {
@@ -272,11 +298,13 @@ object PokerDot {
     } yield Responses.justRespond(message, appContext.playerAddress)
   }
 
-  def playerPing(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+  // TODO: split logic for players / spectators
+
+  def playerPing(requestJson: Json, appContext: AppContext): Attempt[(Message, PlayerDb)] = {
     ???
   }
 
-  def spectatorPing(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+  def spectatorPing(requestJson: Json, appContext: AppContext): Attempt[(Message, PlayerDb)] = {
     ???
   }
 
