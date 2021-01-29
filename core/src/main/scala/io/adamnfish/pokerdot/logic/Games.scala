@@ -160,6 +160,7 @@ object Games {
    */
   def resetPlayerForShowdown(playersWinnings: List[PlayerWinnings])(player: Player): Player = {
     resetPlayerForNextPhase(player).copy(
+      checked = false,
       stack = player.stack + playersWinnings.find(_.playerId == player.playerId).map(_.winnings).getOrElse(0)
     )
   }
@@ -174,6 +175,7 @@ object Games {
     val resetPlayer = resetPlayerForNextPhase(player).copy(
       pot = 0,
       folded = false,
+      checked = false,
       blind = NoBlind, // the next blind position(s) will be calculated elsewhere
     )
     if (resetPlayer.stack <= 0) {

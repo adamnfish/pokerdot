@@ -1,24 +1,19 @@
 package io.adamnfish.pokerdot.integration
 
-import java.util.UUID.randomUUID
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType._
 import io.adamnfish.pokerdot.TestDates
-import io.adamnfish.pokerdot.logic.Utils
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.persistence.DynamoDb
 import io.adamnfish.pokerdot.services.{Database, Messaging, Rng}
-import io.circe.{Encoder, Json, parser}
-import io.circe.generic.semiauto.deriveEncoder
-import org.scalactic.source.Position
-import org.scalatest.exceptions.TestFailedException
 import org.scanamo.LocalDynamoDB
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType._
 import zio.IO
 
+import java.util.UUID.randomUUID
 import scala.util.Random
 
 
 trait IntegrationComponents {
-  private val client = LocalDynamoDB.client()
+  private val client = LocalDynamoDB.syncClient()
 
   def withAppContext(f: (PlayerAddress => AppContext, Database) => Any /* Assertion */): Any /* Assertion */ = {
     val randomSuffix = randomUUID().toString

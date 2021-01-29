@@ -12,7 +12,7 @@ import zio.IO
 
 object DevServer {
   val messaging = new DevMessaging
-  val client = LocalDynamoDB.client()
+  val client = LocalDynamoDB.syncClient()
   val db = new DynamoDb(client, "games", "players")
   DevServerDB.createGamesTable(client)
   DevServerDB.createPlayersTable(client)

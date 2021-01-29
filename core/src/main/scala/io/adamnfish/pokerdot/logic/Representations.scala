@@ -79,6 +79,12 @@ object Representations {
     players.map(playerToDb)
   }
 
+  def activePlayerDbs(players: List[Player]): List[PlayerDb] = {
+    players.map(playerToDb).filterNot { pdb =>
+      pdb.folded || pdb.busted
+    }
+  }
+
   def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): Either[Failures, List[PlayerDb]] = {
     if(players.map(_.playerId).toSet.intersect(allowlist) == allowlist) {
       Right(allPlayerDbs(players.filter(p => allowlist.contains(p.playerId))))

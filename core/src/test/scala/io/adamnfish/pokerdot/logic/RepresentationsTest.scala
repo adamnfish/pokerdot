@@ -5,6 +5,7 @@ import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer, newSpectator}
 import io.adamnfish.pokerdot.logic.Representations._
 import io.adamnfish.pokerdot.models.{Ace, Clubs, GameId, Hole, PlayerAddress, Queen, Spades}
 import io.adamnfish.pokerdot.{TestDates, TestHelpers}
+import org.scalacheck.Gen
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -42,11 +43,56 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   }
 
   "allPlayerDbs" - {
-    "TODO" ignore {}
+    "returns player db for each provided player" in {
+      forAll(Gen.choose(1, 10)) { n =>
+        val players = (0 until n).map { i =>
+          newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+        }.toList
+        allPlayerDbs(players).length shouldEqual n
+      }
+    }
+
+    "returns correct player db for provided player" in {
+      val player = newPlayer(GameId("game-id"), s"player", false, PlayerAddress(s"pa"), TestDates)
+      val expected = playerToDb(player)
+      allPlayerDbs(List(player)) shouldEqual List(expected)
+    }
+  }
+
+  "activePlayerDbs" - {
+    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestDates)
+    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestDates)
+    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestDates)
+
+    "includes active players" in {
+      activePlayerDbs(List(
+        p1,
+        p2,
+        p3,
+      )).map(_.screenName) should contain.allOf("player-1", "player-2", "player-3")
+    }
+
+    "does not include a folded player" in {
+      activePlayerDbs(List(
+        p1,
+        p2,
+        p3.copy(folded = true),
+      )).map(_.screenName).toSet should not contain("player-3")
+    }
+
+    "does not include a busted player" in {
+      activePlayerDbs(List(
+        p1,
+        p2.copy(busted = true),
+        p3,
+      )).map(_.screenName) should not contain("player-2")
+    }
   }
 
   "filteredPlayerDbs" - {
-    "TODO" ignore {}
+    "includes players in the provided set" in {
+
+    }
   }
 
   "gameFromDb" - {

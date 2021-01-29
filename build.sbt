@@ -14,8 +14,8 @@ ThisBuild / scalacOptions ++= Seq(
 
 
 val circeVersion = "0.12.3"
-val scanamoVersion = "1.0.0-M12-1"
-val awsJavaSdkVersion = "1.11.822"
+val scanamoVersion = "1.0-M14"
+val awsJavaSdkVersion = "2.15.72"
 val commonDeps = Seq(
   "org.scalatest" %% "scalatest" % "3.1.1" % Test,
   "org.scalacheck" %% "scalacheck" % "1.14.1" % Test,
@@ -32,27 +32,26 @@ lazy val root = (project in file("."))
 lazy val core = (project in file("core"))
   .settings(
     name := "core",
-    libraryDependencies ++=
-      Seq(
-        "dev.zio" %% "zio" % "1.0.1",
-        "io.circe" %% "circe-core" % circeVersion,
-        "io.circe" %% "circe-generic" % circeVersion,
-        "io.circe" %% "circe-parser" % circeVersion,
-        "org.scanamo" %% "scanamo" % scanamoVersion,
-      ) ++ commonDeps,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio" % "1.0.4",
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "org.scanamo" %% "scanamo" % scanamoVersion,
+      "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
+    ) ++ commonDeps,
   )
 
 lazy val lambda = (project in file("lambda"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     name := "lambda",
-    libraryDependencies ++=
-      Seq(
-        "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-        "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
-        "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
-        "com.amazonaws" % "aws-java-sdk-apigatewaymanagementapi" % awsJavaSdkVersion,
-      ) ++ commonDeps,
+    libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
+      "com.amazonaws" % "aws-lambda-java-events" % "3.7.0",
+      "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
+    ) ++ commonDeps,
     // assembly
     assemblyJarName in assembly := "pokerdot-lambda.jar",
     // native-packager
@@ -62,34 +61,13 @@ lazy val lambda = (project in file("lambda"))
   )
   .dependsOn(core)
 
-lazy val nativeLambda = (project in file("native-lambda"))
-  .enablePlugins(NativeImagePlugin)
-  .settings(
-    name := "native-lambda",
-    libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core" % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-parser" % circeVersion,
-      "com.lihaoyi" %% "requests" % "0.6.5",
-      "com.amazonaws" % "aws-java-sdk-apigatewaymanagementapi" % awsJavaSdkVersion,
-    ),
-    Compile / mainClass := Some("io.adamnfish.pokerdot.Main"),
-    nativeImageOptions ++= Seq(
-      "--enable-http",
-      "--enable-https",
-      "--no-fallback",
-    ),
-  )
-  .dependsOn(core)
-
 lazy val integration = (project in file("integration"))
   .settings(
     name := "integration",
-    libraryDependencies ++=
-      Seq(
-        "org.scanamo" %% "scanamo-testkit" % scanamoVersion % Test,
-        "com.amazonaws" % "aws-java-sdk-dynamodb" % awsJavaSdkVersion % Test,
-      ) ++ commonDeps,
+    libraryDependencies ++= Seq(
+      "org.scanamo" %% "scanamo-testkit" % scanamoVersion % Test,
+      "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion % Test,
+    ) ++ commonDeps,
     // start DynamoDB for tests
     dynamoDBLocalDownloadDir := file(".dynamodb-local"),
     dynamoDBLocalPort := 8042,
@@ -103,23 +81,23 @@ lazy val integration = (project in file("integration"))
 lazy val devServer = (project in file("devserver"))
   .settings(
     name := "devserver",
-    libraryDependencies ++=
-        Seq(
-          "io.javalin" % "javalin" % "3.6.0",
-          "org.slf4j" % "slf4j-simple" % "1.8.0-beta4",
-          "org.slf4j" % "slf4j-api" % "1.8.0-beta4",
-          "org.scanamo" %% "scanamo-testkit" % scanamoVersion,
-          "com.amazonaws" % "aws-java-sdk-dynamodb" % awsJavaSdkVersion,
-        ) ++ commonDeps,
+    libraryDependencies ++= Seq(
+      "io.javalin" % "javalin" % "3.6.0",
+      "org.slf4j" % "slf4j-simple" % "1.8.0-beta4",
+      "org.slf4j" % "slf4j-api" % "1.8.0-beta4",
+      "org.scanamo" %% "scanamo-testkit" % scanamoVersion,
+      "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
+    ) ++ commonDeps,
+    // console logging and ctrl-c to kill support
     fork in run := true,
     connectInput in run := true,
     outputStrategy := Some(StdoutOutput),
     // start DynamoDB on run
     dynamoDBLocalDownloadDir := file(".dynamodb-local"),
     dynamoDBLocalPort := 8042,
-    // allows browsing from http://localhost:8042/shell/
-    dynamoDBLocalSharedDB := true,
     startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Compile).value,
     (run in Compile) := (run in Compile).dependsOn(startDynamoDBLocal).evaluated,
+    // allows browsing from http://localhost:8042/shell/
+    dynamoDBLocalSharedDB := true,
   )
   .dependsOn(core)

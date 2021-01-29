@@ -26,7 +26,7 @@ case class PlayerSummary(
   busted: Boolean,
   isHost: Boolean,
   isAdmin: Boolean,
-  hole: Option[Hole]
+  hole: Option[Hole],
 )
 
 sealed trait Self

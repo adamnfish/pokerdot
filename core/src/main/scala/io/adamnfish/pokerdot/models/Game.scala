@@ -19,7 +19,7 @@ case class Game(
   startTime: Long,
   trackStacks: Boolean,
   // autoAdvance: Boolean,
-  timer: Option[TimerStatus]
+  timer: Option[TimerStatus],
 )
 
 case class Player(

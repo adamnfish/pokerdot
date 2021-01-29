@@ -382,16 +382,16 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
   }
 
-  "advancePhase" - {
-    "TODO" ignore {}
-  }
-
   "resetPlayerForNextPhase" - {
     val gameId = GameId("game-id")
     val player = newPlayer(gameId, "player", false, PlayerAddress("address"), TestDates)
 
     "unchecks a checked player" in {
       resetPlayerForNextPhase(player.copy(checked = true)).checked shouldEqual false
+    }
+
+    "does not unfold a folded player" in {
+      resetPlayerForNextPhase(player.copy(folded = true)).folded shouldEqual true
     }
 
     "sets the player's bet value to 0" in {
@@ -431,6 +431,14 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         resetPlayerForShowdown(Nil)(player.copy(stack = previousStack)).stack shouldEqual previousStack
       }
     }
+
+    "unchecks a checked player" in {
+      resetPlayerForShowdown(Nil)(player.copy(checked = true)).checked shouldEqual false
+    }
+
+    "does not unfold a folded player" in {
+      resetPlayerForShowdown(Nil)(player.copy(folded = true)).folded shouldEqual true
+    }
   }
 
   "resetPlayerForNextRound" - {
@@ -445,6 +453,10 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
     "unfolds a folded player" in {
       resetPlayerForNextRound(player.copy(folded = true)).folded shouldEqual false
+    }
+
+    "unchecks a checked player" in {
+      resetPlayerForNextRound(player.copy(checked = true)).checked shouldEqual false
     }
 
     "busts a player who is out of money" in {

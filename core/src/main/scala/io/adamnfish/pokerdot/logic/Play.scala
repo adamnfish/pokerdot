@@ -88,6 +88,7 @@ object Play {
           // this player is the only player that can still act
           // we already checked they have matched the current bet amount
           // so they don't need to act
+          // TODO: consider changing this to allow players the opportunity to fold before the all-in showdown happens?
           false
         case Nil =>
           // no active players, likely means everyone is equally all-in

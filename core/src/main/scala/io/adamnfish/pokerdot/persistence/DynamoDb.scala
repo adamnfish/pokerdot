@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.persistence
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import io.adamnfish.pokerdot.logic.Games
 import io.adamnfish.pokerdot.logic.Utils.RichList
 import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
@@ -11,7 +11,7 @@ import org.scanamo.generic.auto._
 import zio.IO
 
 
-class DynamoDb(client: AmazonDynamoDBAsync, gameTableName: String, playerTableName: String) extends Database {
+class DynamoDb(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
   // TODO: switch DB models to use PlayerId?
   //  provide implicit to allow Scanamo to use those wrapper types
 
@@ -22,7 +22,7 @@ class DynamoDb(client: AmazonDynamoDBAsync, gameTableName: String, playerTableNa
   override def getGame(gameId: GameId): Attempt[Option[GameDb]] = {
     val gameCode = Games.gameCode(gameId)
     for {
-      maybeResult <- execAsAttempt(games.get("gameCode" -> gameCode and "gameId" -> gameId.gid))
+      maybeResult <- execAsAttempt(games.get("gameCode" === gameCode and "gameId" === gameId.gid))
       maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](IO.succeed(None)) { result =>
         resultToAttempt(result).map(Some(_))
       }
@@ -31,7 +31,7 @@ class DynamoDb(client: AmazonDynamoDBAsync, gameTableName: String, playerTableNa
 
   override def lookupGame(gameCode: String): Attempt[Option[GameDb]] = {
     for {
-      results <- execAsAttempt(games.query("gameCode" -> gameCode and ("gameId" beginsWith gameCode)))
+      results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
       maybeResult <- results match {
         case Nil =>
           IO.succeed(None)
@@ -51,7 +51,7 @@ class DynamoDb(client: AmazonDynamoDBAsync, gameTableName: String, playerTableNa
 
   override def getPlayers(gameId: GameId): Attempt[List[PlayerDb]] = {
     for {
-      results <- execAsAttempt(players.query("gameId" -> gameId.gid))
+      results <- execAsAttempt(players.query("gameId" === gameId.gid))
       players <- results.ioTraverse(resultToAttempt)
     } yield players
   }
@@ -69,8 +69,8 @@ class DynamoDb(client: AmazonDynamoDBAsync, gameTableName: String, playerTableNa
   }
 
   def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {
-    IO.fromFuture { implicit ec =>
-      ScanamoAsync(client).exec(op)
+    IO.effect {
+      Scanamo(client).exec(op)
     }.mapError { err =>
       Failures("Uncaught DB error", "I had a problem saving the game", None, Some(err))
     }

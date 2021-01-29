@@ -145,21 +145,19 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureStarted(rawGame).attempt
-      _ <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey).attempt
+      rawPlayer <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey).attempt
       _ <- Games.ensureActive(rawGame.inTurn, bet.playerId).attempt
-      gameAndPlayer <- PlayerActions.bet(rawGame, bet.playerId).attempt
+      gameAndPlayer <- PlayerActions.bet(rawGame, bet.betAmount, rawPlayer).attempt
       (newGame, updatedPlayer) = gameAndPlayer
+      updatedPlayerSummary = Representations.summarisePlayer(updatedPlayer)
       // obtain DB representations for persistence
-      updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(bet.playerId)).attempt
+      updatedPlayerDbs = Representations.activePlayerDbs(newGame.players)
       newGameDb = Representations.gameToDb(newGame)
       // save this player
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(
-      newGame,
-      BetSummary(Representations.summarisePlayer(updatedPlayer))
-    )
+    } yield Responses.gameStatuses(newGame, BetSummary(updatedPlayerSummary))
   }
 
   def check(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
@@ -172,10 +170,11 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureStarted(rawGame).attempt
-      _ <- Games.ensurePlayerKey(rawGame.players, check.playerId, check.playerKey).attempt
+      player <- Games.ensurePlayerKey(rawGame.players, check.playerId, check.playerKey).attempt
       _ <- Games.ensureActive(rawGame.inTurn, check.playerId).attempt // TODO: allow off-turn checks?
-      gameAndPlayer <- PlayerActions.check(rawGame, check.playerId).attempt
+      gameAndPlayer <- PlayerActions.check(rawGame, player).attempt
       (newGame, updatedPlayer) = gameAndPlayer
+      updatedPlayerSummary = Representations.summarisePlayer(updatedPlayer)
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(check.playerId)).attempt
       newGameDb = Representations.gameToDb(newGame)
@@ -183,10 +182,7 @@ object PokerDot {
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(
-      newGame,
-      CheckSummary(Representations.summarisePlayer(updatedPlayer))
-    )
+    } yield Responses.gameStatuses(newGame, CheckSummary(updatedPlayerSummary))
   }
 
   def fold(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
@@ -199,10 +195,11 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
       _ <- Games.ensureStarted(rawGame).attempt
-      _ <- Games.ensurePlayerKey(rawGame.players, fold.playerId, fold.playerKey).attempt
+      player <- Games.ensurePlayerKey(rawGame.players, fold.playerId, fold.playerKey).attempt
       _ <- Games.ensureActive(rawGame.inTurn, fold.playerId).attempt // TODO: allow off-turn folds?
-      gameAndPlayer <- PlayerActions.fold(rawGame, fold.playerId).attempt
+      gameAndPlayer = PlayerActions.fold(rawGame, player)
       (newGame, updatedPlayer) = gameAndPlayer
+      updatedPlayerSummary = Representations.summarisePlayer(updatedPlayer)
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(fold.playerId)).attempt
       newGameDb = Representations.gameToDb(newGame)
@@ -210,10 +207,7 @@ object PokerDot {
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(
-      newGame,
-      FoldSummary(Representations.summarisePlayer(updatedPlayer))
-    )
+    } yield Responses.gameStatuses(newGame, FoldSummary(updatedPlayerSummary))
   }
 
   /**
@@ -240,6 +234,7 @@ object PokerDot {
       // fetch game
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
+      // TODO: recursively call this operation if we are auto-advancing
       advanceResult <- PlayerActions.advancePhase(game, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)

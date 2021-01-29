@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Games._
 import io.adamnfish.pokerdot.logic.Play.dealHoles
-import io.adamnfish.pokerdot.models.{Failures, Flop, Game, Player, PlayerId, PlayerWinnings, PotWinnings, PreFlop, River, Showdown, Turn}
+import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Rng
 
 
@@ -10,28 +10,107 @@ import io.adamnfish.pokerdot.services.Rng
  * This logic is quite complex so it gets its own object and tests.
  */
 object PlayerActions {
-  def bet(game: Game, playerId: PlayerId): Either[Failures, (Game, Player)] = {
-    // ensure bet amount does not exceed stack
-    // ensure bet is legal
-    // update this player's moneys, and deactivate
-    // uncheck other players, they will need the opportunity to respond to this bet
-    // update active player in game
-    ???
+  def bet(game: Game, bet: Int, player: Player): Either[Failures, (Game, Player)] = {
+    for {
+      // ensure bet amount does not exceed stack
+      _ <-
+        if (bet > player.stack) Left {
+          Failures(
+            "Bet cannot exceed player stack",
+            "You can't afford that bet.",
+          )
+        } else Right(())
+      // ensure bet matches other players' contributions this round
+      currentBetAmount = Play.currentBetAmount(game.players)
+      _ <-
+        if (bet > player.stack && bet < currentBetAmount) Left {
+          if (currentBetAmount > player.stack) {
+            Failures(
+              "Player needs to go all-in to bet",
+              "You will have to go all-in to keep playing in this round.",
+            )
+          } else {
+            Failures(
+              "Bet must match other players' bets",
+              "Your bet must be at least as much as the other players have paid.",
+            )
+          }
+        } else Right(())
+      // uncheck other players, they will need the opportunity to respond to this bet
+      checkedPlayers = game.players.map(_.copy(checked = false))
+      // update this player's moneys, and deactivate
+      updatedPlayer = player.copy(
+        bet = player.bet + bet,
+        stack = player.stack - bet,
+      )
+      updatedPlayers = checkedPlayers.map {
+        case p if p.playerId == player.playerId =>
+          // use updated active player in game
+          updatedPlayer
+        case p => p
+      }
+      nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
+    } yield (
+      game.copy(
+        players = updatedPlayers,
+        inTurn = nextActivePlayer,
+      ),
+      updatedPlayer
+    )
   }
 
-  def check(game: Game, playerId: PlayerId): Either[Failures, (Game, Player)] = {
-    // ensure check is legal
-    // deactivate this player
-    // update active player in game
-    // set player's checked to `true`
-    ???
+  def check(game: Game, player: Player): Either[Failures, (Game, Player)] = {
+    val currentBetAmount = Play.currentBetAmount(game.players)
+    for {
+      // ensure player is allowed to check
+      _ <-
+        if (player.bet < currentBetAmount) Left {
+          Failures(
+            "Player cannot check until they have called other players",
+            "You have to at least call other players before checking.",
+          )
+        } else Right(())
+      updatedPlayer = player.copy(
+        checked = true,
+      )
+      updatedPlayers = game.players.map {
+        case p if p.playerId == player.playerId =>
+          // use updated active player in game
+          updatedPlayer
+        case p => p
+      }
+      // calculate next active player
+      // TODO: be careful here if we allow off-turn checks
+      nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
+    } yield (
+      // update active player in game and update active player
+      game.copy(
+        players = updatedPlayers,
+        inTurn = nextActivePlayer,
+      ),
+      updatedPlayer
+    )
   }
 
-  def fold(game: Game, playerId: PlayerId): Either[Failures, (Game, Player)] = {
-    // ensure fold is legal
-    // deactivate this player
-    // update active player in game
-    ???
+  def fold(game: Game, player: Player): (Game, Player) = {
+    val updatedPlayer = player.copy(
+      folded = true,
+    )
+    val updatedPlayers = game.players.map {
+      case p if p.playerId == player.playerId =>
+        // use updated active player in game
+        updatedPlayer
+      case p => p
+    }
+    // TODO: be careful here if we allow off-turn folds
+    val nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
+    (
+      game.copy(
+        players = updatedPlayers,
+        inTurn = nextActivePlayer,
+      ),
+      updatedPlayer
+    )
   }
 
   /**

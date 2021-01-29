@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.models
 
-import cats.Functor.ops.toAllFunctorOps
+import cats.syntax.functor._
 import io.circe.Json.JString
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder, Json, JsonObject, KeyEncoder, parser}
