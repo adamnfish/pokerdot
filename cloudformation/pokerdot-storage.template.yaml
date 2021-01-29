@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Persistent storage for Pokerdot application
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+
+Resources:
+  WebrootAccessIdentityID:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: Pokerdot webroot CDN access
+
+  # Bucket that will hold the public static assets.
+  # The application will be served out of this bucket using CloudFront
+  WebrootBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "pokerdot-www-${Stage}-${AWS::AccountId}"
+      Tags:
+        - Key: "app"
+          Value: "pokerdot"
+        - Key: "stage"
+          Value: !Ref Stage
+
+  WebrootBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebrootBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${WebrootBucket}/*"
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${WebrootAccessIdentityID}"
+
+  GamesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "pokerdot-games-${Stage}-${AWS::AccountId}"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: True
+      TimeToLiveSpecification:
+        AttributeName: "expiry"
+        Enabled: true
+      AttributeDefinitions:
+        - AttributeName: "gameCode"
+          AttributeType: "S"
+        - AttributeName: "gameId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "gameCode"
+          KeyType: "HASH"
+        - AttributeName: "gameId"
+          KeyType: "RANGE"
+      Tags:
+        - Key: "app"
+          Value: "pokerdot"
+        - Key: "stage"
+          Value: !Ref Stage
+        - Key: "table"
+          Value: "games"
+
+  PlayersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "pokerdot-players-${Stage}-${AWS::AccountId}"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: True
+      TimeToLiveSpecification:
+        AttributeName: "expiry"
+        Enabled: true
+      AttributeDefinitions:
+        - AttributeName: "gameId"
+          AttributeType: "S"
+        - AttributeName: "playerId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "gameId"
+          KeyType: "HASH"
+        - AttributeName: "playerId"
+          KeyType: "RANGE"
+      Tags:
+        - Key: "app"
+          Value: "pokerdot"
+        - Key: "stage"
+          Value: !Ref Stage
+        - Key: "table"
+          Value: "games"
+
+
+Outputs:
+  WebrootAccessIdentityID:
+    Description: "Webroot access identity ID"
+    Value: !Ref WebrootAccessIdentityID
+
+  GamesTableName:
+    Description: "Games table name"
+    Value: !Ref GamesTable
+
+  PlayersTableName:
+    Description: "Players table name"
+    Value: !Ref PlayersTable

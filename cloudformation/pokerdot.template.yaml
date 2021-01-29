@@ -1,0 +1,299 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pokerdot API and infrastructure
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Application config
+        Parameters:
+          - DomainName
+          - Stage
+          - WebrootTLSCert
+          - ApiTLSCert
+      - Label:
+          default: API
+        Parameters:
+          - DistBucket
+          - GamesTableName
+          - PlayersTableName
+      - Label:
+          default: Static site
+        Parameters:
+          - WebrootBucket
+          - WebrootAccessIdentityID
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: Domain for the application (hosted zone must exist and be registered)
+  Stage:
+    Type: String
+    Description: Environment name
+    Default: prod
+  WebrootTLSCert:
+    Type: String
+    Description: ARN of TLS certificate **in US-EAST-1** (must work for `pokerdot.${DomainName}`)
+  ApiTLSCert:
+    Type: String
+    Description: ARN of TLS certificate in the deployment region (must work for `pokerdot-api.${DomainName}`)
+  DistBucket:
+    Type: String
+    Description: S3 Bucket that will contain the backend artifacts
+  GamesTableName:
+    Type: String
+    Description: Games DynamoDB table name
+    MinLength: 3
+    MaxLength: 255
+    AllowedPattern: ^[A-Za-z_-]+$
+    ConstraintDescription: Can be characters and underscore/hyphen only. No numbers or special characters allowed.
+  PlayersTableName:
+    Type: String
+    Description: Players DynamoDB table name
+    MinLength: 3
+    MaxLength: 255
+    AllowedPattern: ^[A-Za-z_-]+$
+    ConstraintDescription: Can be characters and underscore/hyphen only. No numbers or special characters allowed.
+  WebrootBucket:
+    Type: String
+    Description: Name of the S3 bucket that stores application static assets
+  WebrootAccessIdentityID:
+    Type: String
+    Description: ID of CloudFront origin access identity for webroot bucket access (check output of storage stack)
+
+
+Resources:
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: Pokerdot backend api
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "\\$default"
+      Tags:
+        app: pokerdot
+        stage: !Ref Stage
+
+  ApiGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: !Ref Stage
+      Description: !Sub "${Stage} stage"
+      ApiId: !Ref WebSocketApi
+      AutoDeploy: true
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: connect
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref ConnectInteg
+
+  ConnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PokerdotApiBackend.Arn}/invocations"
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      OperationName: disconnect
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DisconnectInteg
+
+  DisconnectInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PokerdotApiBackend.Arn}/invocations"
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $default
+      AuthorizationType: NONE
+      OperationName: default
+      Target: !Join
+        - '/'
+        - - 'integrations'
+          - !Ref DefaultInteg
+
+  DefaultInteg:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      Description: Send Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PokerdotApiBackend.Arn}/invocations"
+
+  PokerdotApiBackend:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri:
+        Bucket: !Ref DistBucket
+        Key: !Sub "pokerdot/${Stage}/pokerdot-lambda.jar"
+      Handler: "com.adamnfish.pokerdot.Lambda::handleRequest"
+      Timeout: 20
+      MemorySize: 1024
+      Runtime: java8
+      Environment:
+        Variables:
+          GAMES_TABLE: !Ref GamesTableName
+          PLAYERS_TABLE: !Ref PlayersTableName
+          ORIGIN_LOCATION: !Sub "pokerdot.${DomainName}"
+          API_ORIGIN_LOCATION: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+          REGION: !Ref AWS::Region
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GamesTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlayersTableName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - "execute-api:ManageConnections"
+              Resource:
+                - !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+      Tags:
+        app: pokerdot
+        stage: !Ref Stage
+
+  BackendInvocationPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - WebSocketApi
+      - PokerdotApiBackend
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PokerdotApiBackend
+      Principal: apigateway.amazonaws.com
+
+  BackendDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Sub "pokerdot-api.${DomainName}"
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiTLSCert
+          CertificateName: !Sub "pokerdot-api.${DomainName}"
+          # EndpointType: REGIONAL
+
+  BackendApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      #      DomainName: !Sub "pokerdot-api.${DomainName}"
+      DomainName: !Ref BackendDomainName
+      ApiId: !Ref WebSocketApi
+      Stage: !Ref ApiGatewayStage
+
+  CDN:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Sub pokerdot.${DomainName}
+        Origins:
+          - Id: pokerdot-static
+            DomainName: !Sub ${WebrootBucket}.s3.amazonaws.com
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${WebrootAccessIdentityID}
+        DefaultCacheBehavior:
+          AllowedMethods: [HEAD, GET]
+          CachedMethods: [HEAD, GET]
+          MinTTL: 3600
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: pokerdot-static
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 5
+            ErrorCode: 404
+        PriceClass: PriceClass_100
+        Enabled: true
+        ViewerCertificate:
+          AcmCertificateArn: !Ref WebrootTLSCert
+          MinimumProtocolVersion: TLSv1
+          SslSupportMethod: sni-only
+        HttpVersion: http2
+      Tags:
+        - Key: app
+          Value: pokerdot
+        - Key: stage
+          Value: !Ref Stage
+
+  DNS:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Sub ${DomainName}.
+      RecordSets:
+        - Name: !Sub pokerdot.${DomainName}.
+          Type: A
+          AliasTarget:
+            # This zone ID is a magic global string for CloudFront
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt CDN.DomainName
+        - Name: !Sub pokerdot-api.${DomainName}.
+          Type: A
+          AliasTarget:
+            HostedZoneId: !GetAtt BackendDomainName.RegionalHostedZoneId
+            DNSName: !GetAtt BackendDomainName.RegionalDomainName
+
+Outputs:
+  GamesTable:
+    Description: "Games table name"
+    Value: !Ref GamesTableName
+
+  PlayersTable:
+    Description: "Players table name"
+    Value: !Ref PlayersTableName
+
+  BackendLambdaArn:
+    Description: "backend lambda ARN"
+    Value: !GetAtt PokerdotApiBackend.Arn
+
+  WebSocketURI:
+    Description: "The URI for connecting to the API directly"
+    Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+  # Deployment parameters
+  # These can be looked up by the CI deploy script
+
+  BackendLambdaName:
+    Description: "Backend Lambda fn's name"
+    Value: !Ref PokerdotApiBackend
+
+  DistributionId:
+    Description: "Distribution ID for the static www CloudFront Distribution"
+    Value: !Ref CDN
+
+  WebrootBucketName:
+    Description: "Name of the S3 bucket that holds the static site assets"
+    Value: !Ref WebrootBucket
+
+  DistBucketName:
+    Description: "Name of the S3 bucket that holds API artifacts"
+    Value: !Ref DistBucket
+
+  StageName:
+    Description: "Stage of this deployment"
+    Value: !Ref Stage
