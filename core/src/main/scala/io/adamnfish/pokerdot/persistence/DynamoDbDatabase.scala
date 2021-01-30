@@ -11,7 +11,7 @@ import org.scanamo.generic.auto._
 import zio.IO
 
 
-class DynamoDb(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
+class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
   // TODO: switch DB models to use PlayerId?
   //  provide implicit to allow Scanamo to use those wrapper types
 

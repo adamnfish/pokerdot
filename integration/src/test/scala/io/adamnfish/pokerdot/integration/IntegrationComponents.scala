@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.integration
 
 import io.adamnfish.pokerdot.TestDates
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.persistence.DynamoDb
+import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Database, Messaging, Rng}
 import org.scanamo.LocalDynamoDB
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType._
@@ -19,7 +19,7 @@ trait IntegrationComponents {
     val randomSuffix = randomUUID().toString
     val gameTableName = s"games-$randomSuffix"
     val playerTableName = s"players-$randomSuffix"
-    val testDb = new DynamoDb(client, gameTableName, playerTableName)
+    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName)
     val testRng = new Rng {
       override def randomState(): Long = 0
       override def nextState(state: Long): Long = new Random(state).nextLong()

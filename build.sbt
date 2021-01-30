@@ -13,13 +13,21 @@ ThisBuild / scalacOptions ++= Seq(
 )
 
 
-val circeVersion = "0.12.3"
+val circeVersion = "0.14.0-M3"
 val scanamoVersion = "1.0-M14"
 val awsJavaSdkVersion = "2.15.72"
 val commonDeps = Seq(
-  "org.scalatest" %% "scalatest" % "3.1.1" % Test,
+  "org.scalatest" %% "scalatest" % "3.2.2" % Test,
   "org.scalacheck" %% "scalacheck" % "1.14.1" % Test,
   "org.scalatestplus" %% "scalacheck-1-14" % "3.1.1.1" % Test,
+)
+
+// https://aws.amazon.com/blogs/developer/tuning-the-aws-java-sdk-2-x-to-reduce-startup-time/
+// url-connection-client is included in modules that make AWS API calls (lambda and integration)
+// additional jars are filtered out of the Lambda in its native packager settings
+ThisBuild / excludeDependencies ++= Seq(
+  ExclusionRule("software.amazon.awssdk", "netty-nio-client"),
+  ExclusionRule("software.amazon.awssdk", "apache-client"),
 )
 
 lazy val root = (project in file("."))
@@ -51,13 +59,20 @@ lazy val lambda = (project in file("lambda"))
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
       "com.amazonaws" % "aws-lambda-java-events" % "3.7.0",
       "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
+      "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps,
-    // assembly
-    assemblyJarName in assembly := "pokerdot-lambda.jar",
     // native-packager
     topLevelDirectory in Universal := None,
     packageName in Universal := "pokerdot-lambda",
     mappings in (Compile, packageDoc) := Seq(),
+    Universal / mappings := (Universal / mappings).value.filter {
+      case (_, path) =>
+        // these are only used at compile time to generate code, I think?
+        !path.contains("org.scala-lang.scala-compiler") &&
+          !path.contains("org.scala-lang.scala-reflect") &&
+          !path.contains("net.java.dev.jna.jna") &&
+          !path.contains("org.jline.jline")
+    }
   )
   .dependsOn(core)
 
@@ -66,6 +81,7 @@ lazy val integration = (project in file("integration"))
     name := "integration",
     libraryDependencies ++= Seq(
       "org.scanamo" %% "scanamo-testkit" % scanamoVersion % Test,
+      "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion % Test,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion % Test,
     ) ++ commonDeps,
     // start DynamoDB for tests
@@ -97,7 +113,7 @@ lazy val devServer = (project in file("devserver"))
     dynamoDBLocalPort := 8042,
     startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Compile).value,
     (run in Compile) := (run in Compile).dependsOn(startDynamoDBLocal).evaluated,
-    // allows browsing from http://localhost:8042/shell/
+    // allows browsing DB from http://localhost:8042/shell/
     dynamoDBLocalSharedDB := true,
   )
   .dependsOn(core)

@@ -1,9 +1,8 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.Console.displayId
-import io.adamnfish.pokerdot.logic.Utils
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
-import io.adamnfish.pokerdot.persistence.DynamoDb
+import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Dates, DevMessaging, DevRng, DevServerDB}
 import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
@@ -13,7 +12,7 @@ import zio.IO
 object DevServer {
   val messaging = new DevMessaging
   val client = LocalDynamoDB.syncClient()
-  val db = new DynamoDb(client, "games", "players")
+  val db = new DynamoDbDatabase(client, "games", "players")
   DevServerDB.createGamesTable(client)
   DevServerDB.createPlayersTable(client)
 
