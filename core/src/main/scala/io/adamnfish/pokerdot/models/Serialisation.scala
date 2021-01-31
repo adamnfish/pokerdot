@@ -265,6 +265,7 @@ object Serialisation {
 
   private implicit val gameStartedSummaryEncoder: Encoder[GameStartedSummary] = deriveEncoder[GameStartedSummary]
   private implicit val playerJoinedSummaryEncoder: Encoder[PlayerJoinedSummary] = deriveEncoder[PlayerJoinedSummary]
+  private implicit val callSummaryEncoder: Encoder[CallSummary] = deriveEncoder[CallSummary]
   private implicit val betSummaryEncoder: Encoder[BetSummary] = deriveEncoder[BetSummary]
   private implicit val checkSummaryEncoder: Encoder[CheckSummary] = deriveEncoder[CheckSummary]
   private implicit val foldSummaryEncoder: Encoder[FoldSummary] = deriveEncoder[FoldSummary]
@@ -280,6 +281,9 @@ object Serialisation {
     case playerJoinedSummary: PlayerJoinedSummary =>
       playerJoinedSummaryEncoder.apply(playerJoinedSummary)
         .mapObject(o => o.add("action", Json.fromString("player-joined")))
+    case callSummary: CallSummary =>
+      callSummaryEncoder.apply(callSummary)
+        .mapObject(o => o.add("action", Json.fromString("call")))
     case betSummary: BetSummary =>
       betSummaryEncoder.apply(betSummary)
         .mapObject(o => o.add("action", Json.fromString("bet")))

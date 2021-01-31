@@ -16,9 +16,7 @@ object Responses {
       spectator = false,
       game = gameSummary,
     )
-    val action = PlayerJoinedSummary(
-      Representations.summarisePlayer(newPlayer)
-    )
+    val action = PlayerJoinedSummary(newPlayer.playerId)
     messageAndStatuses(welcomeMessage, newPlayer.playerAddress, game, action)
   }
 

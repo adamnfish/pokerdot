@@ -217,9 +217,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "actionSummaryEncoder" - {
-    val playerSummary = PlayerSummary(
-      PlayerId("pid"), "screen name", 0, 0, 0, folded = false, busted = false, isHost = false, isAdmin = false, hole = None
-    )
+    val playerId = PlayerId("pid")
 
     "gameStartedSummary encoding includes correct the action name" in {
       val actionSummary: ActionSummary = GameStartedSummary()
@@ -227,22 +225,22 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
     }
 
     "playerJoinedSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = PlayerJoinedSummary(playerSummary)
+      val actionSummary: ActionSummary = PlayerJoinedSummary(playerId)
       actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "player-joined"
     }
 
     "betSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = BetSummary(playerSummary)
+      val actionSummary: ActionSummary = BetSummary(playerId, 10)
       actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "bet"
     }
 
     "checkSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = CheckSummary(playerSummary)
+      val actionSummary: ActionSummary = CheckSummary(playerId)
       actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "check"
     }
 
     "foldSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = FoldSummary(playerSummary)
+      val actionSummary: ActionSummary = FoldSummary(playerId)
       actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "fold"
     }
 

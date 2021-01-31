@@ -10,7 +10,7 @@ import io.adamnfish.pokerdot.services.Rng
  * This logic is quite complex so it gets its own object and tests.
  */
 object PlayerActions {
-  def bet(game: Game, bet: Int, player: Player): Either[Failures, (Game, Player)] = {
+  def bet(game: Game, bet: Int, player: Player): Either[Failures, (Game, ActionSummary)] = {
     for {
       // ensure bet amount does not exceed stack
       _ <-
@@ -43,11 +43,19 @@ object PlayerActions {
         bet = player.bet + bet,
         stack = player.stack - bet,
       )
+      isCall = bet + player.bet == currentBetAmount
       updatedPlayers = checkedPlayers.map {
-        case p if p.playerId == player.playerId =>
+        case thisPlayer if thisPlayer.playerId == player.playerId =>
           // use updated active player in game
-          updatedPlayer
-        case p => p
+          player.copy(
+            bet = player.bet + bet,
+            stack = player.stack - bet,
+          )
+        case p =>
+          // if it's just a call, other players do no need to react
+          if (isCall) p
+          // if bet, uncheck other players so they can respond
+          else p.copy(checked = false)
       }
       nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
     } yield (
@@ -55,11 +63,12 @@ object PlayerActions {
         players = updatedPlayers,
         inTurn = nextActivePlayer,
       ),
-      updatedPlayer
+      if (isCall) CallSummary(player.playerId)
+      else BetSummary(player.playerId, bet)
     )
   }
 
-  def check(game: Game, player: Player): Either[Failures, (Game, Player)] = {
+  def check(game: Game, player: Player): Either[Failures, Game] = {
     val currentBetAmount = Play.currentBetAmount(game.players)
     for {
       // ensure player is allowed to check
@@ -82,17 +91,16 @@ object PlayerActions {
       // calculate next active player
       // TODO: be careful here if we allow off-turn checks
       nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
-    } yield (
+    } yield {
       // update active player in game and update active player
       game.copy(
         players = updatedPlayers,
         inTurn = nextActivePlayer,
-      ),
-      updatedPlayer
-    )
+      )
+    }
   }
 
-  def fold(game: Game, player: Player): (Game, Player) = {
+  def fold(game: Game, player: Player): Game = {
     val updatedPlayer = player.copy(
       folded = true,
     )
@@ -104,12 +112,9 @@ object PlayerActions {
     }
     // TODO: be careful here if we allow off-turn folds
     val nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
-    (
-      game.copy(
-        players = updatedPlayers,
-        inTurn = nextActivePlayer,
-      ),
-      updatedPlayer
+    game.copy(
+      players = updatedPlayers,
+      inTurn = nextActivePlayer,
     )
   }
 
