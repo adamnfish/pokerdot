@@ -103,6 +103,7 @@ lazy val devServer = (project in file("devserver"))
       "org.slf4j" % "slf4j-api" % "1.8.0-beta4",
       "org.scanamo" %% "scanamo-testkit" % scanamoVersion,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
+      "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps,
     // console logging and ctrl-c to kill support
     fork in run := true,
