@@ -1,13 +1,13 @@
 module Model exposing (..)
 
 import Browser exposing (UrlRequest)
-import Browser.Navigation
-import Url
 import Browser.Dom exposing (Viewport)
+import Browser.Navigation
 import Json.Decode
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode
 import Time exposing (Posix(..))
+import Url
 
 
 type Msg
@@ -15,7 +15,7 @@ type Msg
     | Tick Time.Posix
     | OnResize
     | Resized Viewport
-    -- URLs
+      -- URLs
     | UrlChange Url.Url
     | UrlRequest UrlRequest
       -- connections
@@ -37,7 +37,7 @@ type Msg
     | SubmitCreateGame String String
       -- join game
     | NavigateJoinGame
-    | InputJoinGame String String
+    | InputJoinGame Bool String String
     | SubmitJoinGame String String
       -- lobby
     | InputReorderPlayers (List Player)
@@ -67,8 +67,8 @@ type UI
     = WelcomeScreen
     | HelpScreen
     | CreateGameScreen String String
-    | JoinGameScreen String String
-    | LobbyScreen (List Player) (Maybe ( Self, Game )) Welcome
+    | JoinGameScreen Bool String String
+    | LobbyScreen (List Player) ChipsSettings Game Welcome
     | RejoinScreen Welcome
     | WaitingGameScreen PlayerId Self Game Welcome
     | ActingGameScreen ActSelection Self Game Welcome
@@ -78,9 +78,24 @@ type UI
     | ChipSummaryScreen Game Welcome
 
 
+type Route
+    = HomeRoute
+    | HelpRoute
+    | CreateRoute
+    | JoinRoute (Maybe String)
+    | GameRoute String String
+    | NotFound
+
+
 type LoadingStatus
     = NotLoading
     | AwaitingMessage
+
+
+type ChipsSettings
+    = DoNotTrackChips
+    | TrackWithTimer Int (List TimerLevel)
+    | TrackWithManualBlinds Int Int
 
 
 type alias Error =
@@ -112,20 +127,30 @@ type PlayerKey
     = Pkey String
 
 
+getPlayerCode : PlayerId -> String
+getPlayerCode (Pid pid) =
+    String.left 4 pid
+
+
 type alias Player =
     { playerId : PlayerId
     , screenName : String
+    , isAdmin : Bool
+    , isHost : Bool
     , stack : Int
     , pot : Int
     , bet : Int
     , folded : Bool
     , busted : Bool
+    , hole : Maybe ( Card, Card )
     }
 
 
 type alias Spectator =
     { playerId : PlayerId
     , screenName : String
+    , isAdmin : Bool
+    , isHost : Bool
     }
 
 
@@ -142,6 +167,7 @@ type alias Welcome =
 type alias Self =
     { playerId : PlayerId
     , screenName : String
+    , isAdmin : Bool
     , stack : Int
     , pot : Int
     , bet : Int
@@ -157,7 +183,8 @@ type alias Game =
     , players : List Player
     , spectators : List Spectator
     , round : Round
-    , inTurn : Maybe Player
+    , smallBlind : Int
+    , inTurn : Maybe PlayerId
     , button : Int
     , started : Bool
     , startTime : Time.Posix
@@ -187,16 +214,28 @@ type Round
 
 
 type Action
-    = PlayerJoinedAction Player
-    | BetAction Player
-    | CheckAction Player
-    | FoldAction Player
+    = GameStartedAction
+    | PlayerJoinedAction PlayerId
+    | CallAction PlayerId
+    | BetAction PlayerId
+    | CheckAction PlayerId
+    | FoldAction PlayerId
     | AdvancePhaseAction
+    | PauseTimerAction
+    | StartTimerAction
+    | EditTimerAction
     | NoAction
 
 
-type alias Result =
-    { player : Player
+type alias PotResult =
+    { potSize : Int
+    , participants : List PlayerId
+    , winners : List PlayerId
+    }
+
+
+type alias PlayerWinnings =
+    { playerId : PlayerId
     , hand : Hand
     , winnings : Int
     }
@@ -263,11 +302,11 @@ type Hand
 
 
 type Message
-    = WelcomeMessage Welcome
+    = WelcomeMessage Welcome Game
     | PlayerGameStatusMessage Self Game Action
     | SpectatorGameStatusMessage Spectator Game Action
-    | PlayerRoundWinningsMessage Self Game (List Result)
-    | SpectatorRoundWinningsMessage Spectator Game (List Result)
+    | PlayerRoundWinningsMessage Self Game (List PotResult) (List PlayerWinnings)
+    | SpectatorRoundWinningsMessage Spectator Game (List PotResult) (List PlayerWinnings)
     | StatusMessage String
     | FailureMessage (List Failure)
 
@@ -293,7 +332,8 @@ type alias StartGameRequest =
     , playerId : PlayerId
     , playerKey : PlayerKey
     , startingStack : Maybe Int
-    , timerConfig : List TimerLevel
+    , initialSmallBlind : Maybe Int
+    , timerConfig : Maybe (List TimerLevel)
     , playerOrder : List PlayerId
     }
 
@@ -302,7 +342,8 @@ type alias UpdateTimerRequest =
     { gameId : GameId
     , playerId : PlayerId
     , playerKey : PlayerKey
-    , timerStatus : TimerStatus
+    , timerLevels : Maybe (List TimerLevel)
+    , playing : Bool
     }
 
 
@@ -362,6 +403,7 @@ selfDecoder =
     Json.Decode.succeed Self
         |> required "playerId" playerIdDecoder
         |> required "screenName" Json.Decode.string
+        |> required "isAdmin" Json.Decode.bool
         |> required "stack" Json.Decode.int
         |> required "pot" Json.Decode.int
         |> required "bet" Json.Decode.int
@@ -375,6 +417,8 @@ spectatorDecoder =
     Json.Decode.succeed Spectator
         |> required "playerId" playerIdDecoder
         |> required "screenName" Json.Decode.string
+        |> required "isAdmin" Json.Decode.bool
+        |> required "isHost" Json.Decode.bool
 
 
 gameDecoder : Json.Decode.Decoder Game
@@ -385,7 +429,8 @@ gameDecoder =
         |> required "players" (Json.Decode.list playerDecoder)
         |> required "spectators" (Json.Decode.list spectatorDecoder)
         |> required "round" roundDecoder
-        |> required "inTurn" (Json.Decode.nullable playerDecoder)
+        |> required "smallBlind" Json.Decode.int
+        |> required "inTurn" (Json.Decode.nullable playerIdDecoder)
         |> required "button" Json.Decode.int
         |> required "started" Json.Decode.bool
         |> required "startTime" posixDecoder
@@ -396,25 +441,25 @@ gameDecoder =
 actionDecoder : Json.Decode.Decoder Action
 actionDecoder =
     let
-        playerFieldDecoder =
-            Json.Decode.field "player" playerDecoder
+        playerIdFieldDecoder =
+            Json.Decode.field "player" playerIdDecoder
 
         decode id =
             case id of
                 "player-joined" ->
-                    playerFieldDecoder
+                    playerIdFieldDecoder
                         |> Json.Decode.map PlayerJoinedAction
 
                 "bet" ->
-                    playerFieldDecoder
+                    playerIdFieldDecoder
                         |> Json.Decode.map BetAction
 
                 "check" ->
-                    playerFieldDecoder
+                    playerIdFieldDecoder
                         |> Json.Decode.map CheckAction
 
                 "fold" ->
-                    playerFieldDecoder
+                    playerIdFieldDecoder
                         |> Json.Decode.map FoldAction
 
                 "advance-phase" ->
@@ -435,11 +480,14 @@ playerDecoder =
     Json.Decode.succeed Player
         |> required "playerId" playerIdDecoder
         |> required "screenName" Json.Decode.string
+        |> required "isAdmin" Json.Decode.bool
+        |> required "isHost" Json.Decode.bool
         |> required "stack" Json.Decode.int
         |> required "pot" Json.Decode.int
         |> required "bet" Json.Decode.int
         |> required "folded" Json.Decode.bool
         |> required "busted" Json.Decode.bool
+        |> required "hole" (Json.Decode.nullable holeDecoder)
 
 
 roundDecoder : Json.Decode.Decoder Round
@@ -493,10 +541,18 @@ roundDecoder =
         ]
 
 
-resultDecoder : Json.Decode.Decoder Result
-resultDecoder =
-    Json.Decode.succeed Result
-        |> required "player" playerDecoder
+potResultDecoder : Json.Decode.Decoder PotResult
+potResultDecoder =
+    Json.Decode.succeed PotResult
+        |> required "potSize" Json.Decode.int
+        |> required "participants" (Json.Decode.list playerIdDecoder)
+        |> required "winners" (Json.Decode.list playerIdDecoder)
+
+
+playerWinningsDecoder : Json.Decode.Decoder PlayerWinnings
+playerWinningsDecoder =
+    Json.Decode.succeed PlayerWinnings
+        |> required "playerId" playerIdDecoder
         |> required "hand" handDecoder
         |> required "winnings" Json.Decode.int
 
@@ -705,7 +761,7 @@ holeDecoder =
 
 decodeWelcome : Json.Decode.Decoder Message
 decodeWelcome =
-    Json.Decode.map WelcomeMessage welcomeDecoder
+    playerGameStatusMessageDecoder
 
 
 playerKeyDecoder : Json.Decode.Decoder PlayerKey
@@ -748,18 +804,20 @@ spectatorGameStatusMessageDecoder =
 
 playerRoundWinningsMessageDecoder : Json.Decode.Decoder Message
 playerRoundWinningsMessageDecoder =
-    Json.Decode.map3 PlayerRoundWinningsMessage
+    Json.Decode.map4 PlayerRoundWinningsMessage
         (Json.Decode.field "self" selfDecoder)
         (Json.Decode.field "game" gameDecoder)
-        (Json.Decode.field "results" (Json.Decode.list resultDecoder))
+        (Json.Decode.field "pots" (Json.Decode.list potResultDecoder))
+        (Json.Decode.field "players" (Json.Decode.list playerWinningsDecoder))
 
 
 spectatorRoundWinningsMessageDecoder : Json.Decode.Decoder Message
 spectatorRoundWinningsMessageDecoder =
-    Json.Decode.map3 SpectatorRoundWinningsMessage
+    Json.Decode.map4 SpectatorRoundWinningsMessage
         (Json.Decode.field "self" spectatorDecoder)
         (Json.Decode.field "game" gameDecoder)
-        (Json.Decode.field "results" (Json.Decode.list resultDecoder))
+        (Json.Decode.field "pots" (Json.Decode.list potResultDecoder))
+        (Json.Decode.field "players" (Json.Decode.list playerWinningsDecoder))
 
 
 statusMessageDecoder : Json.Decode.Decoder Message
@@ -872,7 +930,8 @@ startGameRequestEncoder startGameRequest =
         , ( "playerId", encodePlayerId startGameRequest.playerId )
         , ( "playerKey", encodePlayerKey startGameRequest.playerKey )
         , ( "startingStack", (Maybe.map Json.Encode.int >> Maybe.withDefault Json.Encode.null) startGameRequest.startingStack )
-        , ( "timerConfig", Json.Encode.list encodeTimerLevel startGameRequest.timerConfig )
+        , ( "initialSmallBlind", (Maybe.map Json.Encode.int >> Maybe.withDefault Json.Encode.null) startGameRequest.initialSmallBlind )
+        , ( "timerConfig", (Maybe.map (Json.Encode.list encodeTimerLevel) >> Maybe.withDefault Json.Encode.null) startGameRequest.timerConfig )
         , ( "playerOrder", Json.Encode.list encodePlayerId startGameRequest.playerOrder )
         ]
 
@@ -884,7 +943,8 @@ updateTimerRequestEncoder updateTimerRequest =
         , ( "gameId", encodeGameId updateTimerRequest.gameId )
         , ( "playerId", encodePlayerId updateTimerRequest.playerId )
         , ( "playerKey", encodePlayerKey updateTimerRequest.playerKey )
-        , ( "timerStatus", encodeTimerStatus updateTimerRequest.timerStatus )
+        , ( "timerLevels", (Maybe.map (Json.Encode.list encodeTimerLevel) >> Maybe.withDefault Json.Encode.null) updateTimerRequest.timerLevels )
+        , ( "playing", Json.Encode.bool updateTimerRequest.playing )
         ]
 
 

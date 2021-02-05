@@ -12,7 +12,7 @@ import FontAwesome.Attributes as Icon
 import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
-import Model exposing (ActSelection, Game, Model, Msg(..), Player, PlayerId, Self, TimerStatus, UI(..), Welcome, getGameCode)
+import Model exposing (ActSelection, ChipsSettings, Game, Model, Msg(..), Player, PlayerId, Self, TimerLevel, TimerStatus, UI(..), Welcome, getGameCode)
 import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdText, zWidths)
 
 
@@ -42,13 +42,13 @@ view model =
                     , title = "New game"
                     }
 
-                JoinGameScreen gameCode screenName ->
-                    { body = joinGameScreen model gameCode screenName
+                JoinGameScreen external gameCode screenName ->
+                    { body = joinGameScreen model external gameCode screenName
                     , title = "Join game"
                     }
 
-                LobbyScreen players maybeGameStatus welcome ->
-                    { body = lobbyScreen model players maybeGameStatus welcome
+                LobbyScreen players chipsSettings game welcome ->
+                    { body = lobbyScreen model players chipsSettings game welcome
                     , title = welcome.gameName ++ " | Waiting..."
                     }
 
@@ -224,20 +224,24 @@ createGameScreen model gameName screenName =
             ]
 
 
-joinGameScreen : Model -> String -> String -> Element Msg
-joinGameScreen model gameCode screenName =
+joinGameScreen : Model -> Bool -> String -> String -> Element Msg
+joinGameScreen model isExternal gameCode screenName =
     column
         [ width fill
         , spacing 16
         ]
-        [ pdText (\newGameCode -> InputJoinGame newGameCode screenName) gameCode "Game code"
-        , pdText (InputJoinGame gameCode) screenName "Your name"
+        [ if isExternal then
+            pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "Game code"
+
+          else
+            none
+        , pdText (InputJoinGame isExternal gameCode) screenName "Your name"
         , pdButton (SubmitJoinGame gameCode screenName) [ "Join", "game" ]
         ]
 
 
-lobbyScreen : Model -> List Player -> Maybe ( Self, Game ) -> Welcome -> Element Msg
-lobbyScreen model players maybeGameDetails welcome =
+lobbyScreen : Model -> List Player -> ChipsSettings -> Game -> Welcome -> Element Msg
+lobbyScreen model players chipsSettings game welcome =
     column
         [ width fill
         ]

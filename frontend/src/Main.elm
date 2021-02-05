@@ -4,9 +4,7 @@ import Browser
 import Browser.Dom
 import Browser.Events
 import Browser.Navigation
-import Html exposing (Html, div, h1, img, text)
-import Html.Attributes exposing (src)
-import Messages exposing (sendWake, update)
+import Messages exposing (followRoute, routeFromUrl, sendWake, update)
 import Model exposing (..)
 import Ports exposing (receiveMessage, socketConnect, socketDisconnect)
 import Task
@@ -22,9 +20,19 @@ import Views.UI exposing (view)
 init : Flags -> Url.Url -> Browser.Navigation.Key -> ( Model, Cmd Msg )
 init flags url navKey =
     let
+        initialRoute =
+            routeFromUrl url
+
+        -- TODO: load from flags so it's available for the navigation check
+        initialLibrary =
+            []
+
+        ( ui, navCmd ) =
+            followRoute navKey initialRoute initialLibrary
+
         initial : Model
         initial =
-            { ui = WelcomeScreen
+            { ui = ui
             , connected = False
             , now = Time.millisToPosix 0
             , viewport =
@@ -35,6 +43,8 @@ init flags url navKey =
                 , viewport =
                     { x = 0
                     , y = 0
+
+                    -- TODO: from flags
                     , width = 360
                     , height = 640
                     }
@@ -42,7 +52,7 @@ init flags url navKey =
             , peeking = False
             , loadingStatus = NotLoading
             , errors = []
-            , library = []
+            , library = initialLibrary
             , url = url
             , navKey = navKey
             }
@@ -52,6 +62,7 @@ init flags url navKey =
         [ Task.perform Tick Time.now
         , Task.perform Resized Browser.Dom.getViewport
         , sendWake ()
+        , navCmd
         ]
     )
 
@@ -67,7 +78,9 @@ subscriptions _ =
         ]
 
 
-type alias Flags = ()
+type alias Flags =
+    ()
+
 
 
 ---- PROGRAM ----
