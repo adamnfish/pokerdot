@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.Console.displayId
+import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Dates, DevMessaging, DevRng, DevServerDB}
@@ -10,7 +10,6 @@ import zio.IO
 
 
 object DevServer {
-  val messaging = new DevMessaging(logMessage)
   val client = LocalDynamoDB.syncClient()
   val db = new DynamoDbDatabase(client, "games", "players")
   DevServerDB.createGamesTable(client)
@@ -23,20 +22,37 @@ object DevServer {
     app.start(7000)
 
     // initials seed defaults to 0, but can be changed at server start time
-    val initialSeed = args.headOption.map(_.toLong).getOrElse(0L)
+    val initialSeed = args.filterNot(_ == "--debug").headOption.map(_.toLong).getOrElse(0L)
+    println(s"[INFO] initial seed: $initialSeed")
     val rng = new DevRng(initialSeed)
+
+    val messagePrinter: Direction => (String, String) => Unit =
+      if (args.contains("--debug")) {
+        println("[INFO] debug mode - connection events and messages will be printed")
+        logMessage
+      } else {
+        noOpMessage
+      }
+    val connectionPrinter: (String, Boolean) => Unit =
+      if (args.contains("--debug")) {
+        logConnection
+      } else {
+        noOpConnection
+      }
+
+    val messaging = new DevMessaging(messagePrinter(Outbound))
 
     app.ws("/api", { ws =>
       ws.onConnect { wctx =>
         val id = messaging.connect(wctx)
-        println(s"Connected: ${displayId(id, fullId = true)}")
+        connectionPrinter(id, true)
       }
       ws.onClose { wctx =>
         messaging.disconnect(wctx)
-        println(s"Disconnected: ${displayId(wctx.getSessionId)}")
+        connectionPrinter(wctx.getSessionId, false)
       }
       ws.onMessage { wctx =>
-        println(s"Message: ${displayId(wctx.getSessionId)} <- ${wctx.message}")
+        messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
         val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Dates, rng)
         val program = PokerDot.pokerdot(wctx.message, appContext).catchAll { failures =>
           IO {
@@ -56,7 +72,7 @@ object DevServer {
             }
           },
           { operation =>
-            println(s"[INFO] Operation $operation completed")
+            println(s"[INFO] $operation")
           }
         )
       }
@@ -66,9 +82,5 @@ object DevServer {
       println("[INFO] Stopping...")
       app.stop()
     }))
-  }
-
-  def logMessage(uid: String, body: String): Unit = {
-    println(s"Message: ${displayId(uid)} -> $body")
   }
 }

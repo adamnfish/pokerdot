@@ -1,5 +1,7 @@
 package io.adamnfish.pokerdot
 
+import io.adamnfish.pokerdot.Console.Direction
+
 import scala.io.AnsiColor
 import scala.util.Random
 
@@ -50,4 +52,32 @@ object Console {
     s"${AnsiColor.CYAN_B}${AnsiColor.BOLD}${AnsiColor.MAGENTA}",
     s"${AnsiColor.CYAN_B}${AnsiColor.BOLD}${AnsiColor.WHITE}",
   )
+
+  def logMessage(direction: Direction)(uid: String, body: String): Unit = {
+    val dir = direction match {
+      case Inbound => "<-"
+      case Outbound => "->"
+    }
+    println(s"[DEBUG] Message: ${displayId(uid)} $dir $body")
+  }
+
+  def noOpMessage(direction: Direction)(uid: String, body: String): Unit = {
+    ()
+  }
+
+  sealed trait Direction
+  case object Inbound extends Direction
+  case object Outbound extends Direction
+
+  def logConnection(uid: String, connected: Boolean): Unit = {
+    if (connected) {
+      println(s"[DEBUG] Connected: ${displayId(uid, fullId = true)}")
+    } else {
+      println(s"[DEBUG] Disconnected: ${displayId(uid)}")
+    }
+  }
+
+  def noOpConnection(uid: String, connected: Boolean): Unit = {
+    ()
+  }
 }
