@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.persistence
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import io.adamnfish.pokerdot.logic.Games
-import io.adamnfish.pokerdot.logic.Utils.RichList
+import io.adamnfish.pokerdot.logic.Utils.{EitherUtils, RichList}
 import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
 import io.adamnfish.pokerdot.services.Database
 import org.scanamo._
@@ -47,6 +47,14 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
         resultToAttempt(result).map(Some(_))
       }
     } yield maybeGameDb
+  }
+
+
+  override def searchGameCode(gameCode: String): Attempt[List[GameDb]] = {
+    for {
+      results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
+      gameDbs <- results.ioTraverse(resultToAttempt)
+    } yield gameDbs
   }
 
   override def getPlayers(gameId: GameId): Attempt[List[PlayerDb]] = {

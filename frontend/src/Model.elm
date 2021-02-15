@@ -47,6 +47,7 @@ type Msg
     | Check
     | Bet Int
     | Fold
+    | AdvancePhase
 
 
 type alias Model =
@@ -57,9 +58,9 @@ type alias Model =
     , peeking : Bool
     , loadingStatus : LoadingStatus
     , errors : List Error
+    , events : List Event
     , library : List Welcome
     , navKey : Browser.Navigation.Key
-    , url : Url.Url
     }
 
 
@@ -68,10 +69,11 @@ type UI
     | HelpScreen
     | CreateGameScreen String String
     | JoinGameScreen Bool String String
-    | LobbyScreen (List Player) ChipsSettings Game Welcome
+    | LobbyScreen (List Player) ChipsSettings Self Game Welcome
     | RejoinScreen Welcome
     | WaitingGameScreen PlayerId Self Game Welcome
     | ActingGameScreen ActSelection Self Game Welcome
+    | IdleGameScreen Self Game Welcome
       -- spectating
     | CommunityCardsScreen Game Welcome
     | TimerScreen TimerStatus Game Welcome
@@ -90,6 +92,11 @@ type Route
 type LoadingStatus
     = NotLoading
     | AwaitingMessage
+
+
+
+-- TODO: consider multiple pending messages / background loading
+--| BackgroundMessage
 
 
 type ChipsSettings
@@ -158,6 +165,7 @@ type alias Welcome =
     { playerKey : PlayerKey
     , playerId : PlayerId
     , gameId : GameId
+    , gameCode : String
     , gameName : String
     , screenName : String
     , spectator : Bool
@@ -179,6 +187,7 @@ type alias Self =
 
 type alias Game =
     { gameId : GameId
+    , gameCode : String
     , gameName : String
     , players : List Player
     , spectators : List Spectator
@@ -225,6 +234,12 @@ type Action
     | StartTimerAction
     | EditTimerAction
     | NoAction
+
+
+type alias Event =
+    { action : Action
+    , time : Time.Posix
+    }
 
 
 type alias PotResult =
@@ -302,7 +317,7 @@ type Hand
 
 
 type Message
-    = WelcomeMessage Welcome Game
+    = WelcomeMessage Welcome Self Game
     | PlayerGameStatusMessage Self Game Action
     | SpectatorGameStatusMessage Spectator Game Action
     | PlayerRoundWinningsMessage Self Game (List PotResult) (List PlayerWinnings)
@@ -335,15 +350,6 @@ type alias StartGameRequest =
     , initialSmallBlind : Maybe Int
     , timerConfig : Maybe (List TimerLevel)
     , playerOrder : List PlayerId
-    }
-
-
-type alias UpdateTimerRequest =
-    { gameId : GameId
-    , playerId : PlayerId
-    , playerKey : PlayerKey
-    , timerLevels : Maybe (List TimerLevel)
-    , playing : Bool
     }
 
 
@@ -383,6 +389,15 @@ type alias PingRequest =
     }
 
 
+type alias UpdateTimerRequest =
+    { gameId : GameId
+    , playerId : PlayerId
+    , playerKey : PlayerKey
+    , timerLevels : Maybe (List TimerLevel)
+    , playing : Bool
+    }
+
+
 
 -- Codecs
 
@@ -393,6 +408,7 @@ welcomeDecoder =
         |> required "playerKey" playerKeyDecoder
         |> required "playerId" playerIdDecoder
         |> required "gameId" gameIdDecoder
+        |> required "gameCode" Json.Decode.string
         |> required "gameName" Json.Decode.string
         |> required "screenName" Json.Decode.string
         |> required "spectator" Json.Decode.bool
@@ -425,6 +441,7 @@ gameDecoder : Json.Decode.Decoder Game
 gameDecoder =
     Json.Decode.succeed Game
         |> required "gameId" gameIdDecoder
+        |> required "gameCode" Json.Decode.string
         |> required "gameName" Json.Decode.string
         |> required "players" (Json.Decode.list playerDecoder)
         |> required "spectators" (Json.Decode.list spectatorDecoder)
@@ -442,7 +459,7 @@ actionDecoder : Json.Decode.Decoder Action
 actionDecoder =
     let
         playerIdFieldDecoder =
-            Json.Decode.field "player" playerIdDecoder
+            Json.Decode.field "playerId" playerIdDecoder
 
         decode id =
             case id of
@@ -469,7 +486,7 @@ actionDecoder =
                     Json.Decode.succeed NoAction
 
                 _ ->
-                    Json.Decode.fail "Couldn't understand the server's description of what action was performed."
+                    Json.Decode.fail "Couldn't understand the server's description of the action that was performed."
     in
     Json.Decode.field "action" Json.Decode.string
         |> Json.Decode.andThen decode
@@ -761,7 +778,10 @@ holeDecoder =
 
 decodeWelcome : Json.Decode.Decoder Message
 decodeWelcome =
-    playerGameStatusMessageDecoder
+    Json.Decode.map3 WelcomeMessage
+        welcomeDecoder
+        (Json.Decode.field "self" selfDecoder)
+        (Json.Decode.field "game" gameDecoder)
 
 
 playerKeyDecoder : Json.Decode.Decoder PlayerKey

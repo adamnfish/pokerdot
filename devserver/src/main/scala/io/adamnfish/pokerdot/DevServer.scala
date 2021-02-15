@@ -10,7 +10,7 @@ import zio.IO
 
 
 object DevServer {
-  val messaging = new DevMessaging
+  val messaging = new DevMessaging(logMessage)
   val client = LocalDynamoDB.syncClient()
   val db = new DynamoDbDatabase(client, "games", "players")
   DevServerDB.createGamesTable(client)
@@ -51,6 +51,9 @@ object DevServer {
             cause.failures.foreach { e =>
               println(s"[ERROR] Unhandled exception: ${e.printStackTrace()}")
             }
+            cause.defects.foreach { err =>
+              println(s"[ERROR] Fatal error: ${err.toString}")
+            }
           },
           { operation =>
             println(s"[INFO] Operation $operation completed")
@@ -63,5 +66,9 @@ object DevServer {
       println("[INFO] Stopping...")
       app.stop()
     }))
+  }
+
+  def logMessage(uid: String, body: String): Unit = {
+    println(s"Message: ${displayId(uid)} -> $body")
   }
 }

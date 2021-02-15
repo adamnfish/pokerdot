@@ -5,6 +5,7 @@ import io.adamnfish.pokerdot.services.{Database, Dates, Messaging, Rng}
 
 case class Game(
   gameId: GameId,
+  gameCode: String,
   expiry: Long,
   gameName: String,
   players: List[Player],

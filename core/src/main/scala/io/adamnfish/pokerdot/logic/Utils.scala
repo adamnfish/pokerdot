@@ -15,6 +15,7 @@ object Utils {
       }
     }
 
+    // TODO: this should collect failures rather than bailing on the first
     def ioTraverse[B](f: A => Attempt[B]): Attempt[List[B]] = {
       as.foldRight[Attempt[List[B]]](IO.succeed(Nil))((a, acc) => IO.mapParN(f(a), acc)(_ :: _))
     }
@@ -44,6 +45,24 @@ object Utils {
   implicit class RichEither[A](val efa: Either[Failures, A]) extends AnyVal {
     def attempt: Attempt[A] = {
       IO.fromEither(efa)
+    }
+  }
+
+  object EitherUtils {
+    def sequence[A](aes: List[Either[Failures, A]]): Either[Failures, List[A]] = {
+      aes.foldRight[Either[Failures, List[A]]](Right(Nil)) { (ae, acc) =>
+        acc match {
+          case Left(accFailures) =>
+            ae match {
+              case Left(fs) =>
+                Left(Failures(fs.failures ++ accFailures.failures))
+              case Right(_) =>
+                Left(accFailures)
+            }
+          case Right(as) =>
+            ae.map(_ :: as)
+        }
+      }
     }
   }
 

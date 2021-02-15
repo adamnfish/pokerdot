@@ -2,7 +2,8 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Play.dealHoles
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.Dates
+import io.adamnfish.pokerdot.services.{Database, Dates}
+import zio.IO
 
 import java.util.UUID
 
@@ -13,8 +14,10 @@ import java.util.UUID
 object Games {
   def newGame(gameName: String, trackStacks: Boolean, dates: Dates, initialState: Long): Game = {
     val round = Play.generateRound(PreFlop, 0, initialState)
+    val gameId = GameId(UUID.randomUUID().toString)
     Game(
-      gameId = GameId(UUID.randomUUID().toString),
+      gameId = gameId,
+      gameCode = gameCode(gameId), // try this, we can replace it with a longer unique prefix if required
       expiry = dates.expires(),
       gameName = gameName,
       players = Nil,
@@ -69,18 +72,22 @@ object Games {
     )
   }
 
-  def updatePlayerAddress(player: Player, playerAddress: PlayerAddress): Player = {
-    player.copy(
-      playerAddress = playerAddress
-    )
+  def updatePlayerAddress(player: Player, playerAddress: PlayerAddress): Option[Player] = {
+    if (player.playerAddress != playerAddress) Some {
+      player.copy(
+        playerAddress = playerAddress
+      )
+    } else None
   }
 
   def addPlayerIds(gameDb: GameDb, playerDbs: List[PlayerDb]): GameDb = {
     val playersFromDbs = playerDbs.filterNot(_.isSpectator)
     val spectatorsFromDbs = playerDbs.filter(_.isSpectator)
+    val allPlayerIds = (gameDb.playerIds ++ playersFromDbs.map(_.playerId)).distinct
+    val allSpectatorIds = (gameDb.spectatorIds ++ spectatorsFromDbs.map(_.playerId)).distinct
     gameDb.copy(
-      playerIds = gameDb.playerIds ++ playersFromDbs.map(_.playerId),
-      spectatorIds = gameDb.spectatorIds ++ spectatorsFromDbs.map(_.playerId)
+      playerIds = allPlayerIds,
+      spectatorIds = allSpectatorIds,
     )
   }
 
@@ -107,6 +114,24 @@ object Games {
         .replace('O', '0')
         .replace('o', '0')
     )
+  }
+
+  def makeUniquePrefix(gameId: GameId, persistence: Database, fn: (GameId, Int, Database) => Attempt[Boolean]): Attempt[String] = {
+    val min = 4
+    val max = 10
+    def loop(prefixLength: Int): Attempt[String] = {
+      fn(gameId, prefixLength, persistence).flatMap {
+        case true =>
+          IO.succeed(gameId.gid.take(prefixLength))
+        case false if prefixLength < max =>
+          loop(prefixLength + 1)
+        case _ =>
+          IO.fail(
+            Failures("Couldn't create unique prefix of GameID", "Couldn't set up game with a join code")
+          )
+      }
+    }
+    loop(min)
   }
 
   def start(game: Game, now: Long, timerLevelsOpt: Option[List[TimerLevel]], startingStacks: Option[Int]): Game = {

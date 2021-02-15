@@ -4,7 +4,7 @@ import Browser
 import Browser.Dom
 import Browser.Events
 import Browser.Navigation
-import Messages exposing (followRoute, routeFromUrl, sendWake, update)
+import Messages exposing (routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 import Model exposing (..)
 import Ports exposing (receiveMessage, socketConnect, socketDisconnect)
 import Task
@@ -23,12 +23,20 @@ init flags url navKey =
         initialRoute =
             routeFromUrl url
 
-        -- TODO: load from flags so it's available for the navigation check
+        -- TODO: load from flags so it's available for the initial navigation check
         initialLibrary =
             []
 
-        ( ui, navCmd ) =
-            followRoute navKey initialRoute initialLibrary
+        ui =
+            uiFromRoute initialRoute initialLibrary
+
+        rejoinCmd =
+            case ui of
+                RejoinScreen welcome ->
+                    sendPing welcome
+
+                _ ->
+                    Cmd.none
 
         initial : Model
         initial =
@@ -52,8 +60,8 @@ init flags url navKey =
             , peeking = False
             , loadingStatus = NotLoading
             , errors = []
+            , events = []
             , library = initialLibrary
-            , url = url
             , navKey = navKey
             }
     in
@@ -62,7 +70,7 @@ init flags url navKey =
         [ Task.perform Tick Time.now
         , Task.perform Resized Browser.Dom.getViewport
         , sendWake ()
-        , navCmd
+        , rejoinCmd
         ]
     )
 

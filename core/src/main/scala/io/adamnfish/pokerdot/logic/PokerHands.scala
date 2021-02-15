@@ -120,7 +120,7 @@ object PokerHands {
       (Nil, playersByStrength, 0)
     ) { case (potLevel, (paidPots, paidPlayersByStrength, paidSoFar)) =>
       // run through all players (in strength order) with each contributing to this pot, if able
-      // first (by strength) eligible players are the winner(s)
+      // first (by strength) eligible player(s) are the winner(s)
       val (updatedPlayersByStrength, participants, winners, potSize) =
         paidPlayersByStrength.foldRight[(List[List[Player]], List[PlayerId], List[PlayerId], Int)](
           (Nil, Nil, Nil, 0)

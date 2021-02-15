@@ -2,7 +2,7 @@ module MessageDecodersTest exposing (..)
 
 import Expect exposing (fail)
 import Json.Decode
-import Model exposing (GameId(..), Message(..), PlayerId(..), PlayerKey(..), messageDecoder, playerGameStatusMessageDecoder)
+import Model exposing (Action(..), GameId(..), Message(..), PlayerId(..), PlayerKey(..), messageDecoder, playerGameStatusMessageDecoder)
 import Test exposing (..)
 
 
@@ -66,19 +66,20 @@ messageDecoders =
                 \_ ->
                     let
                         welcomeMessageJson =
-                            """{"playerKey":"a0968cf4-c799-4632-948f-81a51e8aac76","playerId":"101d501d-ce6f-455c-9413-03bb260b2f49","gameId":"903053a3-3fd1-4016-aa48-52386c554a43","gameName":"game name","screenName":"screen name","spectator":false}"""
+                            """{"playerKey":"b4043f56-a225-4b21-bf49-797503b1f035","playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","gameId":"6945a740-15f4-4409-b60f-3490e7674cbe","gameCode":"6945","gameName":"Test","screenName":"Player 1","spectator":false,"game":{"gameId":"6945a740-15f4-4409-b60f-3490e7674cbe","gameCode":"6945","gameName":"Test","players":[{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","screenName":"Player 1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":false,"isAdmin":false,"hole":null},{"playerId":"de855f82-bc5d-47db-adc2-0040853674ee","screenName":"host","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":true,"isAdmin":true,"hole":null}],"spectators":[],"round":{"phase":"pre-flop"},"smallBlind":0,"inTurn":null,"button":0,"started":false,"startTime":1613414159747,"trackStacks":false,"timer":null},"self":{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","screenName":"Player 1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"hole":null,"isHost":false,"isAdmin":false}}"""
 
                         result =
                             Json.Decode.decodeString messageDecoder welcomeMessageJson
                     in
                     case result of
-                        Ok (WelcomeMessage welcome) ->
+                        Ok (WelcomeMessage welcome self game) ->
                             Expect.equal welcome
-                                { playerKey = Pkey "a0968cf4-c799-4632-948f-81a51e8aac76"
-                                , playerId = Pid "101d501d-ce6f-455c-9413-03bb260b2f49"
-                                , gameId = Gid "903053a3-3fd1-4016-aa48-52386c554a43"
-                                , gameName = "game name"
-                                , screenName = "screen name"
+                                { playerKey = Pkey "b4043f56-a225-4b21-bf49-797503b1f035"
+                                , playerId = Pid "3f37c05f-9bd6-4708-b989-3896f480180f"
+                                , gameId = Gid "6945a740-15f4-4409-b60f-3490e7674cbe"
+                                , gameCode = "6945"
+                                , gameName = "Test"
+                                , screenName = "Player 1"
                                 , spectator = False
                                 }
 
@@ -93,15 +94,14 @@ messageDecoders =
                 \_ ->
                     let
                         playerJoinedMessage =
-                            """{"self":{"playerId":"17aa928d-4c56-4928-bbd0-d7593ab5ccf9","screenName":"2","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"hole":null},"game":{"gameId":"5df0043c-b2ec-4285-b5aa-17671ff0442a","gameName":"asdasd","players":[{"playerId":"17aa928d-4c56-4928-bbd0-d7593ab5ccf9","screenName":"2","stack":0,"pot":0,"bet":0,"folded":false,"busted":false},{"playerId":"8b555d73-0d59-471c-9e8c-90e6a1ecf41a","screenName":"1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false}],"spectators":[],"round":{},"inTurn":null,"button":0,"started":false,"startTime":1601224730,"trackStacks":false,"timer":null},"action":{"player":{"playerId":"17aa928d-4c56-4928-bbd0-d7593ab5ccf9","screenName":"2","stack":0,"pot":0,"bet":0,"folded":false,"busted":false},"action":"player-joined"}}"""
+                            """{"self":{"playerId":"de855f82-bc5d-47db-adc2-0040853674ee","screenName":"host","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"hole":null,"isHost":true,"isAdmin":true},"game":{"gameId":"6945a740-15f4-4409-b60f-3490e7674cbe","gameCode":"6945","gameName":"Test","players":[{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","screenName":"Player 1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":false,"isAdmin":false,"hole":null},{"playerId":"de855f82-bc5d-47db-adc2-0040853674ee","screenName":"host","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":true,"isAdmin":true,"hole":null}],"spectators":[],"round":{"phase":"pre-flop"},"smallBlind":0,"inTurn":null,"button":0,"started":false,"startTime":1613414159747,"trackStacks":false,"timer":null},"action":{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","action":"player-joined"}}"""
 
                         result =
                             Json.Decode.decodeString messageDecoder playerJoinedMessage
                     in
                     case result of
                         Ok (PlayerGameStatusMessage self game action) ->
-                            -- TODO: check the actual values!
-                            Expect.equal 1 1
+                            Expect.equal action <| PlayerJoinedAction (Pid "3f37c05f-9bd6-4708-b989-3896f480180f")
 
                         Ok message ->
                             fail ("Expected game status message, got " ++ Debug.toString message)

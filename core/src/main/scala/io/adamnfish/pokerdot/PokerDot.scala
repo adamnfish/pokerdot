@@ -1,8 +1,9 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{PlayerActions, Games, Representations, Responses}
+import io.adamnfish.pokerdot.logic.{Games, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models._
+import io.adamnfish.pokerdot.services.Database
 import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer}
 import io.circe.Json
 import zio._
@@ -33,6 +34,7 @@ object PokerDot {
           fold(requestJson, appContext)
         case "advance-phase" =>
           advancePhase(requestJson, appContext)
+        // TODO: include admin endpoint to allow manual correction of game state
         case "ping" =>
           ping(requestJson, appContext)
         case "wake" =>
@@ -46,7 +48,8 @@ object PokerDot {
           )
       }
       // send messages
-      _ <- response.messages.toList.ioTraverse { case (address, msg: Message) =>
+      allMessages = response.messages.toList ++ response.statuses.toList
+      _ <- allMessages.ioTraverse { case (address, msg: Message) =>
         appContext.messaging.sendMessage(address, msg)
       }
     } yield operation)
@@ -60,12 +63,14 @@ object PokerDot {
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
       createGame <- extractCreateGame(requestJson).attempt
-      game = Games.newGame(createGame.gameName, trackStacks = false, appContext.dates, initialSeed)
+      rawGame = Games.newGame(createGame.gameName, trackStacks = false, appContext.dates, initialSeed)
+      uniqueGameCode <- Games.makeUniquePrefix(rawGame.gameId, appContext.db, Database.checkUniquePrefix)
+      game = rawGame.copy(gameCode = uniqueGameCode)
       host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, appContext.dates)
       gameWithHost = Games.addPlayer(game, host)
       gameDb = Representations.gameToDb(gameWithHost)
       hostDb = Representations.playerToDb(host)
-      response = Responses.welcome(gameWithHost, host)
+      response = Responses.welcome(gameWithHost, host, appContext.playerAddress)
       _ <- appContext.db.writeGame(gameDb)
       _ <- appContext.db.writePlayer(hostDb)
     } yield response
@@ -96,7 +101,7 @@ object PokerDot {
       _ <- Games.ensurePlayerCount(game.players.length).attempt
       player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.dates)
       newGame = Games.addPlayer(game, player)
-      response = Responses.welcome(newGame, player)
+      response = Responses.welcome(newGame, player, appContext.playerAddress)
       playerDb = Representations.playerToDb(player)
       _ <- appContext.db.writePlayer(playerDb)
     } yield response
@@ -272,19 +277,23 @@ object PokerDot {
       pingRequest <- extractPing(requestJson).attempt
       // fetch player / game data
       gameDbOpt <- appContext.db.getGame(pingRequest.gameId)
-      gameDb <- Games.requireGame(gameDbOpt, pingRequest.gameId.gid).attempt
+      rawGameDb <- Games.requireGame(gameDbOpt, pingRequest.gameId.gid).attempt
       playerDbs <- appContext.db.getPlayers(pingRequest.gameId)
+      // we remove duplicates, so it is safe to re-add playerDbs here
+      // this addresses pings when the game has not yet started (and players have not been added)
+      gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
       game <- Representations.gameFromDb(gameDb, playerDbs).attempt
       // TODO: handle players or spectators here
-      // maybe check if requester is a player / spectator and delegate accordingly?
-      // check player
+      //       maybe check if requester is a player / spectator and delegate accordingly?
       player <- Games.ensurePlayerKey(game.players, pingRequest.playerId, pingRequest.playerKey).attempt
-      // logic
-      updatedPlayer = Games.updatePlayerAddress(player, appContext.playerAddress)
-      // create and save updated player for DB
-      updatedPlayerDb = Representations.playerToDb(updatedPlayer)
+      // update the player's address, if it has changed
+      updatedPlayerOpt = Games.updatePlayerAddress(player, appContext.playerAddress)
+      updatedPlayer <- updatedPlayerOpt.fold[Attempt[Player]](IO.succeed(player)) { updatedPlayer =>
+        // if player's address has changed, persist change to DB
+        val updatedPlayerDb = Representations.playerToDb(updatedPlayer)
+        appContext.db.writePlayer(updatedPlayerDb).map(_ => updatedPlayer)
+      }
       message = Representations.gameStatus(game, updatedPlayer, NoActionSummary())
-      _ <- appContext.db.writePlayer(updatedPlayerDb)
     } yield Responses.justRespond(message, appContext.playerAddress)
   }
 

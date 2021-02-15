@@ -47,8 +47,8 @@ view model =
                     , title = "Join game"
                     }
 
-                LobbyScreen players chipsSettings game welcome ->
-                    { body = lobbyScreen model players chipsSettings game welcome
+                LobbyScreen players chipsSettings self game welcome ->
+                    { body = lobbyScreen model players chipsSettings self game welcome
                     , title = welcome.gameName ++ " | Waiting..."
                     }
 
@@ -64,6 +64,11 @@ view model =
 
                 ActingGameScreen currentAct self game welcome ->
                     { body = actingGameScreen model currentAct self game welcome
+                    , title = welcome.gameName ++ " | Your turn"
+                    }
+
+                IdleGameScreen self game welcome ->
+                    { body = idleGameScreen model self game welcome
                     , title = welcome.gameName ++ " | Your turn"
                     }
 
@@ -231,26 +236,31 @@ joinGameScreen model isExternal gameCode screenName =
         , spacing 16
         ]
         [ if isExternal then
-            pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "Game code"
+            none
 
           else
-            none
+            pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "Game code"
         , pdText (InputJoinGame isExternal gameCode) screenName "Your name"
         , pdButton (SubmitJoinGame gameCode screenName) [ "Join", "game" ]
         ]
 
 
-lobbyScreen : Model -> List Player -> ChipsSettings -> Game -> Welcome -> Element Msg
-lobbyScreen model players chipsSettings game welcome =
+lobbyScreen : Model -> List Player -> ChipsSettings -> Self -> Game -> Welcome -> Element Msg
+lobbyScreen model players chipsSettings self game welcome =
     column
         [ width fill
         ]
-        [ Element.text <| getGameCode welcome.gameId ]
+        [ Element.text <| game.gameCode ]
 
 
 rejoinScreen : Model -> Welcome -> Element Msg
 rejoinScreen model welcome =
-    Element.none
+    Element.text <|
+        "Hello again, "
+            ++ welcome.screenName
+            ++ ". Rejoining "
+            ++ welcome.gameName
+            ++ "."
 
 
 waitingGameScreen : Model -> PlayerId -> Self -> Game -> Welcome -> Element Msg
@@ -260,6 +270,11 @@ waitingGameScreen model activePlayer self game welcome =
 
 actingGameScreen : Model -> ActSelection -> Self -> Game -> Welcome -> Element Msg
 actingGameScreen model currentAct self game welcome =
+    Element.none
+
+
+idleGameScreen : Model -> Self -> Game -> Welcome -> Element Msg
+idleGameScreen model self game welcome =
     Element.none
 
 

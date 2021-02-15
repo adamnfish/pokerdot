@@ -23,8 +23,8 @@ val commonDeps = Seq(
 )
 
 // https://aws.amazon.com/blogs/developer/tuning-the-aws-java-sdk-2-x-to-reduce-startup-time/
-// url-connection-client is included in modules that make AWS API calls (lambda and integration)
-// additional jars are filtered out of the Lambda in its native packager settings
+// url-connection-client is included in modules that make AWS API calls (lambda, devserver and integration)
+// some other jars are also filtered out of the Lambda in its native packager settings
 ThisBuild / excludeDependencies ++= Seq(
   ExclusionRule("software.amazon.awssdk", "netty-nio-client"),
   ExclusionRule("software.amazon.awssdk", "apache-client"),

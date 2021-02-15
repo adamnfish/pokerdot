@@ -7,7 +7,7 @@ import io.adamnfish.pokerdot.models.{ActionSummary, BigBlind, Failures, Flop, Fl
 object Representations {
   def gameToDb(game: Game): GameDb = {
     GameDb(
-      gameCode = Games.gameCode(game.gameId),
+      gameCode = game.gameCode,
       gameId = game.gameId.gid,
       expiry = game.expiry,
       gameName = game.gameName,
@@ -112,6 +112,7 @@ object Representations {
     } yield {
       Game(
         gameId = GameId(gameDb.gameId),
+        gameCode = gameDb.gameCode,
         gameName = gameDb.gameName,
         players = playerDbs.map(playerFromDb),
         spectators = spectatorDbs.map(spectatorFromDb),
@@ -243,6 +244,7 @@ object Representations {
   def summariseGame(game: Game): GameSummary = {
     GameSummary(
       gameId = game.gameId,
+      gameCode = game.gameCode,
       gameName = game.gameName,
       players = game.players.map(summarisePlayer),
       spectators = game.spectators.map(summariseSpectator),

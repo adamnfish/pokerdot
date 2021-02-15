@@ -3,6 +3,7 @@ package io.adamnfish.pokerdot.models
 
 case class GameSummary(
   gameId: GameId,
+  gameCode: String,
   gameName: String,
   players: List[PlayerSummary],
   spectators: List[SpectatorSummary],
@@ -178,6 +179,7 @@ case class Wake(
 // worth refactoring around this requirement for now.
 case class Response[+M <: Message](
   messages: Map[PlayerAddress, M],
+  statuses: Map[PlayerAddress, GameStatus],
 )
 
 // Data sent to clients
@@ -188,10 +190,12 @@ case class Welcome(
   playerKey: PlayerKey,
   playerId: PlayerId,
   gameId: GameId,
+  gameCode: String,
   gameName: String,
   screenName: String,
   spectator: Boolean,
   game: GameSummary,
+  self: SelfSummary,
 ) extends Message
 case class GameStatus(
   self: Self,

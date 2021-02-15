@@ -7,7 +7,7 @@ import zio.IO
 import scala.collection.mutable
 
 
-class DevMessaging extends Messaging {
+class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
   private val connections = new mutable.HashMap[String, WsContext]
 
   def connect(wctx: WsContext): String = {
@@ -50,6 +50,9 @@ class DevMessaging extends Messaging {
         }.mapError { err =>
           Failures("Error sending websocket message with wctx", "Could not send message", exception = Some(err))
         }
+      _ <- IO.effect(logMessage(recipientId, body)).mapError { err =>
+        Failures("Error logging websocket message", "Could not log message", exception = Some(err))
+      }
     } yield result
   }
 }

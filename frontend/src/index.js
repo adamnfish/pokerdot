@@ -31,13 +31,17 @@ socket.addEventListener('error', function (event) {
 
 socket.addEventListener('message', function (event) {
   const eventJson = JSON.parse(event.data);
-  console.log('<< Message from server ', eventJson);
+  console.log('<< ', eventJson);
   app.ports.receiveMessage.send(eventJson);
 });
 
 app.ports.sendMessage.subscribe(function (messageData) {
-  console.log('>> Sending message ', messageData);
+  console.log('>> ', messageData);
   socket.send(JSON.stringify(messageData));
+});
+
+app.ports.reportError.subscribe(function (error) {
+  console.log('!! ', error);
 });
 
 function apiUri(hostname) {

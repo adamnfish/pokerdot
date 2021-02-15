@@ -1,16 +1,18 @@
-module Messages exposing (followRoute, routeFromUi, routeFromUrl, sendWake, update)
+module Messages exposing (routeFromUi, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 
+import Browser exposing (UrlRequest(..))
 import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
-import Model exposing (ChipsSettings(..), CreateGameRequest, Failure, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Route(..), StartGameRequest, UI(..), Welcome, createGameRequestEncoder, getGameCode, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, foldRequestEncoder, getGameCode, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>))
+import Utils exposing (maybeContains)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -21,20 +23,27 @@ update msg model =
 
         Tick posix ->
             let
+                filter life error =
+                    Time.posixToMillis error.time + life > Time.posixToMillis posix
+
                 -- automatically remove errors after a certain amount of time has elapsed
                 errorLifeMs =
                     6000
 
                 filteredErrors =
-                    List.filter
-                        (\error ->
-                            Time.posixToMillis error.time + errorLifeMs > Time.posixToMillis posix
-                        )
-                        model.errors
+                    List.filter (filter errorLifeMs) model.errors
+
+                -- automatically remove events after a certain amount of time has elapsed
+                eventLifeMs =
+                    6000
+
+                filteredEvents =
+                    List.filter (filter eventLifeMs) model.events
             in
             ( { model
                 | now = posix
                 , errors = filteredErrors
+                , events = filteredEvents
               }
             , Cmd.none
             )
@@ -52,7 +61,16 @@ update msg model =
             )
 
         UrlRequest urlRequest ->
-            ( model, Cmd.none )
+            case urlRequest of
+                Internal url ->
+                    ( model
+                    , Browser.Navigation.pushUrl model.navKey <| Url.toString url
+                    )
+
+                External href ->
+                    ( model
+                    , Browser.Navigation.load href
+                    )
 
         UrlChange url ->
             let
@@ -65,26 +83,31 @@ update msg model =
                 ( ui, cmds ) =
                     if currentRoute /= urlRoute then
                         -- navigating to a different screen
-                        followRoute model.navKey urlRoute model.library
+                        let
+                            newUi =
+                                uiFromRoute urlRoute model.library
+
+                            cmd =
+                                case newUi of
+                                    RejoinScreen welcome ->
+                                        sendPing welcome
+
+                                    _ ->
+                                        Cmd.none
+                        in
+                        ( newUi, cmd )
 
                     else
                         -- url matches current state so we're all good
                         ( model.ui, Cmd.none )
             in
-            ( { model
-                | url = url
-                , ui = ui
-              }
+            ( { model | ui = ui }
             , cmds
             )
 
         ServerMessage json ->
-            let
-                parsedMessage =
-                    Json.Decode.decodeValue messageDecoder json
-            in
-            case parsedMessage of
-                Ok (WelcomeMessage welcome game) ->
+            case Json.Decode.decodeValue messageDecoder json of
+                Ok (WelcomeMessage welcome self game) ->
                     let
                         newLibrary =
                             if List.member welcome model.library then
@@ -92,15 +115,18 @@ update msg model =
 
                             else
                                 welcome :: model.library
+
+                        gameRoute =
+                            GameRoute (getGameCode welcome.gameId) (getPlayerCode welcome.playerId)
                     in
                     case model.ui of
                         CreateGameScreen gameName _ ->
                             if gameName == welcome.gameName then
                                 ( { model
                                     | library = newLibrary
-                                    , ui = LobbyScreen game.players DoNotTrackChips game welcome
+                                    , ui = LobbyScreen game.players DoNotTrackChips self game welcome
                                   }
-                                , Cmd.none
+                                , navigate model.navKey False gameRoute
                                 )
 
                             else
@@ -113,9 +139,9 @@ update msg model =
                             if gameCode == getGameCode welcome.gameId then
                                 ( { model
                                     | library = newLibrary
-                                    , ui = LobbyScreen game.players DoNotTrackChips game welcome
+                                    , ui = LobbyScreen game.players DoNotTrackChips self game welcome
                                   }
-                                , Cmd.none
+                                , navigate model.navKey False gameRoute
                                 )
 
                             else
@@ -131,19 +157,147 @@ update msg model =
                             )
 
                 Ok (PlayerGameStatusMessage self game action) ->
-                    ( model, Cmd.none )
+                    case model.ui of
+                        WelcomeScreen ->
+                            -- must have left the game before the server responded
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
 
-                Ok (PlayerRoundWinningsMessage self game pots players) ->
-                    ( model, Cmd.none )
+                        HelpScreen ->
+                            -- must have navigated away from the game before the server responded
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        CreateGameScreen _ _ ->
+                            -- must have left the game before the server responded
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        JoinGameScreen _ _ _ ->
+                            -- must have left the game before the server responded
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        LobbyScreen oldPlayers chipsSettings oldSelf oldGame welcome ->
+                            if game.gameId == oldGame.gameId then
+                                case action of
+                                    GameStartedAction ->
+                                        if maybeContains self.playerId game.inTurn then
+                                            ( { model
+                                                | ui = ActingGameScreen NoAct self game welcome
+                                                , loadingStatus = NotLoading
+                                                , events = addAction model action
+                                              }
+                                            , Cmd.none
+                                            )
+
+                                        else
+                                            let
+                                                ui =
+                                                    case game.inTurn of
+                                                        Nothing ->
+                                                            IdleGameScreen self game welcome
+
+                                                        Just inTurn ->
+                                                            WaitingGameScreen inTurn self game welcome
+                                            in
+                                            ( { model
+                                                | ui = ui
+                                                , events = addAction model action
+                                              }
+                                            , Cmd.none
+                                            )
+
+                                    PlayerJoinedAction newPlayerId ->
+                                        let
+                                            players =
+                                                includeAllPlayers oldPlayers game.players
+                                        in
+                                        ( { model
+                                            | ui = LobbyScreen players chipsSettings self game welcome
+                                            , events = addAction model action
+                                          }
+                                        , Cmd.none
+                                        )
+
+                                    _ ->
+                                        ( registerEvent model action
+                                        , Cmd.none
+                                        )
+
+                            else
+                                ( registerEvent model action
+                                , Cmd.none
+                                )
+
+                        RejoinScreen welcome ->
+                            let
+                                modelWithEvent =
+                                    registerEvent model action
+
+                                ui =
+                                    if game.started then
+                                        -- TODO: work out correct ui from game state
+                                        IdleGameScreen self game welcome
+
+                                    else
+                                        LobbyScreen game.players DoNotTrackChips self game welcome
+                            in
+                            ( { modelWithEvent
+                                | ui = ui
+                              }
+                            , Cmd.none
+                            )
+
+                        WaitingGameScreen playerId oldSelf oldGame welcome ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        ActingGameScreen actSelection oldSelf oldGame welcome ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        IdleGameScreen oldSelf oldGame welcome ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        CommunityCardsScreen oldGame welcome ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        TimerScreen timerStatus oldGame welcome ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
+                        ChipSummaryScreen oldGame welcome ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
 
                 Ok (SpectatorGameStatusMessage spectator game action) ->
+                    ( registerEvent model action
+                    , Cmd.none
+                    )
+
+                Ok (PlayerRoundWinningsMessage self game pots players) ->
                     ( model, Cmd.none )
 
                 Ok (SpectatorRoundWinningsMessage spectator game pots players) ->
                     ( model, Cmd.none )
 
-                Ok (StatusMessage string) ->
-                    ( model, Cmd.none )
+                Ok (StatusMessage message) ->
+                    ( model
+                    , Cmd.none
+                    )
 
                 Ok (FailureMessage failures) ->
                     let
@@ -153,7 +307,13 @@ update msg model =
                     ( updatedModel, Cmd.none )
 
                 Err error ->
-                    ( model, Cmd.none )
+                    ( displayFailure
+                        { message = "There was an error understanding a message from the server"
+                        , context = Nothing
+                        }
+                        model
+                    , reportError <| "JSON error for server response: " ++ Json.Decode.errorToString error
+                    )
 
         SocketConnect ->
             let
@@ -173,7 +333,7 @@ update msg model =
                 JoinGameScreen external gameCode screenName ->
                     ( newModel, Cmd.none )
 
-                LobbyScreen players chipsSettings game welcome ->
+                LobbyScreen players chipsSettings self game welcome ->
                     ( newModel
                     , Cmd.none
                     )
@@ -189,6 +349,11 @@ update msg model =
                     )
 
                 ActingGameScreen actSelection self game welcome ->
+                    ( newModel
+                    , sendPing welcome
+                    )
+
+                IdleGameScreen self game welcome ->
                     ( newModel
                     , sendPing welcome
                     )
@@ -317,12 +482,27 @@ update msg model =
             , sendJoinGame request
             )
 
-        InputReorderPlayers players ->
-            ( model, Cmd.none )
+        InputReorderPlayers newPlayers ->
+            case model.ui of
+                LobbyScreen prevPlayers chipsSettings self game welcome ->
+                    let
+                        players =
+                            includeAllPlayers newPlayers prevPlayers
+                    in
+                    ( { model | ui = LobbyScreen players chipsSettings self game welcome }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "You can only reorder players from the lobby.")
+                        model
+                    , Cmd.none
+                    )
 
         SubmitStartGame ->
             case model.ui of
-                LobbyScreen players chipsSettings game welcome ->
+                LobbyScreen players chipsSettings self game welcome ->
                     let
                         request =
                             case chipsSettings of
@@ -375,13 +555,84 @@ update msg model =
             )
 
         Check ->
-            ( model, Cmd.none )
+            case model.ui of
+                ActingGameScreen _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendCheckRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        }
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "It isn't your turn to check")
+                        model
+                    , Cmd.none
+                    )
 
         Bet amount ->
-            ( model, Cmd.none )
+            case model.ui of
+                ActingGameScreen _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendBetRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        , betAmount = amount
+                        }
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "It isn't your turn to bet")
+                        model
+                    , Cmd.none
+                    )
 
         Fold ->
-            ( model, Cmd.none )
+            case model.ui of
+                ActingGameScreen _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendFoldRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        }
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "It isn't your turn to fold")
+                        model
+                    , Cmd.none
+                    )
+
+        AdvancePhase ->
+            case model.ui of
+                WaitingGameScreen _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendAdvancePhaseRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        }
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "We can't advance to the next phase yet")
+                        model
+                    , Cmd.none
+                    )
+
+
+failureMessage : String -> Failure
+failureMessage message =
+    { message = message
+    , context = Nothing
+    }
 
 
 displayFailure : Failure -> Model -> Model
@@ -395,6 +646,30 @@ displayFailure failure model =
     { model
         | errors = error :: model.errors
     }
+
+
+registerEvent : Model -> Action -> Model
+registerEvent model action =
+    let
+        event =
+            { action = action
+            , time = model.now
+            }
+    in
+    { model
+        | events = event :: model.events
+    }
+
+
+addAction : Model -> Action -> List Event
+addAction model action =
+    let
+        event =
+            { action = action
+            , time = model.now
+            }
+    in
+    event :: model.events
 
 
 displayFailures : Model -> List Failure -> Model
@@ -417,6 +692,18 @@ parsePersistedGames json =
             , reportError <|
                 errorToString decodeError
             )
+
+
+includeAllPlayers : List Player -> List Player -> List Player
+includeAllPlayers p1s p2s =
+    List.Extra.uniqueBy
+        (\p ->
+            case p.playerId of
+                Pid pid ->
+                    pid
+        )
+    <|
+        List.append p1s p2s
 
 
 
@@ -443,39 +730,44 @@ routeFromUi ui =
             else
                 JoinRoute Nothing
 
-        LobbyScreen _ _ _ welcome ->
+        LobbyScreen _ _ _ _ welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
         RejoinScreen welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
         WaitingGameScreen _ _ _ welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
         ActingGameScreen _ _ _ welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
         CommunityCardsScreen _ welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
         ChipSummaryScreen _ welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
         TimerScreen _ _ welcome ->
             GameRoute
-                (getGameCode welcome.gameId)
+                welcome.gameCode
+                (getPlayerCode welcome.playerId)
+
+        IdleGameScreen _ _ welcome ->
+            GameRoute
+                welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
 
@@ -532,33 +824,23 @@ routeFromUrl rawUrl =
         |> Maybe.withDefault NotFound
 
 
-followRoute : Browser.Navigation.Key -> Route -> List Welcome -> ( UI, Cmd Msg )
-followRoute key route library =
+uiFromRoute : Route -> List Welcome -> UI
+uiFromRoute route library =
     case route of
         HomeRoute ->
-            ( WelcomeScreen
-            , Cmd.none
-            )
+            WelcomeScreen
 
         HelpRoute ->
-            ( HelpScreen
-            , Cmd.none
-            )
+            HelpScreen
 
         CreateRoute ->
-            ( CreateGameScreen "" ""
-            , Cmd.none
-            )
+            CreateGameScreen "" ""
 
         JoinRoute Nothing ->
-            ( JoinGameScreen True "" ""
-            , Cmd.none
-            )
+            JoinGameScreen False "" ""
 
         JoinRoute (Just gameCode) ->
-            ( JoinGameScreen True gameCode ""
-            , Cmd.none
-            )
+            JoinGameScreen True gameCode ""
 
         GameRoute gameCode playerCode ->
             -- check for matching welcome in library
@@ -568,18 +850,11 @@ followRoute key route library =
                         && String.startsWith playerCode (getPlayerCode welcome.playerId)
                 )
                 library
-                |> Maybe.map
-                    (\welcome ->
-                        ( RejoinScreen welcome
-                        , sendPing welcome
-                        )
-                    )
-                |> Maybe.withDefault ( WelcomeScreen, navigate key False HomeRoute )
+                |> Maybe.map RejoinScreen
+                |> Maybe.withDefault WelcomeScreen
 
         NotFound ->
-            ( WelcomeScreen
-            , navigate key False HomeRoute
-            )
+            WelcomeScreen
 
 
 navigate : Browser.Navigation.Key -> Bool -> Route -> Cmd Msg
@@ -588,31 +863,40 @@ navigate navKey withHistory route =
         newUrl =
             case route of
                 HomeRoute ->
-                    Url.Builder.relative [] []
+                    Url.Builder.custom Url.Builder.Relative [] [] <| Just ""
 
                 HelpRoute ->
-                    Url.Builder.relative [ "help" ] []
+                    Url.Builder.custom Url.Builder.Relative [] [] <| Just "help"
 
                 CreateRoute ->
-                    Url.Builder.relative [ "new" ] []
+                    Url.Builder.custom Url.Builder.Relative [] [] <| Just "new"
 
                 JoinRoute (Just gameCode) ->
-                    Url.Builder.relative
-                        [ "join", gameCode ]
+                    Url.Builder.custom Url.Builder.Relative
                         []
+                        []
+                    <|
+                        Just ("join/" ++ gameCode)
 
                 JoinRoute Nothing ->
-                    Url.Builder.relative
-                        [ "join" ]
+                    Url.Builder.custom Url.Builder.Relative
                         []
+                        []
+                    <|
+                        Just "join"
 
                 GameRoute gameCode playerCode ->
-                    Url.Builder.relative
-                        [ "game", gameCode, playerCode ]
+                    Url.Builder.custom Url.Builder.Relative
                         []
+                        []
+                    <|
+                        Just ("game/" ++ gameCode ++ "/" ++ playerCode)
 
                 NotFound ->
-                    Url.Builder.relative [] []
+                    Url.Builder.custom Url.Builder.Relative [] [] <| Just ""
+
+        _ =
+            Debug.log "navigating to url " newUrl
     in
     if withHistory then
         Browser.Navigation.pushUrl navKey newUrl
@@ -638,6 +922,26 @@ sendJoinGame joinGameRequest =
 sendStartGame : StartGameRequest -> Cmd Msg
 sendStartGame startGameRequest =
     sendMessage <| startGameRequestEncoder startGameRequest
+
+
+sendBetRequest : BetRequest -> Cmd Msg
+sendBetRequest betRequest =
+    sendMessage <| betRequestEncoder betRequest
+
+
+sendCheckRequest : CheckRequest -> Cmd Msg
+sendCheckRequest checkRequest =
+    sendMessage <| checkRequestEncoder checkRequest
+
+
+sendFoldRequest : FoldRequest -> Cmd Msg
+sendFoldRequest foldRequest =
+    sendMessage <| foldRequestEncoder foldRequest
+
+
+sendAdvancePhaseRequest : AdvancePhaseRequest -> Cmd Msg
+sendAdvancePhaseRequest advancePhaseRequest =
+    sendMessage <| advancePhaseRequestEncoder advancePhaseRequest
 
 
 sendPing : Welcome -> Cmd Msg

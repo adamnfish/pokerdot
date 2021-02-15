@@ -18,6 +18,7 @@ import scala.util.Properties
 
 
 class Lambda {
+  // initialise AWS clients at start time
   val appContextBuilder: (PlayerAddress, AwsContext) => AppContext = {
     (for {
       // AWS ASK configuration
@@ -86,6 +87,9 @@ class Lambda {
                 awsContext.getLogger.log(
                   s"Request failed with no failures"
                 )
+            }
+            cause.defects.foreach { err =>
+              awsContext.getLogger.log(s"Fatal error: ${err.toString}")
             }
           },
           { operation =>

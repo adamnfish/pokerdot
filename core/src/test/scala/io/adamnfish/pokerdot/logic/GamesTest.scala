@@ -155,18 +155,28 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
   }
 
   "updatePlayerAddress" - {
-    "updates the player address as instructed" in {
-      val newAddress = PlayerAddress("address-2")
-      val player = newPlayer(GameId("gid"), "screenName", false, PlayerAddress("address"), TestDates)
-      updatePlayerAddress(player, newAddress).playerAddress shouldEqual newAddress
+    "if the address has changed" - {
+      "updates the player address as instructed" in {
+        val newAddress = PlayerAddress("address-2")
+        val player = newPlayer(GameId("gid"), "screenName", false, PlayerAddress("address"), TestDates)
+        updatePlayerAddress(player, newAddress).value.playerAddress shouldEqual newAddress
+      }
+
+      "doesn't change anything else" in {
+        val oldAddress = PlayerAddress("address")
+        val newAddress = PlayerAddress("address-2")
+        val player = newPlayer(GameId("gid"), "screenName", false, oldAddress, TestDates)
+        val updatedWithOldAddress = updatePlayerAddress(player, newAddress).value
+          .copy(playerAddress = oldAddress)
+        updatedWithOldAddress shouldEqual player
+      }
     }
 
-    "doesn't change anything else" in {
-      val oldAddress = PlayerAddress("address")
-      val newAddress = PlayerAddress("address-2")
-      val player = newPlayer(GameId("gid"), "screenName", false, oldAddress, TestDates)
-      val updatedWithOldAddress = updatePlayerAddress(player, newAddress).copy(playerAddress = oldAddress)
-      updatedWithOldAddress shouldEqual player
+    "if the address has not changed, returns None" in {
+      val playerAddress = PlayerAddress("address")
+      val player = newPlayer(GameId("gid"), "screenName", false, playerAddress, TestDates)
+      val result = updatePlayerAddress(player, playerAddress)
+      result shouldEqual None
     }
   }
 

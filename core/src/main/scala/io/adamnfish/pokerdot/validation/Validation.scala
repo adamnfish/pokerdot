@@ -20,8 +20,8 @@ object Validation {
 
   def validate(createGame: CreateGame): Either[Failures, CreateGame] = {
     asResult(createGame,
-      validate(createGame.gameName, "game name", sensibleLength) ++
-        validate(createGame.screenName, "screen name", sensibleLength)
+      validate(createGame.gameName, "gameName", sensibleLength) ++
+        validate(createGame.screenName, "screenName", sensibleLength)
     )
   }
 
@@ -34,8 +34,8 @@ object Validation {
 
   def validate(joinGame: JoinGame): Either[Failures, JoinGame] = {
     asResult(joinGame,
-      validate(joinGame.gameCode, "game code", gameCode) ++
-        validate(joinGame.screenName, "screen name", sensibleLength)
+      validate(joinGame.gameCode, "gameCode", gameCode) ++
+        validate(joinGame.screenName, "screenName", sensibleLength)
     )
   }
 
@@ -48,10 +48,10 @@ object Validation {
 
   def validate(startGame: StartGame): Either[Failures, StartGame] = {
     asResult(startGame,
-      validate(startGame.gameId.gid, "game ID", isUUID) ++
-        validate(startGame.playerId.pid, "player ID", isUUID) ++
-        validate(startGame.playerKey.key, "player ID", isUUID) ++
-        validate(startGame.playerOrder, "player order", nonEmptyList[PlayerId]) ++
+      validate(startGame.gameId.gid, "gameId", isUUID) ++
+        validate(startGame.playerId.pid, "playerId", isUUID) ++
+        validate(startGame.playerKey.key, "playerId", isUUID) ++
+        validate(startGame.playerOrder, "playerOrder", nonEmptyList[PlayerId]) ++
         startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", isUUID)) ++
         startGame.timerConfig
           .map(tls => validate(tls, "timerConfig", nonEmptyList[TimerLevel]))
@@ -84,9 +84,9 @@ object Validation {
 
   def validate(bet: Bet): Either[Failures, Bet] = {
     asResult(bet,
-      validate(bet.gameId.gid, "game ID", isUUID) ++
-        validate(bet.playerId.pid, "player ID", isUUID) ++
-        validate(bet.playerKey.key, "player ID", isUUID) ++
+      validate(bet.gameId.gid, "gameId", isUUID) ++
+        validate(bet.playerId.pid, "playerId", isUUID) ++
+        validate(bet.playerKey.key, "playerId", isUUID) ++
         validate(bet.betAmount, "betAmount", greaterThanZero)
     )
   }
@@ -100,9 +100,9 @@ object Validation {
 
   def validate(check: Check): Either[Failures, Check] = {
     asResult(check,
-      validate(check.gameId.gid, "game ID", isUUID) ++
-        validate(check.playerId.pid, "player ID", isUUID) ++
-        validate(check.playerKey.key, "player ID", isUUID)
+      validate(check.gameId.gid, "gameId", isUUID) ++
+        validate(check.playerId.pid, "playerId", isUUID) ++
+        validate(check.playerKey.key, "playerId", isUUID)
     )
   }
 
@@ -115,9 +115,9 @@ object Validation {
 
   def validate(fold: Fold): Either[Failures, Fold] = {
     asResult(fold,
-      validate(fold.gameId.gid, "game ID", isUUID) ++
-        validate(fold.playerId.pid, "player ID", isUUID) ++
-        validate(fold.playerKey.key, "player ID", isUUID)
+      validate(fold.gameId.gid, "gameId", isUUID) ++
+        validate(fold.playerId.pid, "playerId", isUUID) ++
+        validate(fold.playerKey.key, "playerId", isUUID)
     )
   }
 
@@ -130,9 +130,9 @@ object Validation {
 
   def validate(advancePhase: AdvancePhase): Either[Failures, AdvancePhase] = {
     asResult(advancePhase,
-      validate(advancePhase.gameId.gid, "game ID", isUUID) ++
-        validate(advancePhase.playerId.pid, "player ID", isUUID) ++
-        validate(advancePhase.playerKey.key, "player ID", isUUID)
+      validate(advancePhase.gameId.gid, "gameId", isUUID) ++
+        validate(advancePhase.playerId.pid, "playerId", isUUID) ++
+        validate(advancePhase.playerKey.key, "playerId", isUUID)
     )
   }
 
@@ -145,9 +145,9 @@ object Validation {
 
   def validate(updateTimer: UpdateTimer): Either[Failures, UpdateTimer] = {
     asResult(updateTimer,
-      validate(updateTimer.gameId.gid, "game ID", isUUID) ++
-        validate(updateTimer.playerId.pid, "player ID", isUUID) ++
-        validate(updateTimer.playerKey.key, "player ID", isUUID) ++
+      validate(updateTimer.gameId.gid, "gameId", isUUID) ++
+        validate(updateTimer.playerId.pid, "playerId", isUUID) ++
+        validate(updateTimer.playerKey.key, "playerId", isUUID) ++
         updateTimer.timerLevels
           .map(tls => validate(tls, "timerLevels", nonEmptyList[TimerLevel]))
           .getOrElse(Nil)
@@ -163,9 +163,9 @@ object Validation {
 
   def validate(ping: Ping): Either[Failures, Ping] = {
     asResult(ping,
-      validate(ping.gameId.gid, "game ID", isUUID) ++
-        validate(ping.playerId.pid, "player ID", isUUID) ++
-        validate(ping.playerKey.key, "player ID", isUUID)
+      validate(ping.gameId.gid, "gameId", isUUID) ++
+        validate(ping.playerId.pid, "playerId", isUUID) ++
+        validate(ping.playerKey.key, "playerId", isUUID)
     )
   }
 
