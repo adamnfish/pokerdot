@@ -11,6 +11,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.util.Random
+
 
 class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues {
   "newGame" - {
@@ -290,7 +292,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
     "sets up some key fields" in {
       forAll { startTime: Long =>
-        start(game, startTime, None, None) should have(
+        start(game, startTime, None, None, None, game.players.map(_.playerId)) should have(
           "started" as true,
           "startTime" as startTime,
           "button" as 0,
@@ -301,12 +303,12 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     "trackStacks" - {
       "is true if initial stack levels are provided" in {
         forAll { startingStacks: Int =>
-          start(game, 0L, None, Some(startingStacks)).trackStacks shouldEqual true
+          start(game, 0L, None, None, Some(startingStacks), game.players.map(_.playerId)).trackStacks shouldEqual true
         }
       }
 
       "is false if no initial stack levels are provided" in {
-        start(game, 0L, None, None).trackStacks shouldEqual false
+        start(game, 0L, None, None, None, game.players.map(_.playerId)).trackStacks shouldEqual false
       }
     }
 
@@ -319,24 +321,24 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         ))
         "start time uses the 'now'" in {
           forAll { startTime: Long =>
-            val gameTimer = start(game, startTime, timerLevels, None).timer.value
+            val gameTimer = start(game, startTime, None, timerLevels, None, game.players.map(_.playerId)).timer.value
             gameTimer.timerStartTime shouldEqual startTime
           }
         }
 
         "paused time is None" in {
-          val gameTimer = start(game, 1000L, timerLevels, None).timer.value
+          val gameTimer = start(game, 1000L, None, timerLevels, None, game.players.map(_.playerId)).timer.value
           gameTimer.pausedTime shouldEqual None
         }
 
         "uses the provided timer levels" in {
-          val gameTimer = start(game, 1000L, timerLevels, None).timer.value
+          val gameTimer = start(game, 1000L, None, timerLevels, None, game.players.map(_.playerId)).timer.value
           gameTimer.levels shouldEqual timerLevels.get
         }
       }
 
       "is empty if no timer is provided" in {
-        start(game, 1000L, None, None).timer shouldEqual None
+        start(game, 1000L, None, None, None, game.players.map(_.playerId)).timer shouldEqual None
       }
     }
 
@@ -344,8 +346,8 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       "deals the same cards for the same seed" in {
         forAll { initialSeed: Long =>
           val seededGame = newGame("game name", false, TestDates, initialSeed)
-          val round1 = start(seededGame, 1000L, None, None).round
-          val round2 = start(seededGame, 1000L, None, None).round
+          val round1 = start(seededGame, 1000L, None, None, None, game.players.map(_.playerId)).round
+          val round2 = start(seededGame, 1000L, None, None, None, game.players.map(_.playerId)).round
           round1 should have(
             "burn1" as round2.burn1,
             "flop1" as round2.flop1,
@@ -360,7 +362,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       }
 
       "the round's phase starts at PreFlop" in {
-        start(game, 1000L, None, None).round.phase shouldEqual PreFlop
+        start(game, 1000L, None, None, None, game.players.map(_.playerId)).round.phase shouldEqual PreFlop
       }
     }
 
@@ -368,24 +370,48 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       val players = List(
         newPlayer(game.gameId, "player-1", false, PlayerAddress("address-1"), TestDates),
         newPlayer(game.gameId, "player-2", false, PlayerAddress("address-2"), TestDates),
+        newPlayer(game.gameId, "player-3", false, PlayerAddress("address-3"), TestDates),
+        newPlayer(game.gameId, "player-4", false, PlayerAddress("address-4"), TestDates),
       )
+
+      "the players are ordered using the provided player order" in {
+        val playerIds = players.map(_.playerId)
+        forAll { (shuffleSeed: Long) =>
+          val playerOrder = new Random(shuffleSeed).shuffle(playerIds)
+          val resultingPlayers = start(game.copy(seed = 1L, players = players), 1000L, None, None, None, playerOrder).players
+          resultingPlayers.map(_.playerId) shouldEqual playerOrder
+        }
+      }
+
+      "inTurn player" - {
+        "activates third player in the provided player order, via the game's `inTurn` property (player after dealer and blinds)" in {
+          val playerIds = players.map(_.playerId)
+          forAll { (shuffleSeed: Long) =>
+            val playerOrder = new Random(shuffleSeed).shuffle(playerIds)
+            val result = start(game.copy(seed = 1L, players = players), 1000L, None, None, None, playerOrder)
+            result.inTurn shouldEqual playerOrder.lift(3)
+          }
+        }
+
+      }
+
 
       "player holes are the same for the same seed" in {
         forAll { seed: Long =>
-          val players1 = start(game.copy(seed = seed, players = players), 1000L, None, None).players
-          val players2 = start(game.copy(seed = seed, players = players), 1000L, None, None).players
+          val players1 = start(game.copy(seed = seed, players = players), 1000L, None, None, None, game.players.map(_.playerId)).players
+          val players2 = start(game.copy(seed = seed, players = players), 1000L, None, None, None, game.players.map(_.playerId)).players
           players1.map(_.hole) shouldEqual players2.map(_.hole)
         }
       }
 
       "starting stacks" - {
         "are 0 if no starting stacks are specified" in {
-          start(game.copy(players = players), 1000L, None, None).players.map(_.stack) should contain only 0
+          start(game.copy(players = players), 1000L, None, None, None, game.players.map(_.playerId)).players.map(_.stack) should contain only 0
         }
 
         "set to the specified amount, if present" in {
           forAll { startingStack: Int =>
-            start(game.copy(players = players), 1000L, None, Some(startingStack)).players.map(_.stack) should contain only startingStack
+            start(game.copy(players = players), 1000L, None, None, Some(startingStack), game.players.map(_.playerId)).players.map(_.stack) should contain only startingStack
           }
         }
       }

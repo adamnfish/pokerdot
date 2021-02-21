@@ -130,7 +130,7 @@ object PokerDot {
       _ <- Games.ensureHost(rawGame.players, startGame.playerKey).attempt
       _ <- Games.ensureStartingPlayerCount(rawGame.players.length).attempt
       now = appContext.dates.now()
-      startedGame = Games.start(rawGame, now, startGame.timerConfig, startGame.startingStack)
+      startedGame = Games.start(rawGame, now, startGame.initialSmallBlind, startGame.timerConfig, startGame.startingStack, startGame.playerOrder)
       startedGameDb = Representations.gameToDb(startedGame)
       playerDbs = Representations.allPlayerDbs(startedGame.players)
       // update all players with dealt cards, stack size etc

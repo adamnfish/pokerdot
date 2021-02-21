@@ -29,12 +29,8 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       val gameCode = hostWelcomeMessage.gameCode
 
       val response = performJoinGame(joinGameRequest(gameCode), context(playerAddress)).value()
-      val hostStatusMessage = response.statuses.find { case (address, _) =>
-        address == hostAddress
-      }.map(_._2).value
-      val playerWelcomeMessage = response.messages.find { case (address, _) =>
-        address == playerAddress
-      }.map(_._2).value
+      val hostStatusMessage = response.statuses.get(hostAddress).value
+      val playerWelcomeMessage = response.messages.get(playerAddress).value
 
       hostStatusMessage.action shouldEqual PlayerJoinedSummary(playerWelcomeMessage.playerId)
     }
@@ -45,9 +41,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
 
       val response = performJoinGame(joinGameRequest(gameCode), context(playerAddress)).value()
       val welcomeMessage = response.messages.head._2
-      val hostStatusMessage = response.statuses.find { case (address, _) =>
-        address == hostAddress
-      }.map(_._2).value
+      val hostStatusMessage = response.statuses.get(hostAddress).value
 
       hostStatusMessage.game.players.length shouldEqual 2
       hostStatusMessage.game.players.map(_.playerId) shouldEqual List(welcomeMessage.playerId, hostWelcomeMessage.playerId)
@@ -66,9 +60,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       val gameCode = hostWelcomeMessage.gameCode
 
       val response = performJoinGame(joinGameRequest(gameCode), context(playerAddress)).value()
-      val welcomeMessage = response.messages.find { case (address, _) =>
-        address == playerAddress
-      }.map(_._2).value
+      val welcomeMessage = response.messages.get(playerAddress).value
       val playerDbs = db.getPlayers(welcomeMessage.gameId).value()
       val playerDb = playerDbs.find(_.playerId == welcomeMessage.playerId.pid).value
 
@@ -86,9 +78,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       val gameCode = hostWelcomeMessage.gameCode
 
       val response = performJoinGame(joinGameRequest(gameCode), context(playerAddress)).value()
-      val welcomeMessage = response.messages.find { case (address, _) =>
-        address == playerAddress
-      }.map(_._2).value
+      val welcomeMessage = response.messages.get(playerAddress).value
       val gameDb = db.getGame(welcomeMessage.gameId).value().value
 
       gameDb.playerIds should not contain welcomeMessage.playerId.pid
@@ -194,9 +184,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
     for {
       response <- performCreateGame(createGameRequest, contextBuilder(hostAddress), initialSeed)
     } yield {
-      response.messages.find { case (address, _) =>
-        address == hostAddress
-      }.map(_._2).value
+      response.messages.get(hostAddress).value
     }
   }
 }

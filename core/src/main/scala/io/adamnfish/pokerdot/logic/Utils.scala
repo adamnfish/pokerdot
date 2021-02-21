@@ -76,4 +76,13 @@ object Utils {
       ao.fold[Attempt[A]](IO.fail(ifEmpty))(a => IO.succeed(a))
     }
   }
+
+  def orderFromList[A, B](original: List[A], order: List[B])(identify: A => B): List[A] = {
+    original.sortBy { a =>
+      val aId = identify(a)
+      val index = order.indexOf(aId)
+      if (index == -1) original.length
+      else index
+    }
+  }
 }

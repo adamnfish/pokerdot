@@ -1,6 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Play.dealHoles
+import io.adamnfish.pokerdot.logic.Utils.orderFromList
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.{Database, Dates}
 import zio.IO
@@ -134,17 +135,24 @@ object Games {
     loop(min)
   }
 
-  def start(game: Game, now: Long, timerLevelsOpt: Option[List[TimerLevel]], startingStacks: Option[Int]): Game = {
+  def start(game: Game, now: Long, initialSmallBlind: Option[Int], timerConfig: Option[List[TimerLevel]], startingStack: Option[Int], playerOrder: List[PlayerId]): Game = {
     val deck = Play.deckOrder(game.seed)
-    val dealtPlayers = dealHoles(game.players, deck)
+    val orderedPlayers = orderFromList(game.players, playerOrder)(_.playerId)
+    val dealtPlayers = dealHoles(orderedPlayers, deck)
+    val smallBlind = initialSmallBlind.orElse {
+      timerConfig.collect {
+        case RoundLevel(_, roundBlind) :: _ =>
+          roundBlind
+      }
+    }.getOrElse(0)
     val dealtPlayersWithInitialStacks = dealtPlayers.zipWithIndex.map { case (p, i) =>
       val (blind, blindAmount) = i match {
-        case 1 => (SmallBlind, game.round.smallBlind)   // left of dealer
-        case 2 => (BigBlind, game.round.smallBlind * 2) // left of small blind
+        case 1 => (SmallBlind, smallBlind)   // left of dealer
+        case 2 => (BigBlind, smallBlind * 2) // left of small blind
         case _ => (NoBlind, 0)
       }
       p.copy(
-        stack = startingStacks.fold(0) { initialStackAmount =>
+        stack = startingStack.fold(0) { initialStackAmount =>
           p.stack + initialStackAmount - blindAmount
         },
         bet = blindAmount,
@@ -155,15 +163,19 @@ object Games {
       players = dealtPlayersWithInitialStacks,
       started = true,
       startTime = now,
-      trackStacks = startingStacks.isDefined,
+      trackStacks = startingStack.isDefined,
       button = 0,
+      inTurn =
+        if (orderedPlayers.isEmpty) None
+        else orderedPlayers.lift(3 % orderedPlayers.length).map(_.playerId),
       timer =
-        timerLevelsOpt.flatMap {
+        timerConfig.flatMap {
           case Nil =>
             None
           case timerLevels =>
             Some(TimerStatus(now, None, timerLevels))
         },
+      round = game.round.copy(smallBlind = smallBlind),
     )
   }
 
