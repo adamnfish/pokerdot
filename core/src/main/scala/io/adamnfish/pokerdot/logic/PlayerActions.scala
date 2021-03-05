@@ -36,25 +36,21 @@ object PlayerActions {
             )
           }
         } else Right(())
-      // uncheck other players, they will need the opportunity to respond to this bet
-      checkedPlayers = game.players.map(_.copy(checked = false))
-      // update this player's moneys, and deactivate
-      updatedPlayer = player.copy(
-        bet = player.bet + bet,
-        stack = player.stack - bet,
-      )
       isCall = bet + player.bet == currentBetAmount
-      updatedPlayers = checkedPlayers.map {
+      updatedPlayers = game.players.map {
         case thisPlayer if thisPlayer.playerId == player.playerId =>
           // use updated active player in game
           player.copy(
             bet = player.bet + bet,
             stack = player.stack - bet,
+            // calling a bet doesn't give you another chance to act
+            // but after betting / raising you also can't react unless re-raised
+            checked = true,
           )
         case p =>
           // if it's just a call, other players do no need to react
           if (isCall) p
-          // if bet, uncheck other players so they can respond
+          // if this action was a bet, uncheck other player so they can respond
           else p.copy(checked = false)
       }
       nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
@@ -79,6 +75,13 @@ object PlayerActions {
             "You have to at least call other players before checking.",
           )
         } else Right(())
+      _ <-
+        if (player.checked) Left {
+          Failures(
+            "Player is already checked",
+            "You have already checked.",
+          )
+        } else Right(())
       updatedPlayer = player.copy(
         checked = true,
       )
@@ -101,13 +104,14 @@ object PlayerActions {
   }
 
   def fold(game: Game, player: Player): Game = {
-    val updatedPlayer = player.copy(
-      folded = true,
-    )
     val updatedPlayers = game.players.map {
       case p if p.playerId == player.playerId =>
         // use updated active player in game
-        updatedPlayer
+        player.copy(
+          folded = true,
+          pot = player.pot + player.bet,
+          bet = 0,
+        )
       case p => p
     }
     // TODO: be careful here if we allow off-turn folds
@@ -161,7 +165,7 @@ object PlayerActions {
         }
       Left(
         Failures(
-          s"Cannot advance phase while ${playersYetToAct.length} players have not yet acted",
+          s"Cannot advance phase when players have not yet acted: ${playersYetToAct.map(_.playerId.pid)}",
           message,
         )
       )
@@ -217,19 +221,24 @@ object PlayerActions {
    * result of the round.
    */
   private def advanceFromRiver(game: Game): (Game, List[PlayerWinnings], List[PotWinnings]) = {
-    val playerHands = PokerHands.bestHands(game.round, game.players)
+    val gameAtRoundEnd = game.copy(
+      players = game.players.map(resetPlayerForNextPhase)
+    )
+
+    val playerHands = PokerHands.bestHands(gameAtRoundEnd.round, gameAtRoundEnd.players)
     val potsWinnings = PokerHands.winnings(playerHands)
-    val playersWinnings = PokerHands.playerWinnings(potsWinnings, game.button,
-      playerOrder = game.players.map(_.playerId),
+    val playersWinnings = PokerHands.playerWinnings(potsWinnings, gameAtRoundEnd.button,
+      playerOrder = gameAtRoundEnd.players.map(_.playerId),
       playerHands = playerHands.map(ph => ph.player.playerId -> ph.hand),
     )
-    val updatedPlayers = game.players.map(resetPlayerForShowdown(playersWinnings))
+    val updatedPlayers = gameAtRoundEnd.players.map(resetPlayerForShowdown(playersWinnings))
     (
-      game.copy(
-        round = game.round.copy(phase = Showdown),
+      gameAtRoundEnd.copy(
+        round = gameAtRoundEnd.round.copy(phase = Showdown),
         inTurn = None,
         players = updatedPlayers,
       ),
+      // TODO: exclude folded players from hand display
       playersWinnings,
       potsWinnings
     )

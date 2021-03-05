@@ -40,8 +40,6 @@ object PokerHands {
       highCard(sevenCards)
   }
 
-  // TODO: probably include folded players, as long as they aren't eligible for wins
-  //       it would allow rabbit chasing, which people enjoy
   def bestHands(round: Round, players: List[Player]): List[PlayerHand] = {
     val showTurn = round.phase match {
       case PreFlop => false
@@ -59,7 +57,7 @@ object PokerHands {
     }
     for {
       player <- players
-        .filterNot(p => p.busted || p.folded)
+        .filterNot(p => p.busted)
       hole <- player.hole
     } yield PlayerHand(player, bestHand(
       hole.card1,

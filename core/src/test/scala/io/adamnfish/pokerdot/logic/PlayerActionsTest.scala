@@ -283,7 +283,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
     "when advancing from the river phase to the showdown" - {
       "calculates winning hands and amounts" ignore {}
       "updates player stacks based on their winnings" ignore {}
-      "leaves player pots untouched" ignore {}
+      "updates pots with final bet amounts" ignore {}
     }
 
     "when advancing from the showdown to a new round" - {

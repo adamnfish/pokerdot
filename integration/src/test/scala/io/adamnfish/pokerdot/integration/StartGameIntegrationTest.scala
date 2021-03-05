@@ -4,15 +4,14 @@ import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
 import io.adamnfish.pokerdot.integration.JoinGameIntegrationTest.{joinGameRequest, performJoinGame}
 import io.adamnfish.pokerdot.integration.StartGameIntegrationTest.{performStartGame, startGameRequest}
-import io.adamnfish.pokerdot.logic.Utils
+import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
+import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.{PokerDot, TestDates, TestHelpers}
-import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.startGameEncoder
-import io.adamnfish.pokerdot.models.{AppContext, Attempt, BreakLevel, GameId, GameStartedSummary, GameStatus, PlayerAddress, PlayerId, PlayerKey, PreFlop, PreFlopSummary, Response, RoundLevel, StartGame, TimerLevel, TimerStatus, Welcome}
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
 import io.circe.syntax._
 import org.scalactic.source.Position
 import org.scalatest.OptionValues
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
 
 class StartGameIntegrationTest extends AnyFreeSpec with Matchers with IntegrationComponents with TestHelpers with OptionValues {
@@ -240,8 +239,8 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         PlayerKey("different-key"),
         None, None, None,
         playerOrder,
-      ).asJson.noSpaces
-      val result = performStartGame(request, context(playerAddress))
+      )
+      val result = performStartGame(encodeRequest(request).noSpaces, context(playerAddress))
       result is AFailure
     }
   }
@@ -249,18 +248,12 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
   private def gameFixture(contextBuilder: PlayerAddress => AppContext)(implicit pos: Position): Attempt[(Welcome, Welcome, Welcome)] = {
     for {
       hostResponse <- performCreateGame(createGameRequest, contextBuilder(hostAddress), initialSeed)
-      hostWelcome = hostResponse.messages.find { case (address, _) =>
-        address == hostAddress
-      }.map(_._2).value
+      hostWelcome = hostResponse.messages.get(hostAddress).value
       gameCode = hostWelcome.gameCode
       p1JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-1"), contextBuilder(player1Address))
-      p1Welcome = p1JoinResponse.messages.find { case (address, _) =>
-        address == player1Address
-      }.map(_._2).value
+      p1Welcome = p1JoinResponse.messages.get(player1Address).value
       p2JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-2"), contextBuilder(player2Address))
-      p2Welcome = p2JoinResponse.messages.find { case (address, _) =>
-        address == player2Address
-      }.map(_._2).value
+      p2Welcome = p2JoinResponse.messages.get(player2Address).value
     } yield (hostWelcome, p1Welcome, p2Welcome)
   }
 }
@@ -282,7 +275,7 @@ object StartGameIntegrationTest {
       timerConfig,
       playerOrder,
     )
-    request.asJson.noSpaces
+    encodeRequest(request).noSpaces
   }
 
   def performStartGame(request: String, appContext: AppContext): Attempt[Response[GameStatus]] = {

@@ -197,7 +197,8 @@ object Games {
    */
   def resetPlayerForShowdown(playersWinnings: List[PlayerWinnings])(player: Player): Player = {
     resetPlayerForNextPhase(player).copy(
-      checked = false,
+      // no player interaction is required in the showdown, so mark players as checked
+      checked = true,
       stack = player.stack + playersWinnings.find(_.playerId == player.playerId).map(_.winnings).getOrElse(0)
     )
   }

@@ -369,14 +369,52 @@ object Serialisation {
   private implicit val failuresEncoder: Encoder[Failures] = deriveEncoder
 
   object RequestEncoders {
-    implicit val createGameEncoder: Encoder[CreateGame] = deriveEncoder[CreateGame]
-    implicit val joinGameEncoder: Encoder[JoinGame] = deriveEncoder[JoinGame]
-    implicit val startGameEncoder: Encoder[StartGame] = deriveEncoder[StartGame]
-    implicit val updateTimeEncoder: Encoder[UpdateTimer] = deriveEncoder[UpdateTimer]
-    implicit val betEncoder: Encoder[Bet] = deriveEncoder[Bet]
-    implicit val checkEncoder: Encoder[Check] = deriveEncoder[Check]
-    implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
-    implicit val advancePhaseEncoder: Encoder[AdvancePhase] = deriveEncoder[AdvancePhase]
-    implicit val pingEncoder: Encoder[Ping] = deriveEncoder[Ping]
+    private implicit val createGameEncoder: Encoder[CreateGame] = deriveEncoder[CreateGame]
+    private implicit val joinGameEncoder: Encoder[JoinGame] = deriveEncoder[JoinGame]
+    private implicit val startGameEncoder: Encoder[StartGame] = deriveEncoder[StartGame]
+    private implicit val updateTimeEncoder: Encoder[UpdateTimer] = deriveEncoder[UpdateTimer]
+    private implicit val betEncoder: Encoder[Bet] = deriveEncoder[Bet]
+    private implicit val checkEncoder: Encoder[Check] = deriveEncoder[Check]
+    private implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
+    private implicit val advancePhaseEncoder: Encoder[AdvancePhase] = deriveEncoder[AdvancePhase]
+    private implicit val pingEncoder: Encoder[Ping] = deriveEncoder[Ping]
+    private implicit val wakeEncoder: Encoder[Wake] = deriveEncoder[Wake]
+
+    implicit val requestEncoder: Encoder[Request] = Encoder.instance {
+      case createGame: CreateGame =>
+        createGameEncoder.apply(createGame)
+          .mapObject(o => o.add("operation", Json.fromString("create-game")))
+      case joinGame: JoinGame =>
+        joinGameEncoder.apply(joinGame)
+          .mapObject(o => o.add("operation", Json.fromString("join-game")))
+      case startGame: StartGame =>
+        startGameEncoder.apply(startGame)
+          .mapObject(o => o.add("operation", Json.fromString("start-game")))
+      case updateTime: UpdateTimer =>
+        updateTimeEncoder.apply(updateTime)
+          .mapObject(o => o.add("operation", Json.fromString("update-timer")))
+      case bet: Bet =>
+        betEncoder.apply(bet)
+          .mapObject(o => o.add("operation", Json.fromString("bet")))
+      case check: Check =>
+        checkEncoder.apply(check)
+          .mapObject(o => o.add("operation", Json.fromString("check")))
+      case fold: Fold =>
+        foldEncoder.apply(fold)
+          .mapObject(o => o.add("operation", Json.fromString("fold")))
+      case advancePhase: AdvancePhase =>
+        advancePhaseEncoder.apply(advancePhase)
+          .mapObject(o => o.add("operation", Json.fromString("advance-phase")))
+      case ping: Ping =>
+        pingEncoder.apply(ping)
+          .mapObject(o => o.add("operation", Json.fromString("ping")))
+      case wake: Wake =>
+        wakeEncoder.apply(wake)
+          .mapObject(o => o.add("operation", Json.fromString("wake")))
+    }
+
+    def encodeRequest(request: Request): Json = {
+      request.asJson
+    }
   }
 }

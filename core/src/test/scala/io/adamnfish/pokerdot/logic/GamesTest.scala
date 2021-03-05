@@ -468,8 +468,10 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       }
     }
 
-    "unchecks a checked player" in {
-      resetPlayerForShowdown(Nil)(player.copy(checked = true)).checked shouldEqual false
+    "forces player's checked state to true" in {
+      forAll { checked: Boolean =>
+        resetPlayerForShowdown(Nil)(player.copy(checked = checked)).checked shouldEqual true
+      }
     }
 
     "does not unfold a folded player" in {
