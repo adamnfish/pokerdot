@@ -788,6 +788,29 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         }
       }
     }
+
+    "if there is only one active player (game is over)" - {
+      val gameId = GameId("game-id")
+      val players = List(
+        newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestDates)
+          .copy(busted = true),
+        newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestDates)
+          .copy(busted = true, blind = SmallBlind),
+        newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestDates)
+          .copy(blind = BigBlind),
+      ).map(_.copy(busted = true))
+      val smallBlind = 5
+
+      "dealer does not move" in {
+        val (newButton, _) = nextDealerAndBlinds(players, 0, smallBlind)
+        newButton shouldEqual 0
+      }
+
+      "no players have any blinds" in {
+        val (_, newPlayers) = nextDealerAndBlinds(players, 0, smallBlind)
+        newPlayers.map(_.blind) should contain only NoBlind
+      }
+    }
   }
 
   "nextAliveAfterIndex" - {

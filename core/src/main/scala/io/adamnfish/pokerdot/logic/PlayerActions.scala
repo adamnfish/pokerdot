@@ -271,7 +271,7 @@ object PlayerActions {
     val nextState = rng.nextState(game.seed)
     val nextDeck = Play.deckOrder(nextState)
     val updatedPlayers = game.players.map(resetPlayerForNextRound)
-    // TODO: calculate the position of the button and blinds, and see that blinds are paid
+    // TODO: check whether blind amounts should change based on timer
     val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, game.round.smallBlind)
     game.copy(
       round = game.round.copy(phase = PreFlop),

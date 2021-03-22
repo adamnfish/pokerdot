@@ -143,75 +143,80 @@ object Play {
   def nextDealerAndBlinds(players: List[Player], button: Int, smallBlindAmount: Int): (Int, List[Player]) = {
     val alivePlayers = players.filterNot(_.busted)
 
-    // small blind
-    // ... is previous big blind, if still alive
-    val newSmallBlindIdOpt = alivePlayers
-      .find(_.blind == BigBlind)
-      .map(_.playerId)
+    if (alivePlayers.length <= 1) {
+      (button, players.map(_.copy(blind = NoBlind)))
+    } else {
+      // small blind
+      // ... is previous big blind, if still alive
+      val newSmallBlindIdOpt = alivePlayers
+        .find(_.blind == BigBlind)
+        .map(_.playerId)
 
-    // big blind
-    // ... is next player after previous big blind
-    // there is always a big blind so this should not be optional
-    val newBigBlindId = players
-      .findIndex(_.blind == BigBlind)
-      .flatMap(i => nextAliveAfterIndex(players, i))
-      .get
+      // big blind
+      // ... is next player after previous big blind
+      // there is always a big blind so this should not be optional
+      val newBigBlindId = players
+        .findIndex(_.blind == BigBlind)
+        .flatMap(i => nextAliveAfterIndex(players, i))
+        .get
 
-    // dealer
-    // ... is where small blind was.
-    // if they are busted or no small blind, dealer stays (or moves back to the first non-busted players)
-    val newButton = {
-      if (alivePlayers.length == 2) {
-        // for heads-up the dealer is always the player that isn't Big Blind
-        players
-          .findIndex(p => p.playerId != newBigBlindId && !p.busted)
-          .getOrElse(throw new RuntimeException("Couldn't find heads-up dealer"))
-      } else {
-        players
-          .findIndex(p => p.blind == SmallBlind && !p.busted)
-          .getOrElse {
-            def loop(i: Int): Int = {
-              players.lift(i) match {
-                case Some(thisPlayer) =>
-                  if (thisPlayer.playerId == newBigBlindId) {
-                    // shrug, we got back round to the big blind
-                    throw new RuntimeException("shrug (got back to big blind)")
-                  } else if (!thisPlayer.busted) {
-                    i
-                  } else {
-                    loop((i + players.length - 1) % players.length)
-                  }
-                case None =>
-                  // shrug, we got out of bounds on the list, somehow?
-                  throw new RuntimeException("shrug got out of bounds?!")
+      // dealer
+      // ... is where small blind was.
+      // if they are busted or no small blind, dealer stays (or moves back to the first non-busted players)
+      val newButton = {
+        if (alivePlayers.length == 2) {
+          // for heads-up the dealer is always the player that isn't Big Blind
+          players
+            .findIndex(p => p.playerId != newBigBlindId && !p.busted)
+            .getOrElse(throw new RuntimeException("Couldn't find heads-up dealer"))
+        } else {
+          players
+            .findIndex(p => p.blind == SmallBlind && !p.busted)
+            .getOrElse {
+              def loop(i: Int): Int = {
+                players.lift(i) match {
+                  case Some(thisPlayer) =>
+                    if (thisPlayer.playerId == newBigBlindId) {
+                      // shrug, we got back round to the big blind
+                      throw new RuntimeException("shrug (got back to big blind)")
+                    } else if (!thisPlayer.busted) {
+                      i
+                    } else {
+                      loop((i + players.length - 1) % players.length)
+                    }
+                  case None =>
+                    // shrug, we got out of bounds on the list, somehow?
+                    throw new RuntimeException("shrug got out of bounds?!")
+                }
+
               }
 
+              loop(button)
             }
-            loop(button)
-          }
+        }
       }
-    }
 
-    (
-      newButton,
-      players.map { p =>
-        if (p.playerId == newBigBlindId)
-          p.copy(
-            blind = BigBlind,
-            bet = 2 * smallBlindAmount,
-            stack = p.stack - (2 * smallBlindAmount),
+      (
+        newButton,
+        players.map { p =>
+          if (p.playerId == newBigBlindId)
+            p.copy(
+              blind = BigBlind,
+              bet = 2 * smallBlindAmount,
+              stack = p.stack - (2 * smallBlindAmount),
+            )
+          else if (newSmallBlindIdOpt.contains(p.playerId))
+            p.copy(
+              blind = SmallBlind,
+              bet = smallBlindAmount,
+              stack = p.stack - smallBlindAmount,
+            )
+          else p.copy(
+            blind = NoBlind
           )
-        else if (newSmallBlindIdOpt.contains(p.playerId))
-          p.copy(
-            blind = SmallBlind,
-            bet = smallBlindAmount,
-            stack = p.stack - smallBlindAmount,
-          )
-        else p.copy(
-          blind = NoBlind
-        )
-      }
-    )
+        }
+      )
+    }
   }
 
   private[logic] def nextActiveFromIndex(players: List[Player], index: Int): Option[PlayerId] = {
