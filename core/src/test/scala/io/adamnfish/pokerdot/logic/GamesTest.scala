@@ -501,9 +501,9 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       resetPlayerForNextRound(player.copy(stack = 0)).busted shouldEqual true
     }
 
-    "resets the player's blind" in {
+    " not change the player's blind" in {
       forAll(Gen.oneOf(NoBlind, SmallBlind, BigBlind)) { blind =>
-        resetPlayerForNextRound(player.copy(blind = blind)).blind shouldEqual NoBlind
+        resetPlayerForNextRound(player.copy(blind = blind)).blind shouldEqual blind
       }
     }
   }

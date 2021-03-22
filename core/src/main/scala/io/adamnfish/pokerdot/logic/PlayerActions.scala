@@ -11,6 +11,11 @@ import io.adamnfish.pokerdot.services.Rng
  */
 object PlayerActions {
   def bet(game: Game, bet: Int, player: Player): Either[Failures, (Game, ActionSummary)] = {
+    val allIn = bet == player.stack
+    val betTotal = player.bet + bet
+    val currentBetAmount = Play.currentBetAmount(game.players)
+    val isCall = betTotal == currentBetAmount
+    val isRaise = betTotal > currentBetAmount
     for {
       // ensure bet amount does not exceed stack
       _ <-
@@ -21,9 +26,8 @@ object PlayerActions {
           )
         } else Right(())
       // ensure bet matches other players' contributions this round
-      currentBetAmount = Play.currentBetAmount(game.players)
       _ <-
-        if (bet > player.stack && bet < currentBetAmount) Left {
+        if (!allIn && betTotal < currentBetAmount) Left {
           if (currentBetAmount > player.stack) {
             Failures(
               "Player needs to go all-in to bet",
@@ -31,17 +35,32 @@ object PlayerActions {
             )
           } else {
             Failures(
-              "Bet must match other players' bets",
+              s"Bet ($bet) must match other players' bets ($currentBetAmount)",
               "Your bet must be at least as much as the other players have paid.",
             )
           }
         } else Right(())
-      isCall = bet + player.bet == currentBetAmount
+      // ensure raise amount matches previous raise
+      _ <-
+        if (!allIn && isRaise && (betTotal - currentBetAmount) < Play.currentRaiseAmount(game.players)) Left {
+          Failures(
+            "Raise amount does not meet previous raises",
+            "You must raise by at least as much as the last bet or raise.",
+          )
+        } else Right(())
+      // ensure raise amount matches minimum raise (big blind)
+      _ <-
+        if (!allIn && isRaise && (betTotal - currentBetAmount) < game.round.smallBlind * 2) Left {
+          Failures(
+            "Player needs to raise by at least the Big Blind",
+            "The minimum raise is the Big Blind.",
+          )
+        } else Right(())
       updatedPlayers = game.players.map {
         case thisPlayer if thisPlayer.playerId == player.playerId =>
           // use updated active player in game
           player.copy(
-            bet = player.bet + bet,
+            bet = betTotal,
             stack = player.stack - bet,
             // calling a bet doesn't give you another chance to act
             // but after betting / raising you also can't react unless re-raised
@@ -109,8 +128,6 @@ object PlayerActions {
         // use updated active player in game
         player.copy(
           folded = true,
-          pot = player.pot + player.bet,
-          bet = 0,
         )
       case p => p
     }
@@ -254,13 +271,13 @@ object PlayerActions {
     val nextState = rng.nextState(game.seed)
     val nextDeck = Play.deckOrder(nextState)
     val updatedPlayers = game.players.map(resetPlayerForNextRound)
-    val newButton = game.button % updatedPlayers.length
     // TODO: calculate the position of the button and blinds, and see that blinds are paid
+    val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, game.round.smallBlind)
     game.copy(
       round = game.round.copy(phase = PreFlop),
       button = newButton, // dealer advances
-      inTurn = Play.nextPlayer(updatedPlayers, None, newButton),
-      players = dealHoles(game.players.map(resetPlayerForNextRound), nextDeck),
+      inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
+      players = dealHoles(blindUpdatedPlayers, nextDeck),
       seed = nextState
     )
   }

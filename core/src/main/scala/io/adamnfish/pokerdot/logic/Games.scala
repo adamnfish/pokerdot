@@ -214,7 +214,7 @@ object Games {
       pot = 0,
       folded = false,
       checked = false,
-      blind = NoBlind, // the next blind position(s) will be calculated elsewhere
+      // the next blind position(s) will be calculated elsewhere - must not be touched here
     )
     if (resetPlayer.stack <= 0) {
       resetPlayer.copy(busted = true)

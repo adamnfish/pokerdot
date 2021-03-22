@@ -12,6 +12,54 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 
 class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with ScalaCheckDrivenPropertyChecks with OptionValues {
+  "bet" - {
+    "reduces player's stack by the bet amount" ignore {}
+    "increases player's bet by the bet amount" ignore {}
+
+    "for a raise" - {
+      "checks this player" ignore {}
+      "unchecks all other players" ignore {}
+    }
+
+    "for a call" - {
+      "checks this player" ignore {}
+      "does not uncheck other players" ignore {}
+    }
+
+    "activates the next eligible player" ignore {}
+
+    "returns a bet action" - {
+      "with correct player" ignore {}
+      "with correct bet amount" ignore {}
+    }
+
+    "fails if the bet is not large enough to call other players' bets" ignore {}
+    "fails if this raise is less than the big blind" ignore {}
+    "fails if this raise is not as large as a previous raise" ignore {}
+    "fails if it is not the player's turn" ignore {} // this is checked in the controller instead
+    "fails if the bet exceeds the player's stack" ignore {}
+  }
+
+  "check" - {
+    "updates the player's checked status" ignore {}
+    "activates the next eligible player" ignore {}
+
+    "returns a check action with correct player" ignore {}
+
+    "fails if it is not the player's turn" ignore {} // this is checked in the controller instead
+    "fails if the player has not called the current highest bet" ignore {}
+    "fails if the player has already checked" ignore {}
+  }
+
+  "fold" - {
+    "updates player's folded status" ignore {}
+
+    "returns a fold action with correct player" ignore {}
+
+    "fails if it is not the player's turn" ignore {} // this is checked in the controller instead
+    "fails if the player has already folded" ignore {}
+  }
+
   "advancePhase" - {
     "for the simple phases" - {
       val game = newGame("Game name", trackStacks = true, TestDates, 1L)

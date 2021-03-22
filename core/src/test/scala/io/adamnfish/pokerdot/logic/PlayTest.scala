@@ -5,16 +5,16 @@ import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.newPlayer
-import io.adamnfish.pokerdot.models.{Ace, Clubs, Diamonds, Flop, GameId, Hole, PlayerAddress, PreFlop, River, Showdown, Three, Turn, Two}
+import io.adamnfish.pokerdot.models.{Ace, BigBlind, Clubs, Diamonds, Flop, GameId, Hole, NoBlind, Player, PlayerAddress, PreFlop, River, Showdown, SmallBlind, Three, Turn, Two}
 import org.scalacheck.Gen
-import org.scalatest.EitherValues
+import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scala.util.Random
 
 
-class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues {
+class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues {
   "generateRound" - {
     "generates different cards for different seeds" in {
       forAll { (seed: Long) =>
@@ -296,6 +296,48 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
   }
 
+  "currentRaiseAmount" - {
+    val player1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestDates)
+    val player2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestDates)
+    val player3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestDates)
+
+    "returns 0 if there are no bets" in {
+      currentRaiseAmount(Nil) shouldEqual 0
+    }
+
+    "returns the only bet if there is only one bet" in {
+      forAll(Gen.choose(0, 1000)) { n =>
+        whenever(n > 0) {
+          currentRaiseAmount(List(player1.copy(bet = n))) shouldEqual 0
+        }
+      }
+    }
+
+    "returns 0 if there only bet if there is only one (distinct) bet" in {
+      forAll(Gen.choose(0, 1000)) { n =>
+        whenever(n > 0) {
+          currentRaiseAmount(List(
+            player1.copy(bet = n),
+            player2.copy(bet = n),
+            player3.copy(bet = n),
+          )) shouldEqual 0
+        }
+      }
+    }
+
+    "returns the difference between the two largest bets" in {
+      forAll(Gen.choose(0, 1000), Gen.choose(1, 100), Gen.choose(1, 100)) { (n, d1, d2) =>
+        whenever(n > 0 && d1 > 0 && d2 > 0) {
+          currentRaiseAmount(List(
+            player1.copy(bet = n),
+            player2.copy(bet = n + d1),
+            player3.copy(bet = n + d1 + d2),
+          )) shouldEqual d2
+        }
+      }
+    }
+  }
+
   "nextPlayer" - {
     val p1 = newPlayer(GameId("game-id"), "p1", false, PlayerAddress("p1-address"), TestDates)
       .copy(stack = 1000)
@@ -383,17 +425,425 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
   }
 
-  "indexWhere" - {
-    "returned index is equal to the stdlib's index when present" in {
-      forAll { seed: Long =>
-        val rng = new Random(seed)
-        val shuffled = rng.shuffle(List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
-        indexWhere(shuffled)(_ == 1) shouldEqual Some(shuffled.indexWhere(_ == 1))
+  "nextDealerAndBlinds" - {
+    val gameId = GameId("game-id")
+    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestDates)
+    val player2 = newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestDates)
+    val player3 = newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestDates)
+    val player4 = newPlayer(gameId, "player-4", false, PlayerAddress("player-address-4"), TestDates)
+    val player5 = newPlayer(gameId, "player-5", false, PlayerAddress("player-address-5"), TestDates)
+    val player6 = newPlayer(gameId, "player-6", false, PlayerAddress("player-address-6"), TestDates)
+    val smallBlind = 5
+
+    "for a typical case" - {
+      "the button moves ahead one" in {
+        val (newButtonIndex, _) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2.copy(blind = SmallBlind),
+            player3.copy(blind = BigBlind),
+            player4,
+          ), 0, smallBlind
+        )
+        newButtonIndex shouldEqual 1
+      }
+
+      "moves blinds ahead one" in {
+        val (_, players) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2.copy(blind = SmallBlind),
+            player3.copy(blind = BigBlind),
+            player4,
+          ), 0, smallBlind
+        )
+        players.map(_.blind) shouldEqual List(NoBlind, NoBlind, SmallBlind, BigBlind)
       }
     }
 
-    "returns None if the predicate is not satisfied" in {
-      indexWhere(List(1, 2, 3))(_ == 4) shouldEqual None
+    "heads-up" - {
+      "dealer is always small blind" in {
+        forAll { b: Boolean =>
+          val (newButtonIndex, players) =
+            if (b) nextDealerAndBlinds(List(
+              player1.copy(blind = BigBlind),
+              player2.copy(blind = SmallBlind),
+            ), 1, smallBlind)
+            else nextDealerAndBlinds(List(
+              player1.copy(blind = SmallBlind),
+              player2.copy(blind = BigBlind),
+            ), 0, smallBlind)
+          players(newButtonIndex).blind shouldEqual SmallBlind
+        }
+      }
+
+      "non-dealer is always big blind" in {
+        forAll { b: Boolean =>
+          val (newButtonIndex, players) =
+            if (b) nextDealerAndBlinds(List(
+              player1.copy(blind = BigBlind),
+              player2.copy(blind = SmallBlind),
+            ), 1, smallBlind)
+            else nextDealerAndBlinds(List(
+              player1.copy(blind = SmallBlind),
+              player2.copy(blind = BigBlind),
+            ), 0, smallBlind)
+          players(1 - newButtonIndex).blind shouldEqual BigBlind
+        }
+      }
+
+      "the big blind moves, and dealer is always small blind in these examples" - {
+        "normal for heads-up" in {
+          val (_, players) = nextDealerAndBlinds(List(
+            player1.copy(blind = BigBlind),
+            player2.copy(blind = SmallBlind),
+            player3.copy(busted = true),
+            player4.copy(busted = true),
+          ), 1, smallBlind)
+          players.map(_.blind) shouldEqual List(SmallBlind, BigBlind, NoBlind, NoBlind)
+        }
+
+        "BB jumping busted players (dealer went bust)" in {
+          val (newButtonPosition, players) = nextDealerAndBlinds(List(
+            player1.copy(blind = BigBlind),
+            player2.copy(busted = true),
+            player3.copy(busted = true),
+            player4.copy(blind = SmallBlind),
+          ), 2, smallBlind)
+          players.map(_.blind) shouldEqual List(SmallBlind, NoBlind, NoBlind, BigBlind)
+          newButtonPosition shouldEqual 0
+        }
+
+        "BB jumping busted players (small blind went bust)" in {
+          val (newButtonPosition, players) = nextDealerAndBlinds(List(
+            player1.copy(blind = SmallBlind, busted = true),
+            player2.copy(blind = BigBlind),
+            player3.copy(busted = true),
+            player4.copy(),
+          ), 3, smallBlind)
+          players.map(_.blind) shouldEqual List(NoBlind, SmallBlind, NoBlind, BigBlind)
+          newButtonPosition shouldEqual 1
+        }
+
+        "BB jumping busted players (big blind went bust)" in {
+          val (newButtonPosition, players) = nextDealerAndBlinds(List(
+            player1.copy(blind = SmallBlind),
+            player2.copy(blind = BigBlind, busted = true),
+            player3.copy(busted = true),
+            player4.copy(),
+          ), 3, smallBlind)
+          players.map(_.blind) shouldEqual List(NoBlind, NoBlind, NoBlind, BigBlind)
+          newButtonPosition shouldEqual 0
+        }
+      }
+    }
+
+    "skipping busted players" - {
+      "button skips a non-eligible (busted) player" in {
+        val (newButtonIndex, _) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2.copy(busted = true),
+            player3.copy(blind = SmallBlind),
+            player4.copy(blind = BigBlind),
+          ), 0, smallBlind
+        )
+        newButtonIndex shouldEqual 2
+      }
+
+      "small blind skips a non-eligible (busted) player" in {
+        val (_, players) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2.copy(blind = SmallBlind),
+            player3.copy(busted = true),
+            player4.copy(blind = BigBlind),
+          ), 0, smallBlind
+        )
+        players.map(_.blind) shouldEqual List(BigBlind, NoBlind, NoBlind, SmallBlind)
+      }
+
+      "big blind skips a non-eligible (busted) player" in {
+        val (_, players) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2.copy(blind = SmallBlind),
+            player3.copy(blind = BigBlind),
+            player4.copy(busted = true),
+          ), 0, smallBlind
+        )
+        players.map(_.blind) shouldEqual List(BigBlind, NoBlind, SmallBlind, NoBlind)
+      }
+    }
+
+    "if only the big blind was present" - {
+      "dealer stays" in {
+        val (newButtonIndex, _) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2,
+            player3.copy(blind = BigBlind),
+            player4,
+          ), 1, smallBlind
+        )
+        newButtonIndex shouldEqual 1
+      }
+
+      "BigBlind moves, prev Big is now Small" in {
+        val (_, players) = nextDealerAndBlinds(
+          List(
+            player1,
+            player2,
+            player3.copy(blind = BigBlind),
+            player4,
+          ), 1, smallBlind
+        )
+        players.map(_.blind) shouldEqual List(NoBlind, NoBlind, SmallBlind, BigBlind)
+      }
+    }
+
+    "if players are eliminated in this round it can be more complex" - {
+      "if big and small blind were both present this round" - {
+        "if the current small blind is busted" - {
+          val players = List(
+            player1,
+            player2.copy(blind = SmallBlind, busted = true),
+            player3.copy(blind = BigBlind),
+            player4,
+          )
+          val button = 0
+
+          "dealer stays" in {
+            val (newButton, _) = nextDealerAndBlinds(players, button, smallBlind)
+            newButton shouldEqual 0
+          }
+
+          "previous big blind is now small blind, next big blind is as normal" in {
+            val (_, newPlayers) = nextDealerAndBlinds(players, button, smallBlind)
+            newPlayers.map(_.blind) shouldEqual List(NoBlind, NoBlind, SmallBlind, BigBlind)
+          }
+        }
+
+        "if the current big blind is busted" - {
+          val players = List(
+            player1,
+            player2,
+            player3.copy(blind = SmallBlind),
+            player4.copy(blind = BigBlind, busted = true),
+          )
+          val button = 1
+
+          "dealer moves" in {
+            val (newButton, _) = nextDealerAndBlinds(players, button, smallBlind)
+            newButton shouldEqual 2
+          }
+
+          "no small blind, next big blind as normal" in {
+            val (_, newPlayers) = nextDealerAndBlinds(players, button, smallBlind)
+            newPlayers.map(_.blind) shouldEqual List(BigBlind, NoBlind, NoBlind, NoBlind)
+          }
+        }
+
+        "if both current blinds are busted" - {
+          val players = List(
+            player1.copy(blind = BigBlind, busted = true),
+            player2,
+            player3,
+            player4,
+            player5.copy(blind = SmallBlind, busted = true),
+          )
+          val button = 3
+
+          "dealer stays" in {
+            val (newButton, _) = nextDealerAndBlinds(players, button, smallBlind)
+            newButton shouldEqual 3
+          }
+
+          "no small blind, next big blind as normal" in {
+            val (_, newPlayers) = nextDealerAndBlinds(players, button, smallBlind)
+            newPlayers.map(_.blind) shouldEqual List(NoBlind, BigBlind, NoBlind, NoBlind, NoBlind)
+          }
+        }
+
+        "if both current blinds and the dealer are busted" - {
+          val players = List(
+            player1.copy(blind = SmallBlind, busted = true),
+            player2.copy(blind = BigBlind, busted = true),
+            player3,
+            player4,
+            player5,
+            player6.copy(busted = true),
+          )
+          val button = 5
+
+          "dealer moves back one" in {
+            val (newButton, _) = nextDealerAndBlinds(players, button, smallBlind)
+            newButton shouldEqual 4
+          }
+
+          "no small blind, next big blind as normal" in {
+            val (_, newPlayers) = nextDealerAndBlinds(players, button, smallBlind)
+            newPlayers.map(_.blind) shouldEqual List(NoBlind, NoBlind, BigBlind, NoBlind, NoBlind, NoBlind)
+          }
+        }
+      }
+
+      "if only the big blind was present" - {
+        "if the current big blind is busted" - {
+          val players = List(
+            player1,
+            player2.copy(busted = true),
+            player3.copy(blind = BigBlind, busted = true),
+            player4,
+            player5,
+          )
+          val button = 0
+
+          "dealer stays" in {
+            val (newButton, _) = nextDealerAndBlinds(players, button, smallBlind)
+            newButton shouldEqual 0
+          }
+          "no small blind again, next big blind as normal" in {
+            val (_, newPlayers) = nextDealerAndBlinds(players, button, smallBlind)
+            newPlayers.map(_.blind) shouldEqual List(NoBlind, NoBlind, NoBlind, BigBlind, NoBlind)
+          }
+        }
+
+        "if both the current big blind and the dealer is busted" - {
+          val players = List(
+            player1.copy(busted = true),
+            player2.copy(busted = true),
+            player3.copy(blind = BigBlind, busted = true),
+            player4,
+            player5,
+            player6,
+          )
+          val button = 0
+
+          "dealer moves back one" in {
+            val (newButton, _) = nextDealerAndBlinds(players, button, smallBlind)
+            newButton shouldEqual 5
+          }
+
+          "no small blind again, next big blind as normal" in {
+            val (_, newPlayers) = nextDealerAndBlinds(players, button, smallBlind)
+            newPlayers.map(_.blind) shouldEqual List(NoBlind, NoBlind, NoBlind, BigBlind, NoBlind, NoBlind)
+          }
+        }
+      }
+    }
+
+    "small blind amount is paid out" - {
+      "player bets small blind amount" in {
+        forAll(Gen.choose(1, 20)) { blind =>
+          val (_, players) = nextDealerAndBlinds(
+            List(
+              player1.copy(stack = 1000),
+              player2.copy(stack = 1000, blind = SmallBlind),
+              player3.copy(stack = 1000, blind = BigBlind),
+              player4.copy(stack = 1000),
+            ), 0, blind)
+          players.find(_.blind == SmallBlind).value.bet shouldEqual blind
+        }
+      }
+
+      "player's stack is reduced by small blind amount" in {
+        forAll(Gen.choose(1, 20)) { blind =>
+          val (_, players) = nextDealerAndBlinds(
+            List(
+              player1.copy(stack = 1000),
+              player2.copy(stack = 1000, blind = SmallBlind),
+              player3.copy(stack = 1000, blind = BigBlind),
+              player4.copy(stack = 1000),
+            ), 0, blind)
+          players.find(_.blind == SmallBlind).value.stack shouldEqual (1000 - blind)
+        }
+      }
+    }
+
+    "big blind amount is paid out" - {
+      "player bets big blind amount" in {
+        forAll(Gen.choose(1, 20)) { blind =>
+          val (_, players) = nextDealerAndBlinds(
+            List(
+              player1.copy(stack = 1000),
+              player2.copy(stack = 1000, blind = SmallBlind),
+              player3.copy(stack = 1000, blind = BigBlind),
+              player4.copy(stack = 1000),
+            ), 0, blind)
+          players.find(_.blind == BigBlind).value.bet shouldEqual (blind * 2)
+        }
+      }
+
+      "player's stack is reduced by big blind amount" in {
+        forAll(Gen.choose(1, 20)) { blind =>
+          val (_, players) = nextDealerAndBlinds(
+            List(
+              player1.copy(stack = 1000),
+              player2.copy(stack = 1000, blind = SmallBlind),
+              player3.copy(stack = 1000, blind = BigBlind),
+              player4.copy(stack = 1000),
+            ), 0, blind)
+          players.find(_.blind == BigBlind).value.stack shouldEqual (1000 - (2 * blind))
+        }
+      }
+    }
+  }
+
+  "nextAliveAfterIndex" - {
+    val gameId = GameId("game-id")
+    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestDates)
+    val player2 = newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestDates)
+    val player3 = newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestDates)
+
+    "returns the other alive player with 2 players" - {
+      "gets second from first" in {
+        nextAliveAfterIndex(List(player1, player2), 0).value shouldEqual player2.playerId
+      }
+
+      "gets first from second" in {
+        nextAliveAfterIndex(List(player1, player2), 1).value shouldEqual player1.playerId
+      }
+
+      "returns the only active player if the other player is busted" in {
+        nextAliveAfterIndex(List(player1, player2.copy(busted = true)), 0).value shouldEqual player1.playerId
+      }
+
+      "returns None if both busted" in {
+        val bustedPlayers = List(player1, player2).map(_.copy(busted = true))
+        nextAliveAfterIndex(bustedPlayers, 0) shouldEqual None
+      }
+    }
+
+    "returns the next player with 3 players" - {
+      "gets second from first" in {
+        nextAliveAfterIndex(List(player1, player2, player3), 0).value shouldEqual player2.playerId
+      }
+
+      "gets third from second" in {
+        nextAliveAfterIndex(List(player1, player2, player3), 1).value shouldEqual player3.playerId
+      }
+
+      "gets first from third" in {
+        nextAliveAfterIndex(List(player1, player2, player3), 2).value shouldEqual player1.playerId
+      }
+
+      "skips busted second from first" in {
+        nextAliveAfterIndex(List(player1, player2.copy(busted = true), player3), 0).value shouldEqual player3.playerId
+      }
+
+      "skips busted third from second" in {
+        nextAliveAfterIndex(List(player1, player2, player3.copy(busted = true)), 1).value shouldEqual player1.playerId
+      }
+
+      "returns None if all busted" in {
+        val bustedPlayers = List(player1, player2, player3).map(_.copy(busted = true))
+        nextAliveAfterIndex(bustedPlayers, 0) shouldEqual None
+      }
+    }
+
+    "returns None if given an empty list" in {
+      nextAliveAfterIndex(Nil, 0) shouldEqual None
     }
   }
 }

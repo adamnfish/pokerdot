@@ -35,7 +35,7 @@ class GameplayIntegrationTest extends AnyFreeSpec with Matchers with Integration
       //   p2:      Q♣  J♥
       //   p3:      7♠  6♠
       // host is dealer, p1 small blind, p2 big blind, p3 first to act
-      // p3 is initial player (left of dealer, small blind and big blind)
+      // p3 is initial player (left of dealer small blind and big blind)
       // p3 gas 7♠ 6♠ and folds
       PokerDot.pokerdot(foldRequest(p3Welcome), context(player3Address)).value()
       // host has Q♦ 7♣ and calls
@@ -219,18 +219,24 @@ class GameplayIntegrationTest extends AnyFreeSpec with Matchers with Integration
         "pot" as 0,
       )
       playerDbsPreFlop2.get(p2Welcome.playerId).value should have(
-        "stack" as 930,
+        "stack" as 925, // small blind paid out as well as prev round's result
         "checked" as false,
         "folded" as false,
-        "bet" as 0,
+        "bet" as 5,
         "pot" as 0,
+        "blind" as 1,
       )
       playerDbsPreFlop2.get(p3Welcome.playerId).value should have(
-        "stack" as 1000,
+        "stack" as 990, // big blind paid out as well as prev round's result
         "checked" as false,
         "folded" as false,
-        "bet" as 0,
+        "bet" as 10,
         "pot" as 0,
+        "blind" as 2,
+      )
+      // dealer should have moved correctly
+      db.getGame(hostWelcome.gameId).value().value should have(
+        "button" as 1,
       )
     }
   }

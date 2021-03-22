@@ -19,6 +19,15 @@ object Utils {
     def ioTraverse[B](f: A => Attempt[B]): Attempt[List[B]] = {
       as.foldRight[Attempt[List[B]]](IO.succeed(Nil))((a, acc) => IO.mapParN(f(a), acc)(_ :: _))
     }
+
+    /**
+     * Converts from stdlib's `-1 = empty` to an Option
+     */
+    def findIndex(p: A => Boolean): Option[Int] = {
+      val i = as.indexWhere(p)
+      if (i == -1) None
+      else Some(i)
+    }
   }
 
   implicit class RichAttempt[A](val attempt: Attempt[A]) extends AnyVal {
