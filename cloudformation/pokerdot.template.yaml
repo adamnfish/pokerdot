@@ -43,21 +43,21 @@ Parameters:
     Description: S3 Bucket that will contain the backend artifacts
   GamesTableName:
     Type: String
-    Description: Games DynamoDB table name
+    Description: Games DynamoDB table name (check output of storage stack)
     MinLength: 3
     MaxLength: 255
     AllowedPattern: ^[A-Za-z_-]+$
     ConstraintDescription: Can be characters and underscore/hyphen only. No numbers or special characters allowed.
   PlayersTableName:
     Type: String
-    Description: Players DynamoDB table name
+    Description: Players DynamoDB table name (check output of storage stack)
     MinLength: 3
     MaxLength: 255
     AllowedPattern: ^[A-Za-z_-]+$
     ConstraintDescription: Can be characters and underscore/hyphen only. No numbers or special characters allowed.
   WebrootBucket:
     Type: String
-    Description: Name of the S3 bucket that stores application static assets
+    Description: Name of the S3 bucket that stores application static assets (check output of storage stack)
   WebrootAccessIdentityID:
     Type: String
     Description: ID of CloudFront origin access identity for webroot bucket access (check output of storage stack)
@@ -77,7 +77,7 @@ Resources:
   ApiGatewayStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
-      StageName: !Ref Stage
+      StageName: "$default"
       Description: !Sub "${Stage} stage"
       ApiId: !Ref WebSocketApi
       AutoDeploy: true
@@ -150,8 +150,8 @@ Resources:
     Properties:
       CodeUri:
         Bucket: !Ref DistBucket
-        Key: !Sub "pokerdot/${Stage}/pokerdot-lambda.jar"
-      Handler: "com.adamnfish.pokerdot.Lambda::handleRequest"
+        Key: !Sub "pokerdot/${Stage}/pokerdot-lambda.zip"
+      Handler: "io.adamnfish.pokerdot.Lambda::handleRequest"
       Timeout: 20
       MemorySize: 1024
       Runtime: java8
@@ -160,7 +160,7 @@ Resources:
           GAMES_TABLE: !Ref GamesTableName
           PLAYERS_TABLE: !Ref PlayersTableName
           ORIGIN_LOCATION: !Sub "pokerdot.${DomainName}"
-          API_ORIGIN_LOCATION: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+          API_ORIGIN_LOCATION: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/$default"
           REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
