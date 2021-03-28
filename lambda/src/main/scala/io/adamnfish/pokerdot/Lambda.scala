@@ -56,7 +56,7 @@ class Lambda {
     val maybeApiGatewayClient = for {
       apiGatewayEndpointStr <- Properties.envOrNone("API_ORIGIN_LOCATION")
         .toRight("API Gateway endpoint name not configured")
-      apiGatewayEndpointUri = new URI(apiGatewayEndpointStr)
+      apiGatewayEndpointUri = new URI(s"https://$apiGatewayEndpointStr")
       regionStr <- Properties.envOrNone("REGION")
         .toRight("region not configured")
       region = Region.of(regionStr)
