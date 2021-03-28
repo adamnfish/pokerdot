@@ -1,4 +1,4 @@
-module Views.UI exposing (..)
+module Views.UI exposing (view)
 
 import Browser
 import Dict
@@ -12,7 +12,7 @@ import FontAwesome.Attributes as Icon
 import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
-import Model exposing (ActSelection, ChipsSettings, Game, Model, Msg(..), Player, PlayerId, Self, TimerLevel, TimerStatus, UI(..), Welcome, getGameCode)
+import Model exposing (ActSelection, ChipsSettings(..), Game, Model, Msg(..), Player, PlayerId, Self, TimerLevel, TimerStatus, UI(..), Welcome, getGameCode)
 import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdText, zWidths)
 
 
@@ -246,11 +246,60 @@ joinGameScreen model isExternal gameCode screenName =
 
 
 lobbyScreen : Model -> List Player -> ChipsSettings -> Self -> Game -> Welcome -> Element Msg
-lobbyScreen model players chipsSettings self game welcome =
+lobbyScreen model playerOrder chipsSettings self game welcome =
     column
         [ width fill
         ]
-        [ Element.text <| game.gameCode ]
+        [ Element.text <| game.gameCode
+        , if self.isAdmin then
+            lobbyStartSettings playerOrder chipsSettings
+
+          else
+            none
+        ]
+
+
+lobbyStartSettings : List Player -> ChipsSettings -> Element Msg
+lobbyStartSettings playerOrder chipsSettings =
+    column
+        [ width fill ]
+        [ row
+            [ spacing 8 ]
+            [ text "No chips"
+            , text "Timer"
+            , text "Manual blinds"
+            ]
+        , case chipsSettings of
+            DoNotTrackChips ->
+                text "Not tracking chips"
+
+            TrackWithTimer currentStackSizze timerLevels ->
+                column
+                    []
+                    [ text "Timer levels"
+                    , Input.text
+                        []
+                        { text = String.fromInt currentStackSizze
+                        , label = Input.labelLeft [] <| text "Player stacks"
+                        , placeholder =
+                            Just <| Input.placeholder [] <| text "Player stacks"
+                        , onChange =
+                            \value ->
+                                let
+                                    stackSize =
+                                        1
+                                in
+                                InputStartGameSettings playerOrder <|
+                                    TrackWithTimer stackSize timerLevels
+                        }
+                    ]
+
+            TrackWithManualBlinds stacks initialSmallBlind ->
+                column
+                    []
+                    [ text "Manual blinds"
+                    ]
+        ]
 
 
 rejoinScreen : Model -> Welcome -> Element Msg

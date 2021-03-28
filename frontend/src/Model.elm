@@ -40,7 +40,7 @@ type Msg
     | InputJoinGame Bool String String
     | SubmitJoinGame String String
       -- lobby
-    | InputReorderPlayers (List Player)
+    | InputStartGameSettings (List Player) ChipsSettings
     | SubmitStartGame
       -- game messages
     | TogglePeek

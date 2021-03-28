@@ -482,14 +482,14 @@ update msg model =
             , sendJoinGame request
             )
 
-        InputReorderPlayers newPlayers ->
+        InputStartGameSettings newPlayers chipSettings ->
             case model.ui of
-                LobbyScreen prevPlayers chipsSettings self game welcome ->
+                LobbyScreen prevPlayers oldChipsSettings self game welcome ->
                     let
                         players =
                             includeAllPlayers newPlayers prevPlayers
                     in
-                    ( { model | ui = LobbyScreen players chipsSettings self game welcome }
+                    ( { model | ui = LobbyScreen players chipSettings self game welcome }
                     , Cmd.none
                     )
 
