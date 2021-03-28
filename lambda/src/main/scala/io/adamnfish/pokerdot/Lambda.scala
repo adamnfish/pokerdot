@@ -28,7 +28,7 @@ class Lambda {
       // API Gateway client configuration
       apiGatewayEndpointStr <- Properties.envOrNone("API_ORIGIN_LOCATION")
         .toRight("API Gateway endpoint name not configured")
-      apiGatewayEndpointUri = new URI(apiGatewayEndpointStr)
+      apiGatewayEndpointUri = new URI(s"https://$apiGatewayEndpointStr")
       // table names
       gamesTableName <- Properties.envOrNone("GAMES_TABLE")
         .toRight("games table name not configured")

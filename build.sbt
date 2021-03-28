@@ -68,8 +68,8 @@ lazy val lambda = (project in file("lambda"))
     Universal / mappings := (Universal / mappings).value.filter {
       case (_, path) =>
         // these are only used at compile time to generate code, I think?
-        !path.contains("org.scala-lang.scala-compiler") &&
-          !path.contains("org.scala-lang.scala-reflect") &&
+//          !path.contains("org.scala-lang.scala-compiler") && // required :-(
+//          !path.contains("org.scala-lang.scala-reflect") && // required :-(
           !path.contains("net.java.dev.jna.jna") &&
           !path.contains("org.jline.jline")
     }
