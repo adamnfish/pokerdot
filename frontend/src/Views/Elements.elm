@@ -1,4 +1,4 @@
-module Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdText, zWidths)
+module Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdTab, pdText, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -18,6 +18,11 @@ pdButton msg lines =
 pdButtonSmall : Msg -> List String -> Element Msg
 pdButtonSmall msg lines =
     internalButton 80 msg lines
+
+
+pdTab : Msg -> String -> Element Msg
+pdTab msg label =
+    internalButton 0 msg [ label ]
 
 
 internalButton : Int -> Msg -> List String -> Element Msg

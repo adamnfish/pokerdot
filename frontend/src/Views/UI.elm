@@ -12,8 +12,8 @@ import FontAwesome.Attributes as Icon
 import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
-import Model exposing (ActSelection, ChipsSettings(..), Game, Model, Msg(..), Player, PlayerId, Self, TimerLevel, TimerStatus, UI(..), Welcome, getGameCode)
-import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdText, zWidths)
+import Model exposing (ActSelection, ChipsSettings(..), Game, Model, Msg(..), Player, PlayerId, Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdTab, pdText, zWidths)
 
 
 type alias Page =
@@ -265,21 +265,21 @@ lobbyStartSettings playerOrder chipsSettings =
         [ width fill ]
         [ row
             [ spacing 8 ]
-            [ text "No chips"
-            , text "Timer"
-            , text "Manual blinds"
+            [ pdTab (InputStartGameSettings playerOrder DoNotTrackChips) "No chips"
+            , pdTab (InputStartGameSettings playerOrder <| TrackWithTimer 1000 []) "Timer"
+            , pdTab (InputStartGameSettings playerOrder <| TrackWithManualBlinds 1000 5) "Manual blinds"
             ]
         , case chipsSettings of
             DoNotTrackChips ->
                 text "Not tracking chips"
 
-            TrackWithTimer currentStackSizze timerLevels ->
+            TrackWithTimer currentStackSize timerLevels ->
                 column
                     []
                     [ text "Timer levels"
                     , Input.text
                         []
-                        { text = String.fromInt currentStackSizze
+                        { text = String.fromInt currentStackSize
                         , label = Input.labelLeft [] <| text "Player stacks"
                         , placeholder =
                             Just <| Input.placeholder [] <| text "Player stacks"
@@ -294,11 +294,45 @@ lobbyStartSettings playerOrder chipsSettings =
                         }
                     ]
 
-            TrackWithManualBlinds stacks initialSmallBlind ->
+            TrackWithManualBlinds currentStackSize initialSmallBlind ->
                 column
                     []
                     [ text "Manual blinds"
+                    , Input.text
+                        []
+                        { text = String.fromInt currentStackSize
+                        , label = Input.labelLeft [] <| text "Player stacks"
+                        , placeholder =
+                            Just <| Input.placeholder [] <| text "Player stacks"
+                        , onChange =
+                            \value ->
+                                let
+                                    stackSize =
+                                        Maybe.withDefault 0 <| String.toInt value
+                                in
+                                InputStartGameSettings playerOrder <|
+                                    TrackWithManualBlinds stackSize initialSmallBlind
+                        }
+                    , Input.text
+                        []
+                        { text = String.fromInt currentStackSize
+                        , label = Input.labelLeft [] <| text "Small blind"
+                        , placeholder =
+                            Just <| Input.placeholder [] <| text "Initial small blind"
+                        , onChange =
+                            \value ->
+                                let
+                                    smallBlind =
+                                        Maybe.withDefault 0 <| String.toInt value
+                                in
+                                InputStartGameSettings playerOrder <|
+                                    TrackWithManualBlinds currentStackSize smallBlind
+                        }
                     ]
+        , row
+            []
+            [ pdButton SubmitStartGame [ "Start" ]
+            ]
         ]
 
 

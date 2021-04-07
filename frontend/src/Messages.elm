@@ -5,7 +5,7 @@ import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, foldRequestEncoder, getGameCode, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
@@ -117,7 +117,7 @@ update msg model =
                                 welcome :: model.library
 
                         gameRoute =
-                            GameRoute (getGameCode welcome.gameId) (getPlayerCode welcome.playerId)
+                            GameRoute welcome.gameCode (getPlayerCode welcome.playerId)
                     in
                     case model.ui of
                         CreateGameScreen gameName _ ->
@@ -136,7 +136,7 @@ update msg model =
                                 )
 
                         JoinGameScreen external gameCode _ ->
-                            if gameCode == getGameCode welcome.gameId then
+                            if gameCode == welcome.gameCode then
                                 ( { model
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players DoNotTrackChips self game welcome
@@ -253,6 +253,8 @@ update msg model =
                             , Cmd.none
                             )
 
+                        -- TODO: for each of these, update the UI's game data from the message (if it matches)
+                        --       for waiting / acting / idle move between them as appropriate
                         WaitingGameScreen playerId oldSelf oldGame welcome ->
                             ( registerEvent model action
                             , Cmd.none
@@ -395,7 +397,7 @@ update msg model =
             ( { model | ui = RejoinScreen welcome }
             , Cmd.batch
                 [ sendPing welcome
-                , navigate model.navKey True (GameRoute (getGameCode welcome.gameId) (getPlayerCode welcome.playerId))
+                , navigate model.navKey True (GameRoute welcome.gameCode (getPlayerCode welcome.playerId))
                 ]
             )
 
@@ -846,7 +848,7 @@ uiFromRoute route library =
             -- check for matching welcome in library
             List.Extra.find
                 (\welcome ->
-                    String.startsWith gameCode (getGameCode welcome.gameId)
+                    String.startsWith gameCode welcome.gameCode
                         && String.startsWith playerCode (getPlayerCode welcome.playerId)
                 )
                 library

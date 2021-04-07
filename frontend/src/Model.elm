@@ -55,7 +55,7 @@ type alias Model =
     , connected : Bool
     , now : Time.Posix
     , viewport : Viewport
-    , peeking : Bool
+    , peeking : Bool -- TODO: should this be in the UI?
     , loadingStatus : LoadingStatus
     , errors : List Error
     , events : List Event
@@ -74,6 +74,7 @@ type UI
     | WaitingGameScreen PlayerId Self Game Welcome
     | ActingGameScreen ActSelection Self Game Welcome
     | IdleGameScreen Self Game Welcome
+      -- TODO: admin screen to fix things
       -- spectating
     | CommunityCardsScreen Game Welcome
     | TimerScreen TimerStatus Game Welcome
@@ -86,6 +87,7 @@ type Route
     | CreateRoute
     | JoinRoute (Maybe String)
     | GameRoute String String
+      -- TODO: routes for spectating screens?
     | NotFound
 
 
@@ -119,11 +121,6 @@ type alias Failure =
 
 type GameId
     = Gid String
-
-
-getGameCode : GameId -> String
-getGameCode (Gid gid) =
-    String.left 4 gid
 
 
 type PlayerId
