@@ -5,7 +5,7 @@ import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
@@ -255,33 +255,102 @@ update msg model =
 
                         -- TODO: for each of these, update the UI's game data from the message (if it matches)
                         --       for waiting / acting / idle move between them as appropriate
-                        WaitingGameScreen playerId oldSelf oldGame welcome ->
-                            ( registerEvent model action
+                        WaitingGameScreen _ _ _ welcome ->
+                            let
+                                newUi =
+                                    case game.inTurn of
+                                        Just currentPlayerId ->
+                                            if currentPlayerId == self.playerId then
+                                                ActingGameScreen NoAct self game welcome
+
+                                            else
+                                                WaitingGameScreen currentPlayerId self game welcome
+
+                                        Nothing ->
+                                            IdleGameScreen self game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
                             , Cmd.none
                             )
 
-                        ActingGameScreen actSelection oldSelf oldGame welcome ->
-                            ( registerEvent model action
+                        ActingGameScreen actSelection _ _ welcome ->
+                            let
+                                newUi =
+                                    case game.inTurn of
+                                        Just currentPlayerId ->
+                                            if currentPlayerId == self.playerId then
+                                                ActingGameScreen actSelection self game welcome
+
+                                            else
+                                                WaitingGameScreen currentPlayerId self game welcome
+
+                                        Nothing ->
+                                            IdleGameScreen self game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
                             , Cmd.none
                             )
 
-                        IdleGameScreen oldSelf oldGame welcome ->
-                            ( registerEvent model action
+                        IdleGameScreen _ _ welcome ->
+                            let
+                                newUi =
+                                    case game.inTurn of
+                                        Just currentPlayerId ->
+                                            if currentPlayerId == self.playerId then
+                                                ActingGameScreen NoAct self game welcome
+
+                                            else
+                                                WaitingGameScreen currentPlayerId self game welcome
+
+                                        Nothing ->
+                                            IdleGameScreen self game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
                             , Cmd.none
                             )
 
-                        CommunityCardsScreen oldGame welcome ->
-                            ( registerEvent model action
+                        CommunityCardsScreen _ welcome ->
+                            let
+                                newUi =
+                                    CommunityCardsScreen game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
                             , Cmd.none
                             )
 
-                        TimerScreen timerStatus oldGame welcome ->
-                            ( registerEvent model action
+                        TimerScreen timerStatus _ welcome ->
+                            let
+                                newUi =
+                                    TimerScreen timerStatus game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
                             , Cmd.none
                             )
 
-                        ChipSummaryScreen oldGame welcome ->
-                            ( registerEvent model action
+                        ChipSummaryScreen _ welcome ->
+                            let
+                                newUi =
+                                    ChipSummaryScreen game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
                             , Cmd.none
                             )
 
