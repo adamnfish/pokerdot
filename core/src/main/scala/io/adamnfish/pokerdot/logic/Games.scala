@@ -146,11 +146,20 @@ object Games {
       }
     }.getOrElse(0)
     val dealtPlayersWithInitialStacks = dealtPlayers.zipWithIndex.map { case (p, i) =>
-      val (blind, blindAmount) = i match {
-        case 1 => (SmallBlind, smallBlind)   // left of dealer
-        case 2 => (BigBlind, smallBlind * 2) // left of small blind
-        case _ => (NoBlind, 0)
-      }
+      val (blind, blindAmount) =
+        if (dealtPlayers.length == 2) {
+          i match {
+            case 0 => (SmallBlind, smallBlind)   // dealer is small blind in heads-up
+            case 1 => (BigBlind, smallBlind * 2) // dealer's opponent is always BigBlind in heads-up
+            case _ => (NoBlind, 0)               // we already checked there are 2 players, but why not
+          }
+        } else {
+          i match {
+            case 1 => (SmallBlind, smallBlind)   // left of dealer
+            case 2 => (BigBlind, smallBlind * 2) // left of small blind
+            case _ => (NoBlind, 0)
+          }
+        }
       p.copy(
         stack = startingStack.fold(0) { initialStackAmount =>
           p.stack + initialStackAmount - blindAmount
@@ -166,8 +175,18 @@ object Games {
       trackStacks = startingStack.isDefined,
       button = 0,
       inTurn =
-        if (orderedPlayers.isEmpty) None
-        else orderedPlayers.lift(3 % orderedPlayers.length).map(_.playerId),
+        orderedPlayers match {
+          case Nil => None
+          case dealer :: Nil =>
+            // poker requires at least 2 players
+            None
+          case dealer :: opponent :: Nil =>
+            Some(dealer.playerId)
+          case dealer :: smallBlind :: bigBlind :: Nil =>
+            Some(dealer.playerId)
+          case dealer :: smallBlind :: bigBlind :: nextActive :: _ =>
+            Some(nextActive.playerId)
+        },
       timer =
         timerConfig.flatMap {
           case Nil =>

@@ -55,10 +55,12 @@ object Validators {
 
   /**
    * Game codes are a case-insensitive UUID prefix
+   *
+   * Allows upper and lower "oh" o/O as a surrogate for 0
    */
   val gameCode: Validator[String] = { (str, context) =>
     val wasTooShort = minLength(4)(str, context).headOption
-    val ValidChar = "([0-9a-fA-F\\-])".r
+    val ValidChar = "([0-9a-fA-FoO\\-])".r
     val valid = str.zipWithIndex.forall {
       case (ValidChar(c), i) =>
         if (i == 8 || i == 13 || i == 18 || i == 23) {

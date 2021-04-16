@@ -77,6 +77,15 @@ class ValidatorsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
   }
 
   "gameCode" - {
+    "returns no failures for a UUID prefix" in {
+      val uuid = UUID.randomUUID().toString.take(4)
+      gameCode(uuid, "context") shouldBe empty
+    }
+
+    "allows o/O for 0 typos" in {
+      gameCode("ooOO", "context") shouldBe empty
+    }
+
     "returns no failures for a UUID" in {
       val uuid = UUID.randomUUID().toString
       gameCode(uuid, "context") shouldBe empty

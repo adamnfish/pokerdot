@@ -393,6 +393,15 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
           }
         }
 
+        "activates the dealer in a new heads-up game" in {
+          val testPlayers = players.take(2)
+          val playerIds = testPlayers.map(_.playerId)
+          forAll { (shuffleSeed: Long) =>
+            val playerOrder = new Random(shuffleSeed).shuffle(playerIds)
+            val result = start(game.copy(seed = 1L, players = testPlayers), 1000L, None, None, None, playerOrder)
+            result.inTurn shouldEqual playerOrder.headOption
+          }
+        }
       }
 
 
@@ -414,6 +423,24 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
             start(game.copy(players = players), 1000L, None, None, Some(startingStack), game.players.map(_.playerId)).players.map(_.stack) should contain only startingStack
           }
         }
+      }
+
+      "fixed blinds" - {
+        "are paid out in a multi player game" in {
+          val result = start(game.copy(players = players), 1000L, Some(5), None, Some(1000), game.players.map(_.playerId))
+          result.players.map(_.bet).take(3) shouldEqual List(0, 5, 10)
+        }
+
+        "are paid out in a heads-up game (dealer is small blind)" in {
+          val testPlayers = players.take(2)
+          val result = start(game.copy(players = testPlayers), 1000L, Some(5), None, Some(1000), game.players.map(_.playerId))
+          result.players.map(_.bet).take(3) shouldEqual List(5, 10)
+        }
+      }
+
+      "timer-based blinds" - {
+        "are paid out in a multi player game" ignore {}
+        "are paid out in a heads-up game (dealer is small blind)" ignore {}
       }
     }
   }
