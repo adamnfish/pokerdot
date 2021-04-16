@@ -22,7 +22,25 @@ pdButtonSmall msg lines =
 
 pdTab : Msg -> String -> Element Msg
 pdTab msg label =
-    internalButton 0 msg [ label ]
+    Input.button
+        [ Border.rounded 1
+        , Border.solid
+        , Border.width 2
+        , Border.color <| rgb255 60 60 60
+        , Border.shadow
+            { offset = ( 1, 1 )
+            , size = 1
+            , blur = 1
+            , color = rgb255 120 120 120
+            }
+        , focused
+            [ Background.color <| rgb255 220 220 230
+            , Border.color <| rgb255 120 120 240
+            ]
+        ]
+        { onPress = Just msg
+        , label = text label
+        }
 
 
 internalButton : Int -> Msg -> List String -> Element Msg

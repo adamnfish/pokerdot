@@ -5,7 +5,7 @@ import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
@@ -124,7 +124,7 @@ update msg model =
                             if gameName == welcome.gameName then
                                 ( { model
                                     | library = newLibrary
-                                    , ui = LobbyScreen game.players DoNotTrackChips self game welcome
+                                    , ui = LobbyScreen game.players defaultChipSettings self game welcome
                                   }
                                 , navigate model.navKey False gameRoute
                                 )
@@ -139,7 +139,7 @@ update msg model =
                             if gameCode == welcome.gameCode then
                                 ( { model
                                     | library = newLibrary
-                                    , ui = LobbyScreen game.players DoNotTrackChips self game welcome
+                                    , ui = LobbyScreen game.players defaultChipSettings self game welcome
                                   }
                                 , navigate model.navKey False gameRoute
                                 )
@@ -318,6 +318,50 @@ update msg model =
                             , Cmd.none
                             )
 
+                        RoundResultScreen potResults playerWinnings _ _ welcome ->
+                            let
+                                newUi =
+                                    case game.inTurn of
+                                        Just currentPlayerId ->
+                                            if currentPlayerId == self.playerId then
+                                                ActingGameScreen NoAct self game welcome
+
+                                            else
+                                                WaitingGameScreen currentPlayerId self game welcome
+
+                                        -- stay on results if a status message happens to come in while the round results are being displayed
+                                        Nothing ->
+                                            RoundResultScreen potResults playerWinnings self game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
+                            , Cmd.none
+                            )
+
+                        GameResultScreen _ _ welcome ->
+                            let
+                                newUi =
+                                    case game.inTurn of
+                                        Just currentPlayerId ->
+                                            if currentPlayerId == self.playerId then
+                                                ActingGameScreen NoAct self game welcome
+
+                                            else
+                                                WaitingGameScreen currentPlayerId self game welcome
+
+                                        -- stay on results if a status message happens to come in while the game results are being displayed
+                                        Nothing ->
+                                            GameResultScreen self game welcome
+
+                                updatedModel =
+                                    { model | ui = newUi }
+                            in
+                            ( registerEvent updatedModel action
+                            , Cmd.none
+                            )
+
                         CommunityCardsScreen _ welcome ->
                             let
                                 newUi =
@@ -359,8 +403,19 @@ update msg model =
                     , Cmd.none
                     )
 
-                Ok (PlayerRoundWinningsMessage self game pots players) ->
-                    ( model, Cmd.none )
+                Ok (PlayerRoundWinningsMessage self game pots playerWinnings) ->
+                    let
+                        newUi =
+                            case welcomeFromUi model.ui of
+                                Nothing ->
+                                    model.ui
+
+                                Just welcome ->
+                                    RoundResultScreen pots playerWinnings self game welcome
+                    in
+                    ( registerEvent { model | ui = newUi } AdvancePhaseAction
+                    , Cmd.none
+                    )
 
                 Ok (SpectatorRoundWinningsMessage spectator game pots players) ->
                     ( model, Cmd.none )
@@ -425,6 +480,16 @@ update msg model =
                     )
 
                 IdleGameScreen self game welcome ->
+                    ( newModel
+                    , sendPing welcome
+                    )
+
+                RoundResultScreen potResults playerWinnings self game welcome ->
+                    ( newModel
+                    , sendPing welcome
+                    )
+
+                GameResultScreen self game welcome ->
                     ( newModel
                     , sendPing welcome
                     )
@@ -777,6 +842,52 @@ includeAllPlayers p1s p2s =
         List.append p1s p2s
 
 
+welcomeFromUi : UI -> Maybe Welcome
+welcomeFromUi ui =
+    case ui of
+        WelcomeScreen ->
+            Nothing
+
+        HelpScreen ->
+            Nothing
+
+        CreateGameScreen _ _ ->
+            Nothing
+
+        JoinGameScreen _ _ _ ->
+            Nothing
+
+        LobbyScreen _ _ _ _ welcome ->
+            Just welcome
+
+        RejoinScreen welcome ->
+            Just welcome
+
+        WaitingGameScreen playerId _ _ welcome ->
+            Just welcome
+
+        ActingGameScreen actSelection _ _ welcome ->
+            Just welcome
+
+        IdleGameScreen _ _ welcome ->
+            Just welcome
+
+        RoundResultScreen _ _ _ _ welcome ->
+            Just welcome
+
+        GameResultScreen _ _ welcome ->
+            Just welcome
+
+        CommunityCardsScreen _ welcome ->
+            Just welcome
+
+        TimerScreen _ _ welcome ->
+            Just welcome
+
+        ChipSummaryScreen _ welcome ->
+            Just welcome
+
+
 
 -- routing
 
@@ -837,6 +948,16 @@ routeFromUi ui =
                 (getPlayerCode welcome.playerId)
 
         IdleGameScreen _ _ welcome ->
+            GameRoute
+                welcome.gameCode
+                (getPlayerCode welcome.playerId)
+
+        RoundResultScreen _ _ _ _ welcome ->
+            GameRoute
+                welcome.gameCode
+                (getPlayerCode welcome.playerId)
+
+        GameResultScreen _ _ welcome ->
             GameRoute
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)

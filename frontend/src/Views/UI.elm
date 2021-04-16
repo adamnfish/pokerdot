@@ -12,7 +12,7 @@ import FontAwesome.Attributes as Icon
 import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
-import Model exposing (ActSelection, ChipsSettings(..), Game, Model, Msg(..), Player, PlayerId, Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import Model exposing (ActSelection, Card, ChipsSettings(..), Game, Model, Msg(..), Player, PlayerId, PlayerWinnings, PotResult, Self, TimerLevel, TimerStatus, UI(..), Welcome)
 import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdTab, pdText, zWidths)
 
 
@@ -70,6 +70,16 @@ view model =
                 IdleGameScreen self game welcome ->
                     { body = idleGameScreen model self game welcome
                     , title = welcome.gameName ++ " | Your turn"
+                    }
+
+                RoundResultScreen potResults playerWinnings self game welcome ->
+                    { body = roundResultsScreen model potResults playerWinnings self game welcome
+                    , title = welcome.gameName ++ " | Round ended"
+                    }
+
+                GameResultScreen self game welcome ->
+                    { body = gameResultsScreen model self game welcome
+                    , title = welcome.gameName ++ " | Round ended"
                     }
 
                 CommunityCardsScreen game welcome ->
@@ -247,10 +257,17 @@ joinGameScreen model isExternal gameCode screenName =
 
 lobbyScreen : Model -> List Player -> ChipsSettings -> Self -> Game -> Welcome -> Element Msg
 lobbyScreen model playerOrder chipsSettings self game welcome =
+    let
+        formatPlayer : Player -> Element Msg
+        formatPlayer player =
+            text player.screenName
+    in
     column
         [ width fill
         ]
         [ Element.text <| game.gameCode
+        , column [] <|
+            List.map formatPlayer playerOrder
         , if self.isAdmin then
             lobbyStartSettings playerOrder chipsSettings
 
@@ -275,7 +292,7 @@ lobbyStartSettings playerOrder chipsSettings =
 
             TrackWithTimer currentStackSize timerLevels ->
                 column
-                    []
+                    [ width fill ]
                     [ text "Timer levels"
                     , Input.text
                         []
@@ -296,7 +313,7 @@ lobbyStartSettings playerOrder chipsSettings =
 
             TrackWithManualBlinds currentStackSize initialSmallBlind ->
                 column
-                    []
+                    [ width fill ]
                     [ text "Manual blinds"
                     , Input.text
                         []
@@ -315,7 +332,7 @@ lobbyStartSettings playerOrder chipsSettings =
                         }
                     , Input.text
                         []
-                        { text = String.fromInt currentStackSize
+                        { text = String.fromInt initialSmallBlind
                         , label = Input.labelLeft [] <| text "Small blind"
                         , placeholder =
                             Just <| Input.placeholder [] <| text "Initial small blind"
@@ -348,22 +365,74 @@ rejoinScreen model welcome =
 
 waitingGameScreen : Model -> PlayerId -> Self -> Game -> Welcome -> Element Msg
 waitingGameScreen model activePlayer self game welcome =
-    Element.none
+    column
+        [ width fill
+        ]
+        [ selfUi model.peeking self
+        , tableUi game
+        ]
 
 
 actingGameScreen : Model -> ActSelection -> Self -> Game -> Welcome -> Element Msg
 actingGameScreen model currentAct self game welcome =
-    Element.none
+    column
+        [ width fill
+        ]
+        [ selfUi model.peeking self
+        , tableUi game
+        ]
 
 
 idleGameScreen : Model -> Self -> Game -> Welcome -> Element Msg
 idleGameScreen model self game welcome =
-    Element.none
+    column
+        [ width fill
+        ]
+        [ selfUi model.peeking self
+        , tableUi game
+        ]
+
+
+roundResultsScreen : Model -> List PotResult -> List PlayerWinnings -> Self -> Game -> Welcome -> Element Msg
+roundResultsScreen model potResults playerWinnings self game welcome =
+    column
+        [ width fill
+        ]
+        [ selfUi model.peeking self
+        , tableUi game
+        ]
+
+
+gameResultsScreen : Model -> Self -> Game -> Welcome -> Element Msg
+gameResultsScreen model self game welcome =
+    column
+        [ width fill
+        ]
+        [ selfUi model.peeking self
+        , tableUi game
+        ]
 
 
 communityCardsScreen : Model -> Game -> Welcome -> Element Msg
 communityCardsScreen model game welcome =
-    Element.none
+    row
+        [ width fill ]
+    <|
+        case game.round of
+            Model.PreFlopRound ->
+                []
+
+            Model.FlopRound flop1 flop2 flop3 ->
+                List.map cardUi [ flop1, flop2, flop3 ]
+
+            Model.TurnRound flop1 flop2 flop3 turn ->
+                List.map cardUi [ flop1, flop2, flop3, turn ]
+
+            Model.RiverRound flop1 flop2 flop3 turn river ->
+                List.map cardUi [ flop1, flop2, flop3, turn, river ]
+
+            Model.ShowdownRound flop1 flop2 flop3 turn river _ ->
+                List.map cardUi [ flop1, flop2, flop3, turn, river ]
 
 
 timerScreen : Model -> TimerStatus -> Game -> Welcome -> Element Msg
@@ -374,3 +443,112 @@ timerScreen model timerStatus game welcome =
 chipSummaryScreen : Model -> Game -> Welcome -> Element Msg
 chipSummaryScreen model game welcome =
     Element.none
+
+
+tableUi : Game -> Element Msg
+tableUi game =
+    let
+        seat : Player -> Element Msg
+        seat player =
+            row
+                [ width fill
+                , spacing 8
+                ]
+                [ text player.screenName
+                , text <| String.fromInt player.stack
+                , text <| String.fromInt player.bet
+                ]
+    in
+    column
+        [ width fill
+        ]
+    <|
+        List.map seat game.players
+
+
+selfUi : Bool -> Self -> Element Msg
+selfUi isPeeking self =
+    if self.busted then
+        row
+            [ width fill ]
+            [ text self.screenName ]
+
+    else
+        row
+            [ width fill ]
+            [ text self.screenName
+            , case self.hole of
+                Nothing ->
+                    text "-"
+
+                Just ( card1, card2 ) ->
+                    row
+                        []
+                    <|
+                        if isPeeking then
+                            List.map cardUi [ card1, card2 ]
+
+                        else
+                            [ text "-", text "-" ]
+            ]
+
+
+cardUi : Card -> Element Msg
+cardUi card =
+    let
+        rank =
+            case card.rank of
+                Model.Two ->
+                    text "2"
+
+                Model.Three ->
+                    text "3"
+
+                Model.Four ->
+                    text "4"
+
+                Model.Five ->
+                    text "5"
+
+                Model.Six ->
+                    text "6"
+
+                Model.Seven ->
+                    text "7"
+
+                Model.Eight ->
+                    text "8"
+
+                Model.Nine ->
+                    text "9"
+
+                Model.Ten ->
+                    text "10"
+
+                Model.Jack ->
+                    text "J"
+
+                Model.Queen ->
+                    text "Q"
+
+                Model.King ->
+                    text "K"
+
+                Model.Ace ->
+                    text "A"
+
+        suit =
+            case card.suit of
+                Model.Clubs ->
+                    text "♣"
+
+                Model.Diamonds ->
+                    text "♦"
+
+                Model.Spades ->
+                    text "♠"
+
+                Model.Hearts ->
+                    text "♥"
+    in
+    row [] [ rank, suit ]

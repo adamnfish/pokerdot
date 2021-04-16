@@ -74,6 +74,8 @@ type UI
     | WaitingGameScreen PlayerId Self Game Welcome
     | ActingGameScreen ActSelection Self Game Welcome
     | IdleGameScreen Self Game Welcome
+    | RoundResultScreen (List PotResult) (List PlayerWinnings) Self Game Welcome
+    | GameResultScreen Self Game Welcome
       -- TODO: admin screen to fix things
       -- spectating
     | CommunityCardsScreen Game Welcome
@@ -105,6 +107,10 @@ type ChipsSettings
     = DoNotTrackChips
     | TrackWithTimer Int (List TimerLevel)
     | TrackWithManualBlinds Int Int
+
+
+defaultChipSettings =
+    TrackWithManualBlinds 1000 5
 
 
 type alias Error =
@@ -460,9 +466,16 @@ actionDecoder =
 
         decode id =
             case id of
+                "game-started" ->
+                    Json.Decode.succeed GameStartedAction
+
                 "player-joined" ->
                     playerIdFieldDecoder
                         |> Json.Decode.map PlayerJoinedAction
+
+                "call" ->
+                    playerIdFieldDecoder
+                        |> Json.Decode.map CallAction
 
                 "bet" ->
                     playerIdFieldDecoder
@@ -478,6 +491,15 @@ actionDecoder =
 
                 "advance-phase" ->
                     Json.Decode.succeed AdvancePhaseAction
+
+                "pause-timer" ->
+                    Json.Decode.succeed PauseTimerAction
+
+                "start-timer" ->
+                    Json.Decode.succeed StartTimerAction
+
+                "edit-timer" ->
+                    Json.Decode.succeed EditTimerAction
 
                 "no-action" ->
                     Json.Decode.succeed NoAction
