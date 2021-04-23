@@ -44,7 +44,10 @@ type Msg
     | SubmitStartGame
       -- game messages
     | TogglePeek
+      -- action selection events
+    | InputActSelection ActSelection
     | Check
+    | InputBet Int
     | Bet Int
     | Fold
     | AdvancePhase
@@ -71,9 +74,7 @@ type UI
     | JoinGameScreen Bool String String
     | LobbyScreen (List Player) ChipsSettings Self Game Welcome
     | RejoinScreen Welcome
-    | WaitingGameScreen PlayerId Self Game Welcome
-    | ActingGameScreen ActSelection Self Game Welcome
-    | IdleGameScreen Self Game Welcome
+    | GameScreen ActSelection Self Game Welcome
     | RoundResultScreen (List PotResult) (List PlayerWinnings) Self Game Welcome
     | GameResultScreen Self Game Welcome
       -- TODO: admin screen to fix things
@@ -265,9 +266,16 @@ type alias PlayerWinnings =
 
 type ActSelection
     = ActBet Int
+    | ActCheck
     | ActCall
     | ActFold
     | NoAct
+
+
+type PlayingState
+    = Playing
+    | Waiting
+    | Idle
 
 
 

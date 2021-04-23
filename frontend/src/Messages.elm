@@ -186,31 +186,12 @@ update msg model =
                             if game.gameId == oldGame.gameId then
                                 case action of
                                     GameStartedAction ->
-                                        if maybeContains self.playerId game.inTurn then
-                                            ( { model
-                                                | ui = ActingGameScreen NoAct self game welcome
-                                                , loadingStatus = NotLoading
-                                                , events = addAction model action
-                                              }
-                                            , Cmd.none
-                                            )
-
-                                        else
-                                            let
-                                                ui =
-                                                    case game.inTurn of
-                                                        Nothing ->
-                                                            IdleGameScreen self game welcome
-
-                                                        Just inTurn ->
-                                                            WaitingGameScreen inTurn self game welcome
-                                            in
-                                            ( { model
-                                                | ui = ui
-                                                , events = addAction model action
-                                              }
-                                            , Cmd.none
-                                            )
+                                        ( { model
+                                            | ui = GameScreen NoAct self game welcome
+                                            , events = addAction model action
+                                          }
+                                        , Cmd.none
+                                        )
 
                                     PlayerJoinedAction newPlayerId ->
                                         let
@@ -242,7 +223,7 @@ update msg model =
                                 ui =
                                     if game.started then
                                         -- TODO: work out correct ui from game state
-                                        IdleGameScreen self game welcome
+                                        GameScreen NoAct self game welcome
 
                                     else
                                         LobbyScreen game.players DoNotTrackChips self game welcome
@@ -253,66 +234,15 @@ update msg model =
                             , Cmd.none
                             )
 
-                        -- TODO: for each of these, update the UI's game data from the message (if it matches)
-                        --       for waiting / acting / idle move between them as appropriate
-                        WaitingGameScreen _ _ _ welcome ->
+                        GameScreen actSelection oldSelf oldGame welcome ->
                             let
-                                newUi =
-                                    case game.inTurn of
-                                        Just currentPlayerId ->
-                                            if currentPlayerId == self.playerId then
-                                                ActingGameScreen NoAct self game welcome
-
-                                            else
-                                                WaitingGameScreen currentPlayerId self game welcome
-
-                                        Nothing ->
-                                            IdleGameScreen self game welcome
-
+                                -- Ignore message if it isn't for the current game
                                 updatedModel =
-                                    { model | ui = newUi }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
+                                    if oldGame.gameId == game.gameId then
+                                        { model | ui = GameScreen actSelection self game welcome }
 
-                        ActingGameScreen actSelection _ _ welcome ->
-                            let
-                                newUi =
-                                    case game.inTurn of
-                                        Just currentPlayerId ->
-                                            if currentPlayerId == self.playerId then
-                                                ActingGameScreen actSelection self game welcome
-
-                                            else
-                                                WaitingGameScreen currentPlayerId self game welcome
-
-                                        Nothing ->
-                                            IdleGameScreen self game welcome
-
-                                updatedModel =
-                                    { model | ui = newUi }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
-                        IdleGameScreen _ _ welcome ->
-                            let
-                                newUi =
-                                    case game.inTurn of
-                                        Just currentPlayerId ->
-                                            if currentPlayerId == self.playerId then
-                                                ActingGameScreen NoAct self game welcome
-
-                                            else
-                                                WaitingGameScreen currentPlayerId self game welcome
-
-                                        Nothing ->
-                                            IdleGameScreen self game welcome
-
-                                updatedModel =
-                                    { model | ui = newUi }
+                                    else
+                                        model
                             in
                             ( registerEvent updatedModel action
                             , Cmd.none
@@ -322,12 +252,8 @@ update msg model =
                             let
                                 newUi =
                                     case game.inTurn of
-                                        Just currentPlayerId ->
-                                            if currentPlayerId == self.playerId then
-                                                ActingGameScreen NoAct self game welcome
-
-                                            else
-                                                WaitingGameScreen currentPlayerId self game welcome
+                                        Just _ ->
+                                            GameScreen NoAct self game welcome
 
                                         -- stay on results if a status message happens to come in while the round results are being displayed
                                         Nothing ->
@@ -344,12 +270,8 @@ update msg model =
                             let
                                 newUi =
                                     case game.inTurn of
-                                        Just currentPlayerId ->
-                                            if currentPlayerId == self.playerId then
-                                                ActingGameScreen NoAct self game welcome
-
-                                            else
-                                                WaitingGameScreen currentPlayerId self game welcome
+                                        Just _ ->
+                                            GameScreen NoAct self game welcome
 
                                         -- stay on results if a status message happens to come in while the game results are being displayed
                                         Nothing ->
@@ -469,17 +391,7 @@ update msg model =
                     , sendPing welcome
                     )
 
-                WaitingGameScreen playerId self game welcome ->
-                    ( newModel
-                    , sendPing welcome
-                    )
-
-                ActingGameScreen actSelection self game welcome ->
-                    ( newModel
-                    , sendPing welcome
-                    )
-
-                IdleGameScreen self game welcome ->
+                GameScreen actSelection self game welcome ->
                     ( newModel
                     , sendPing welcome
                     )
@@ -692,7 +604,7 @@ update msg model =
 
         Check ->
             case model.ui of
-                ActingGameScreen _ _ _ welcome ->
+                GameScreen _ _ _ welcome ->
                     ( { model | loadingStatus = AwaitingMessage }
                     , sendCheckRequest
                         { gameId = welcome.gameId
@@ -708,9 +620,41 @@ update msg model =
                     , Cmd.none
                     )
 
+        InputActSelection actSelection ->
+            case model.ui of
+                GameScreen _ self game welcome ->
+                    ( { model
+                        | ui = GameScreen actSelection self game welcome
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "You are not playing a game")
+                        model
+                    , Cmd.none
+                    )
+
+        InputBet amount ->
+            case model.ui of
+                GameScreen _ self game welcome ->
+                    ( { model
+                        | ui = GameScreen (ActBet amount) self game welcome
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "You must be playing a game to select a bet")
+                        model
+                    , Cmd.none
+                    )
+
         Bet amount ->
             case model.ui of
-                ActingGameScreen _ _ _ welcome ->
+                GameScreen _ _ _ welcome ->
                     ( { model | loadingStatus = AwaitingMessage }
                     , sendBetRequest
                         { gameId = welcome.gameId
@@ -729,7 +673,7 @@ update msg model =
 
         Fold ->
             case model.ui of
-                ActingGameScreen _ _ _ welcome ->
+                GameScreen _ _ _ welcome ->
                     ( { model | loadingStatus = AwaitingMessage }
                     , sendFoldRequest
                         { gameId = welcome.gameId
@@ -747,7 +691,16 @@ update msg model =
 
         AdvancePhase ->
             case model.ui of
-                WaitingGameScreen _ _ _ welcome ->
+                GameScreen _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendAdvancePhaseRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        }
+                    )
+
+                RoundResultScreen _ _ _ _ welcome ->
                     ( { model | loadingStatus = AwaitingMessage }
                     , sendAdvancePhaseRequest
                         { gameId = welcome.gameId
@@ -863,13 +816,7 @@ welcomeFromUi ui =
         RejoinScreen welcome ->
             Just welcome
 
-        WaitingGameScreen playerId _ _ welcome ->
-            Just welcome
-
-        ActingGameScreen actSelection _ _ welcome ->
-            Just welcome
-
-        IdleGameScreen _ _ welcome ->
+        GameScreen _ _ _ welcome ->
             Just welcome
 
         RoundResultScreen _ _ _ _ welcome ->
@@ -922,12 +869,7 @@ routeFromUi ui =
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
-        WaitingGameScreen _ _ _ welcome ->
-            GameRoute
-                welcome.gameCode
-                (getPlayerCode welcome.playerId)
-
-        ActingGameScreen _ _ _ welcome ->
+        GameScreen _ _ _ welcome ->
             GameRoute
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)
@@ -943,11 +885,6 @@ routeFromUi ui =
                 (getPlayerCode welcome.playerId)
 
         TimerScreen _ _ welcome ->
-            GameRoute
-                welcome.gameCode
-                (getPlayerCode welcome.playerId)
-
-        IdleGameScreen _ _ welcome ->
             GameRoute
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)

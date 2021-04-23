@@ -12,7 +12,8 @@ import FontAwesome.Attributes as Icon
 import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
-import Model exposing (ActSelection, Card, ChipsSettings(..), Game, Model, Msg(..), Player, PlayerId, PlayerWinnings, PotResult, Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import List.Extra
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Self, TimerLevel, TimerStatus, UI(..), Welcome)
 import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdTab, pdText, zWidths)
 
 
@@ -57,19 +58,35 @@ view model =
                     , title = welcome.gameName ++ " | Waiting..."
                     }
 
-                WaitingGameScreen activePlayer self game welcome ->
-                    { body = waitingGameScreen model activePlayer self game welcome
-                    , title = welcome.gameName ++ " | Waiting..."
-                    }
+                GameScreen currentAct self game welcome ->
+                    let
+                        playingState =
+                            case game.inTurn of
+                                Just currentPlayerId ->
+                                    if currentPlayerId == self.playerId then
+                                        Playing
 
-                ActingGameScreen currentAct self game welcome ->
-                    { body = actingGameScreen model currentAct self game welcome
-                    , title = welcome.gameName ++ " | Your turn"
-                    }
+                                    else
+                                        Waiting
 
-                IdleGameScreen self game welcome ->
-                    { body = idleGameScreen model self game welcome
-                    , title = welcome.gameName ++ " | Your turn"
+                                Nothing ->
+                                    Idle
+                    in
+                    { body = gameScreen model playingState currentAct self game welcome
+                    , title =
+                        welcome.gameName
+                            ++ (case playingState of
+                                    Playing ->
+                                        " | Your turn"
+
+                                    Waiting ->
+                                        " | Waiting"
+
+                                    Idle ->
+                                        " | TODO"
+                               )
+
+                    -- TODO: what should this say
                     }
 
                 RoundResultScreen potResults playerWinnings self game welcome ->
@@ -363,33 +380,27 @@ rejoinScreen model welcome =
             ++ "."
 
 
-waitingGameScreen : Model -> PlayerId -> Self -> Game -> Welcome -> Element Msg
-waitingGameScreen model activePlayer self game welcome =
+gameScreen : Model -> PlayingState -> ActSelection -> Self -> Game -> Welcome -> Element Msg
+gameScreen model playingState currentAct self game welcome =
     column
         [ width fill
         ]
         [ selfUi model.peeking self
         , tableUi game
-        ]
+        , communityCardsScreen model game welcome
+        , case playingState of
+            Playing ->
+                pokerControlsScreen True currentAct self game
 
+            Waiting ->
+                pokerControlsScreen False currentAct self game
 
-actingGameScreen : Model -> ActSelection -> Self -> Game -> Welcome -> Element Msg
-actingGameScreen model currentAct self game welcome =
-    column
-        [ width fill
-        ]
-        [ selfUi model.peeking self
-        , tableUi game
-        ]
+            Idle ->
+                if self.isAdmin then
+                    pdButton AdvancePhase [ "Next round" ]
 
-
-idleGameScreen : Model -> Self -> Game -> Welcome -> Element Msg
-idleGameScreen model self game welcome =
-    column
-        [ width fill
-        ]
-        [ selfUi model.peeking self
-        , tableUi game
+                else
+                    text "Waiting for the next round to start"
         ]
 
 
@@ -400,6 +411,30 @@ roundResultsScreen model potResults playerWinnings self game welcome =
         ]
         [ selfUi model.peeking self
         , tableUi game
+        , column
+            []
+          <|
+            List.map
+                (\pw ->
+                    let
+                        name =
+                            Maybe.withDefault "player" <|
+                                Maybe.map .screenName <|
+                                    List.Extra.find (\p -> p.playerId == pw.playerId) game.players
+                    in
+                    column
+                        []
+                        [ text name
+                        , handUi pw.hand
+                        , text <| "Winnings: " ++ String.fromInt pw.winnings
+                        ]
+                )
+                playerWinnings
+        , if self.isAdmin then
+            pdButton AdvancePhase [ "Next round" ]
+
+          else
+            text "Waiting for the next round to start"
         ]
 
 
@@ -410,6 +445,65 @@ gameResultsScreen model self game welcome =
         ]
         [ selfUi model.peeking self
         , tableUi game
+        ]
+
+
+pokerControlsScreen : Bool -> ActSelection -> Self -> Game -> Element Msg
+pokerControlsScreen isActive actSelection self game =
+    let
+        playerBets =
+            List.map .bet game.players
+
+        maxBet =
+            Maybe.withDefault 0 <| List.maximum playerBets
+
+        -- TODO: this is not yet correct
+        --       make sure it takes into account all in calls and the minimum bet amount
+        callAmount =
+            maxBet - self.bet
+
+        currentSelectedBetAmount =
+            case actSelection of
+                ActBet amount ->
+                    amount
+
+                _ ->
+                    0
+    in
+    column
+        []
+        [ pdButtonSmall (InputActSelection ActCheck) [ "check" ]
+        , pdButtonSmall (InputActSelection ActCall) [ "call" ]
+        , pdButtonSmall (InputActSelection ActFold) [ "fold" ]
+        , row
+            []
+            [ pdText
+                (\str ->
+                    InputActSelection <| ActBet <| Maybe.withDefault 0 <| String.toInt str
+                )
+                (String.fromInt currentSelectedBetAmount)
+                "bet amount"
+            , pdButtonSmall (InputActSelection <| ActBet currentSelectedBetAmount) [ "bet" ]
+            ]
+        , if isActive then
+            case actSelection of
+                ActCheck ->
+                    pdButtonSmall Check [ "Confirm check" ]
+
+                ActCall ->
+                    pdButtonSmall (Bet callAmount) [ "Confirm call" ]
+
+                ActFold ->
+                    pdButtonSmall Fold [ "Confirm fold" ]
+
+                ActBet amount ->
+                    pdButtonSmall (Bet amount) [ "Confirm bet" ]
+
+                NoAct ->
+                    text "Select action"
+
+          else
+            text "It isn't your turn"
         ]
 
 
@@ -448,6 +542,9 @@ chipSummaryScreen model game welcome =
 tableUi : Game -> Element Msg
 tableUi game =
     let
+        pot =
+            List.sum <| List.map .pot game.players
+
         seat : Player -> Element Msg
         seat player =
             row
@@ -462,8 +559,12 @@ tableUi game =
     column
         [ width fill
         ]
-    <|
-        List.map seat game.players
+        [ column
+            [ width fill ]
+          <|
+            List.map seat game.players
+        , text <| "pot: " ++ String.fromInt pot
+        ]
 
 
 selfUi : Bool -> Self -> Element Msg
@@ -479,7 +580,7 @@ selfUi isPeeking self =
             [ text self.screenName
             , case self.hole of
                 Nothing ->
-                    text "-"
+                    text " - "
 
                 Just ( card1, card2 ) ->
                     row
@@ -489,7 +590,13 @@ selfUi isPeeking self =
                             List.map cardUi [ card1, card2 ]
 
                         else
-                            [ text "-", text "-" ]
+                            [ text " - ", text " - " ]
+            , pdTab TogglePeek <|
+                if isPeeking then
+                    "stop looking at hand"
+
+                else
+                    "look at hand"
             ]
 
 
@@ -552,3 +659,139 @@ cardUi card =
                     text "♥"
     in
     row [] [ rank, suit ]
+
+
+handUi : Hand -> Element Msg
+handUi hand =
+    case hand of
+        HighCard c1 c2 c3 c4 c5 ->
+            column
+                []
+                [ text "High card"
+                , row
+                    []
+                    [ cardUi c1
+                    , cardUi c2
+                    , cardUi c3
+                    , cardUi c4
+                    , cardUi c5
+                    ]
+                ]
+
+        Pair p1 p2 k1 k2 k3 ->
+            column
+                []
+                [ text "Pair"
+                , row
+                    []
+                    [ cardUi p1
+                    , cardUi p2
+                    , text " | "
+                    , cardUi k1
+                    , cardUi k2
+                    , cardUi k3
+                    ]
+                ]
+
+        TwoPair p11 p12 p21 p22 k ->
+            column
+                []
+                [ text "Two pair"
+                , row
+                    []
+                    [ cardUi p11
+                    , cardUi p12
+                    , text " | "
+                    , cardUi p21
+                    , cardUi p22
+                    , text " | "
+                    , cardUi k
+                    ]
+                ]
+
+        ThreeOfAKind t1 t2 t3 k1 k2 ->
+            column
+                []
+                [ text "Three of a kind"
+                , row
+                    []
+                    [ cardUi t1
+                    , cardUi t2
+                    , cardUi t3
+                    , text " | "
+                    , cardUi k1
+                    , cardUi k2
+                    ]
+                ]
+
+        Straight c1 c2 c3 c4 c5 ->
+            column
+                []
+                [ text "Straight"
+                , row
+                    []
+                    [ cardUi c1
+                    , cardUi c2
+                    , cardUi c3
+                    , cardUi c4
+                    , cardUi c5
+                    ]
+                ]
+
+        Flush c1 c2 c3 c4 c5 ->
+            column
+                []
+                [ text "Flush"
+                , row
+                    []
+                    [ cardUi c1
+                    , cardUi c2
+                    , cardUi c3
+                    , cardUi c4
+                    , cardUi c5
+                    ]
+                ]
+
+        FullHouse t1 t2 t3 p1 p2 ->
+            column
+                []
+                [ text "Full house"
+                , row
+                    []
+                    [ cardUi t1
+                    , cardUi t2
+                    , cardUi t3
+                    , text " | "
+                    , cardUi p1
+                    , cardUi p2
+                    ]
+                ]
+
+        FourOfAKind q1 q2 q3 q4 k ->
+            column
+                []
+                [ text "Four of a kind"
+                , row
+                    []
+                    [ cardUi q1
+                    , cardUi q2
+                    , cardUi q3
+                    , cardUi q4
+                    , text " | "
+                    , cardUi k
+                    ]
+                ]
+
+        StraightFlush c1 c2 c3 c4 c5 ->
+            column
+                []
+                [ text "Straight flush"
+                , row
+                    []
+                    [ cardUi c1
+                    , cardUi c2
+                    , cardUi c3
+                    , cardUi c4
+                    , cardUi c5
+                    ]
+                ]
