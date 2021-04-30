@@ -1,0 +1,64 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+      java: openjdk8
+
+  pre_build:
+    commands:
+      - echo "[Status] pre build started at `date`"
+      - echo Current directory is `pwd`
+
+      # Install software for API build
+      - echo Installing sbt
+      - aws s3 cp s3://$DIST_BUCKET/pokerdot/$STAGE/sbt.zip .
+      - unzip sbt.zip
+
+      # Install software for frontend build
+      - npm install -g create-elm-app@5.22.0 --unsafe-perm=true --allow-root
+      - cd frontend
+      - npm install
+      - cd ..
+
+      - echo "[STATUS] pre build step finished"
+
+  build:
+    commands:
+      - echo "[Status] Build started at `date`"
+
+      # test and package API
+      - sbt/bin/sbt -no-colors test "project lambda" universal:packageBin
+      # frontend
+      - cd frontend
+      - elm-app test
+      - elm-app build
+      - cd ..
+
+      - echo "[STATUS] Build step finished"
+
+  post_build:
+    commands:
+      - echo "[STATUS] Deploy started at `date`"
+
+      - echo Deploying API to $FUNCTION_NAME
+      - export DIST_KEY=pokerdot/$STAGE/pokerdot-lambda.zip
+      - aws s3 cp lambda/target/universal/pokerdot-lambda.zip s3://$DIST_BUCKET/$DIST_KEY
+      - aws lambda update-function-code --function-name $FUNCTION_NAME --s3-bucket $DIST_BUCKET --s3-key $DIST_KEY
+
+      - echo Uploading static site to $WWW_BUCKET_NAME
+      - cd frontend/build
+      - aws s3 sync . s3://$WWW_BUCKET_NAME
+      - cd ../..
+      - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/*"
+
+      - echo "[STATUS] Deploy step finished"
+
+artifacts:
+  files:
+    - lambda/target/universal/pokerdot-lambda.zip
+    - frontend/build/*
