@@ -13,6 +13,11 @@ phases:
     commands:
       - echo "[Status] pre build started at `date`"
       - echo Current directory is `pwd`
+      - echo STAGE $STAGE
+      - echo DIST_BUCKET $DIST_BUCKET
+      - echo FUNCTION_NAME $FUNCTION_NAME
+      - echo WWW_BUCKET_NAME $WWW_BUCKET_NAME
+      - echo CLOUDFRONT_DIST_ID $CLOUDFRONT_DIST_ID
 
       # Install software for API build
       - echo Installing sbt
@@ -39,10 +44,8 @@ phases:
       - elm-app build
       - cd ..
 
-      - echo "[STATUS] Build step finished"
+      - echo "[STATUS] Build finished"
 
-  post_build:
-    commands:
       - echo "[STATUS] Deploy started at `date`"
 
       - echo Deploying API to $FUNCTION_NAME
@@ -56,7 +59,7 @@ phases:
       - cd ../..
       - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/*"
 
-      - echo "[STATUS] Deploy step finished"
+      - echo "[STATUS] Deploy finished at `date`"
 
 artifacts:
   files:

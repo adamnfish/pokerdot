@@ -12,7 +12,6 @@ import Time
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>))
-import Utils exposing (maybeContains)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -1024,8 +1023,8 @@ navigate navKey withHistory route =
                 NotFound ->
                     Url.Builder.custom Url.Builder.Relative [] [] <| Just ""
 
-        _ =
-            Debug.log "navigating to url " newUrl
+        --_ =
+        --    Debug.log "navigating to url " newUrl
     in
     if withHistory then
         Browser.Navigation.pushUrl navKey newUrl
