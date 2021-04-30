@@ -103,7 +103,7 @@ class Lambda {
     val response = new APIGatewayV2WebSocketResponse()
     response.setStatusCode(200)
     response.setHeaders(Map("content-type" -> "application/json").asJava)
-    response.setBody("""{"status": "ok"}""")
+    response.setBody("")
     response
   }
 }
