@@ -472,6 +472,19 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           )
         )
       }
+
+      "heads up, stronger player folds - should only include winning pot" in {
+        val playerBlind = testPlayerHand(10, Five of Spades, Two of Clubs, "1")
+        val playerFold = testPlayerHand(5, Ace of Spades, Ten of Hearts, "2", folded = true)
+
+        winnings(List(playerBlind, playerFold)) shouldEqual List(
+          PotWinnings(
+            potSize = 15,
+            participants = Set(playerBlind.player.playerId),
+            winners = Set(playerBlind.player.playerId)
+          )
+        )
+      }
     }
 
     "for split pots" - {

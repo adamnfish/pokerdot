@@ -1,9 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.PlayerActions.{advancePhase, ensurePlayersHaveFinishedActing}
+import io.adamnfish.pokerdot.logic.PlayerActions.{advanceFromRiver, advancePhase, ensurePlayersHaveFinishedActing}
 import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer}
-import io.adamnfish.pokerdot.models.{Flop, PlayerAddress, PreFlop, River, Turn}
+import io.adamnfish.pokerdot.models.{Flop, PlayerAddress, PreFlop, River, Round, Turn}
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -402,6 +402,38 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           }
         }
       }
+    }
+  }
+
+  "advanceFromRiver" - {
+    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates)
+    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates)
+    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates)
+    val round = Play.generateRound(River, 5, rawGame.seed)
+
+    "excludes folded players from the player hands" in {
+      val dealtPlayers = Play.dealHoles(
+        List(
+          p1.copy(
+            pot = 10,
+          ),
+          p2.copy(
+            pot = 10,
+          ),
+          p3.copy(
+            pot = 5,
+            folded = true,
+          ),
+        ),
+        Play.deckOrder(rawGame.seed)
+      )
+      val game = rawGame.copy(
+        round = round,
+        players = dealtPlayers,
+      )
+      val (_, playerWinnings, _) = advanceFromRiver(game)
+      playerWinnings.find(_.playerId == p3.playerId) shouldEqual None
     }
   }
 

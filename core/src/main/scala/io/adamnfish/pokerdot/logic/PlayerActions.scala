@@ -237,7 +237,7 @@ object PlayerActions {
    * Since all betting is now complete, we must calculate the
    * result of the round.
    */
-  private def advanceFromRiver(game: Game): (Game, List[PlayerWinnings], List[PotWinnings]) = {
+  private[logic] def advanceFromRiver(game: Game): (Game, List[PlayerWinnings], List[PotWinnings]) = {
     val gameAtRoundEnd = game.copy(
       players = game.players.map(resetPlayerForNextPhase)
     )
@@ -246,7 +246,9 @@ object PlayerActions {
     val potsWinnings = PokerHands.winnings(playerHands)
     val playersWinnings = PokerHands.playerWinnings(potsWinnings, gameAtRoundEnd.button,
       playerOrder = gameAtRoundEnd.players.map(_.playerId),
-      playerHands = playerHands.map(ph => ph.player.playerId -> ph.hand),
+      playerHands = playerHands
+        .filterNot(_.player.folded)
+        .map(ph => ph.player.playerId -> ph.hand),
     )
     val updatedPlayers = gameAtRoundEnd.players.map(resetPlayerForShowdown(playersWinnings))
     (
