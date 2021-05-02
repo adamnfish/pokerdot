@@ -1022,9 +1022,6 @@ navigate navKey withHistory route =
 
                 NotFound ->
                     Url.Builder.custom Url.Builder.Relative [] [] <| Just ""
-
-        --_ =
-        --    Debug.log "navigating to url " newUrl
     in
     if withHistory then
         Browser.Navigation.pushUrl navKey newUrl
