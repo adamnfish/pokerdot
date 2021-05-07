@@ -163,8 +163,8 @@ object PlayerActions {
           (newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings))
         case Showdown =>
           val newGame = startNewRound(game, rng)
-          val allPlayers = game.players.map(_.playerId).toSet
-          (newGame, allPlayers, None)
+          val allPlayerIds = game.players.map(_.playerId).toSet
+          (newGame, allPlayerIds, None)
       }
     }
   }

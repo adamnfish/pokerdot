@@ -171,6 +171,38 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
   }
 
+  "playerIsActive" - {
+    "true for an active player" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsActive(player.copy(
+        stack = 1000,
+      )) shouldEqual true
+    }
+
+    "false for a folded player" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsActive(player.copy(
+        stack = 1000,
+        folded = true,
+      )) shouldEqual false
+    }
+
+    "false for a busted player" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsActive(player.copy(
+        stack = 1000,
+        busted = true,
+      )) shouldEqual false
+    }
+
+    "false for an all-in player" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsActive(player.copy(
+        stack = 0,
+      )) shouldEqual false
+    }
+  }
+
   "playerIsYetToAct" - {
     val player =
       newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
@@ -362,6 +394,33 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         ), Some(p1.playerId), 0) shouldEqual Some(p3.playerId)
       }
 
+      "if there is only one active player left" - {
+        "returns None if the current player is the only player still in the game" in {
+          nextPlayer(List(
+            p1,
+            p2.copy(folded = true),
+            p3.copy(folded = true),
+            p4.copy(folded = true),
+          ), Some(p2.playerId), 0) shouldEqual None
+        }
+
+        "returns None if the current player is the only player still in the game - even if they have bet less" in {
+          nextPlayer(List(
+            p1.copy(bet = 5),
+            p2.copy(bet = 10, folded = true),
+            p3.copy(bet = 10, folded = true),
+            p4.copy(folded = true),
+          ), Some(p2.playerId), 0) shouldEqual None
+        }
+
+        "returns None after a heads-up fold (even if they have bet less)" in {
+          nextPlayer(List(
+            p1.copy(bet = 10, folded = true),
+            p2.copy(bet = 5),
+          ), Some(p1.playerId), 0) shouldEqual None
+        }
+      }
+
       "skips a busted player" in {
         nextPlayer(List(
           p1,
@@ -393,6 +452,16 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         ), Some(p3.playerId), 0) shouldEqual Some(p1.playerId)
       }
 
+      "in heads-up, activates the next player" - {
+        "with button index 0" in {
+          nextPlayer(List(p1, p2), Some(p1.playerId), 0) shouldEqual Some(p2.playerId)
+        }
+
+        "with button index 1" in {
+          nextPlayer(List(p1, p2), Some(p2.playerId), 1) shouldEqual Some(p1.playerId)
+        }
+      }
+
       "returns None if no players are eligible to become active" in {
         val ineligiblePlayers = List(p1, p2, p3, p4).map(_.copy(folded = true))
         nextPlayer(ineligiblePlayers, Some(p3.playerId), 0) shouldEqual None
@@ -400,21 +469,93 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "when no player is currently active" - {
-      "activates the player to the left of the button" - {
-        "for button index 0" in {
-          nextPlayer(List(p1, p2, p3, p4), None, 0) shouldEqual Some(p2.playerId)
+      "for the first phase of a round (with blinds paid)" - {
+        "activates the player to the left of the Big Blind in a large game" - {
+          "for button index 0" in {
+            nextPlayer(List(
+              p1,
+              p2.copy(blind = SmallBlind, bet = 5),
+              p3.copy(blind = BigBlind, bet = 10),
+              p4,
+            ), None, 0) shouldEqual Some(p4.playerId)
+          }
+
+          "for button index 1" in {
+            nextPlayer(List(
+              p1,
+              p2,
+              p3.copy(blind = SmallBlind, bet = 5),
+              p4.copy(blind = BigBlind, bet = 10),
+            ), None, 1) shouldEqual Some(p1.playerId)
+          }
+
+          "for button index 2" in {
+            nextPlayer(List(
+              p1.copy(blind = BigBlind, bet = 10),
+              p2,
+              p3,
+              p4.copy(blind = SmallBlind, bet = 5),
+            ), None, 2) shouldEqual Some(p2.playerId)
+          }
+
+          "wraps round to the first player for button index 3" in {
+            nextPlayer(List(
+              p1.copy(blind = SmallBlind, bet = 5),
+              p2.copy(blind = BigBlind, bet = 10),
+              p3,
+              p4,
+            ), None, 3) shouldEqual Some(p3.playerId)
+          }
         }
 
-        "for button index 1" in {
-          nextPlayer(List(p1, p2, p3, p4), None, 1) shouldEqual Some(p3.playerId)
-        }
+        "in heads-up, activates the dealer / small blind (non big blind player)" - {
+          "with button index 0" in {
+            nextPlayer(List(
+              p1.copy(blind = SmallBlind, bet = 5),
+              p2.copy(blind = BigBlind, bet = 10),
+            ), None, 0) shouldEqual Some(p1.playerId)
+          }
 
-        "for button index 2" in {
-          nextPlayer(List(p1, p2, p3, p4), None, 2) shouldEqual Some(p4.playerId)
+          "with button index 1" in {
+            nextPlayer(List(
+              p1.copy(blind = BigBlind, bet = 10),
+              p2.copy(blind = SmallBlind, bet = 5),
+            ), None, 1) shouldEqual Some(p2.playerId)
+          }
         }
+      }
 
-        "wraps round to the first player for button index 3" in {
-          nextPlayer(List(p1, p2, p3, p4), None, 3) shouldEqual Some(p1.playerId)
+      "for a new phase after the first (no blinds)" - {
+        "activates the player to the left of the button for a game of any size" - {
+          "for button index 0" in {
+            nextPlayer(List(p1, p2, p3, p4), None, 0) shouldEqual Some(p2.playerId)
+          }
+
+          "for button index 1" in {
+            nextPlayer(List(p1, p2, p3, p4), None, 1) shouldEqual Some(p3.playerId)
+          }
+
+          "for button index 2" in {
+            nextPlayer(List(p1, p2, p3, p4), None, 2) shouldEqual Some(p4.playerId)
+          }
+
+          "wraps round to the first player for button index 3" in {
+            nextPlayer(List(p1, p2, p3, p4), None, 3) shouldEqual Some(p1.playerId)
+          }
+
+          "for heads up game with button index 0" in {
+            nextPlayer(List(
+              p1.copy(blind = BigBlind),
+              p2.copy(blind = SmallBlind),
+            ), None, 0) shouldEqual Some(p2.playerId)
+          }
+
+          "for heads up game with button index 1" in {
+            nextPlayer(List(
+              p1.copy(blind = SmallBlind),
+              p2.copy(blind = BigBlind),
+            ), None, 1) shouldEqual Some(p1.playerId)
+          }
         }
       }
 
@@ -494,13 +635,14 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
       "the big blind moves, and dealer is always small blind in these examples" - {
         "normal for heads-up" in {
-          val (_, players) = nextDealerAndBlinds(List(
+          val (newButton, players) = nextDealerAndBlinds(List(
             player1.copy(blind = BigBlind),
             player2.copy(blind = SmallBlind),
             player3.copy(busted = true),
             player4.copy(busted = true),
           ), 1, smallBlind)
           players.map(_.blind) shouldEqual List(SmallBlind, BigBlind, NoBlind, NoBlind)
+          newButton shouldEqual 0
         }
 
         "BB jumping busted players (dealer went bust)" in {

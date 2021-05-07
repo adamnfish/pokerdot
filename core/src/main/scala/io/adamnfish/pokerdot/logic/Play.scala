@@ -67,11 +67,15 @@ object Play {
     } yield (activePlayer.playerId, privateCards)
   }
 
+  def playerIsActive(player: Player): Boolean = {
+    !(player.stack == 0 || player.folded || player.busted)
+  }
+
   /**
    * If the player is in this round (i.e. not busted or folded), check if they have acted at this bid level.
    */
   def playerIsYetToAct(betAmount: Int, players: List[Player])(player: Player): Boolean = {
-    if (player.stack == 0 || player.folded || player.busted) {
+    if (!playerIsActive(player)) {
       // players can't act if they are out the round
       // but they also cannot act if they are all-in
       false
@@ -80,13 +84,10 @@ object Play {
       // if the player is all-in then they cannot act any further
       player.stack > 0
     } else {
-      // player's contribution is equal or higher than the current bid amount
+      // player's contribution is equal to or higher than the current bid amount
       // and they are still playing in the phase
       // here we need to look at other players to decide if the round is still 'active'
-      players.filterNot { p =>
-        // exclude players that are out of money (all-in), or not in the round
-        p.stack == 0 || p.folded || p.busted
-      } match {
+      players.filter(playerIsActive) match {
         case active :: Nil if active.playerId == player.playerId =>
           // this player is the only player that can still act
           // we already checked they have matched the current bet amount
@@ -122,18 +123,40 @@ object Play {
   }
 
   def nextPlayer(players: List[Player], currentActive: Option[PlayerId], button: Int): Option[PlayerId] = {
-    if (players.isEmpty) None
-    else {
+    val activePlayers = players.filter(playerIsActive)
+    if (activePlayers.length <= 1) {
+      None
+    } else {
+      // if a player is currently active, advance to next
       val nextPlayer = for {
         activePlayerId <- currentActive
         activePlayerIndex <- players.findIndex(_.playerId == activePlayerId)
         nextIndex = (activePlayerIndex + 1) % players.length
         next <- nextActiveFromIndex(players, nextIndex)
       } yield next
-
+      // if there is no active player to count from
       nextPlayer.orElse {
-        // if there is no active player to count from, we count from the button instead
-        nextActiveFromIndex(players, (button + 1) % players.length)
+        val newRound = players.find(_.blind == BigBlind).exists(_.bet != 0)
+        if (activePlayers.length == 2) {
+          if (newRound) {
+            // in heads-up the dealer acts first in a new round
+            players.find(_.blind != BigBlind).map(_.playerId)
+          } else {
+            // player after dealer for new phases within the round
+            nextActiveFromIndex(players, (button + 1) % players.length)
+          }
+        } else {
+          if (newRound) {
+            // for larger games, player after big blind is first to act in a new round
+            players.findIndex(_.blind == BigBlind)
+              .flatMap { bigBlindIndex =>
+                nextActiveFromIndex(players, (bigBlindIndex + 1) % players.length)
+              }
+          } else {
+            // player after dealer for new phases within the round
+            nextActiveFromIndex(players, (button + 1) % players.length)
+          }
+        }
       }
     }
   }
@@ -171,7 +194,9 @@ object Play {
             .getOrElse(throw new RuntimeException("Couldn't find heads-up dealer"))
         } else {
           players
+            // dealer is prev small blind if they are still playing
             .findIndex(p => p.blind == SmallBlind && !p.busted)
+            // otherwise look backwards through active players to find player that was most recently dealer
             .getOrElse {
               def loop(i: Int): Int = {
                 players.lift(i) match {
@@ -188,9 +213,7 @@ object Play {
                     // shrug, we got out of bounds on the list, somehow?
                     throw new RuntimeException("shrug got out of bounds?!")
                 }
-
               }
-
               loop(button)
             }
         }

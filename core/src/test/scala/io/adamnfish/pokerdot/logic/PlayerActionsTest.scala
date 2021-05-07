@@ -1,9 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.PlayerActions.{advanceFromRiver, advancePhase, ensurePlayersHaveFinishedActing}
+import io.adamnfish.pokerdot.logic.PlayerActions.{advanceFromRiver, advancePhase, ensurePlayersHaveFinishedActing, fold}
 import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer}
-import io.adamnfish.pokerdot.models.{Flop, PlayerAddress, PreFlop, River, Round, Turn}
+import io.adamnfish.pokerdot.models.{BigBlind, Flop, PlayerAddress, PreFlop, River, Round, SmallBlind, Turn}
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -52,7 +52,80 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "fold" - {
-    "updates player's folded status" ignore {}
+    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
+      .copy(stack = 1000)
+    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
+      .copy(stack = 1000)
+    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
+      .copy(stack = 1000)
+
+    "updates player's folded status" in {
+      val game = rawGame.copy(
+        inTurn = Some(p1.playerId),
+        players = List(
+          p1,
+          p2.copy(blind = SmallBlind, bet = 5),
+          p3.copy(blind = BigBlind, bet = 10),
+        )
+      )
+      val updatedGame = fold(game, p1)
+      val updatedP1 = updatedGame.players.find(_.playerId == p1.playerId).value
+      updatedP1.folded shouldEqual true
+    }
+
+    "activates the next eligible player" in {
+      val game = rawGame.copy(
+        inTurn = Some(p1.playerId),
+        players = List(
+          p1,
+          p2.copy(blind = SmallBlind, bet = 5),
+          p3.copy(blind = BigBlind, bet = 10),
+        )
+      )
+      val updatedGame = fold(game, p1)
+      updatedGame.inTurn shouldEqual Some(p2.playerId)
+    }
+
+    "no one is 'in turn' if there is only one player remaining" - {
+      "heads up fold" in {
+        val game = rawGame.copy(
+          inTurn = Some(p1.playerId),
+          players = List(
+            p1.copy(blind = SmallBlind, bet = 5),
+            p2.copy(blind = BigBlind, bet = 10),
+          )
+        )
+        val updatedGame = fold(game, p1)
+        updatedGame.inTurn shouldEqual None
+      }
+
+      "busted players leaves heads-up" in {
+        val game = rawGame.copy(
+          inTurn = Some(p1.playerId),
+          players = List(
+            p1.copy(blind = SmallBlind, bet = 5),
+            p2.copy(blind = BigBlind, bet = 10),
+            p3.copy(busted = true),
+          )
+        )
+        val updatedGame = fold(game, p1)
+        updatedGame.inTurn shouldEqual None
+      }
+
+      "other players have already folded so this fold leaves a single winner" in {
+        val game = rawGame.copy(
+          inTurn = Some(p2.playerId),
+          players = List(
+            p1.copy(folded = true),
+            p2.copy(blind = SmallBlind, bet = 5),
+            p3.copy(blind = BigBlind, bet = 10),
+          )
+        )
+        val updatedGame = fold(game, p2)
+        updatedGame.inTurn shouldEqual None
+      }
+    }
 
     "returns a fold action with correct player" ignore {}
 
@@ -272,6 +345,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "active player is left of the dealer" in {
           forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
             val testGame = game.copy(
+              inTurn = Some(p1.playerId),
               round = game.round.copy(phase = phase),
               button = 0,
               players = List(
@@ -301,6 +375,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "active player skips ineligible players" in {
           forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
             val testGame = game.copy(
+              inTurn = Some(p1.playerId),
               round = game.round.copy(phase = phase),
               button = 0,
               players = List(

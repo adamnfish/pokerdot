@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.integration
 
 import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
-import io.adamnfish.pokerdot.integration.GameplayIntegrationTest.{advancePhaseRequest, betRequest, checkRequest, foldRequest}
+import io.adamnfish.pokerdot.integration.IntegrationComponents.{advancePhaseRequest, betRequest, checkRequest, foldRequest}
 import io.adamnfish.pokerdot.integration.JoinGameIntegrationTest.{joinGameRequest, performJoinGame}
 import io.adamnfish.pokerdot.integration.StartGameIntegrationTest.{performStartGame, startGameRequest}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
@@ -15,7 +15,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 
-class GameplayIntegrationTest extends AnyFreeSpec with Matchers with IntegrationComponents with TestHelpers with OptionValues {
+class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with IntegrationComponents with TestHelpers with OptionValues {
   val hostAddress = PlayerAddress("host-address")
   val player1Address = PlayerAddress("player-1-address")
   val player2Address = PlayerAddress("player-2-address")
@@ -204,22 +204,24 @@ class GameplayIntegrationTest extends AnyFreeSpec with Matchers with Integration
       PokerDot.advancePhase(parseReq(advancePhaseRequest(hostWelcome)), context(hostAddress)).value()
 
       // players should be reset for the new round
-      val playerDbsPreFlop2 = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
-      playerDbsPreFlop2.get(hostWelcome.playerId).value should have(
+      val playerDbsNewRound = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
+      playerDbsNewRound.get(hostWelcome.playerId).value should have(
         "stack" as 980,
         "checked" as false,
         "folded" as false,
         "bet" as 0,
         "pot" as 0,
+        "blind" as 0,
       )
-      playerDbsPreFlop2.get(p1Welcome.playerId).value should have(
+      playerDbsNewRound.get(p1Welcome.playerId).value should have(
         "stack" as 1090,
         "checked" as false,
         "folded" as false,
         "bet" as 0,
         "pot" as 0,
+        "blind" as 0,
       )
-      playerDbsPreFlop2.get(p2Welcome.playerId).value should have(
+      playerDbsNewRound.get(p2Welcome.playerId).value should have(
         "stack" as 925, // small blind paid out as well as prev round's result
         "checked" as false,
         "folded" as false,
@@ -227,7 +229,7 @@ class GameplayIntegrationTest extends AnyFreeSpec with Matchers with Integration
         "pot" as 0,
         "blind" as 1,
       )
-      playerDbsPreFlop2.get(p3Welcome.playerId).value should have(
+      playerDbsNewRound.get(p3Welcome.playerId).value should have(
         "stack" as 990, // big blind paid out as well as prev round's result
         "checked" as false,
         "folded" as false,
@@ -235,9 +237,10 @@ class GameplayIntegrationTest extends AnyFreeSpec with Matchers with Integration
         "pot" as 0,
         "blind" as 2,
       )
-      // dealer should have moved correctly
+      // dealer and active player should have moved correctly
       db.getGame(hostWelcome.gameId).value().value should have(
         "button" as 1,
+        "inTurn" as Some(hostWelcome.playerId.pid),
       )
     }
   }
@@ -277,26 +280,5 @@ class GameplayIntegrationTest extends AnyFreeSpec with Matchers with Integration
       startResponse <- performStartGame(startRequest, contextBuilder(hostAddress))
       gameStatus = startResponse.statuses.get(hostAddress).value
     } yield (gameStatus, hostWelcome, p1Welcome, p2Welcome, p3Welcome)
-  }
-}
-object GameplayIntegrationTest {
-  def betRequest(betAmount: Int, welcome: Welcome): String = {
-    val request = Bet(welcome.gameId, welcome.playerKey, welcome.playerId, betAmount)
-    encodeRequest(request).noSpaces
-  }
-
-  def checkRequest(welcome: Welcome): String = {
-    val request = Check(welcome.gameId, welcome.playerKey, welcome.playerId)
-    encodeRequest(request).noSpaces
-  }
-
-  def foldRequest(welcome: Welcome): String = {
-    val request = Fold(welcome.gameId, welcome.playerKey, welcome.playerId)
-    encodeRequest(request).noSpaces
-  }
-
-  def advancePhaseRequest(welcome: Welcome): String = {
-    val request = AdvancePhase(welcome.gameId, welcome.playerKey, welcome.playerId)
-    encodeRequest(request).noSpaces
   }
 }

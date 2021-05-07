@@ -578,6 +578,7 @@ selfUi isPeeking self =
         row
             [ width fill ]
             [ text self.screenName
+            , text " "
             , case self.hole of
                 Nothing ->
                     text " - "
@@ -587,7 +588,7 @@ selfUi isPeeking self =
                         []
                     <|
                         if isPeeking then
-                            List.map cardUi [ card1, card2 ]
+                            List.intersperse (text " ") <| List.map cardUi [ card1, card2 ]
 
                         else
                             [ text " - ", text " - " ]

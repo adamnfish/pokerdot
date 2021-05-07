@@ -1,6 +1,7 @@
 package io.adamnfish.pokerdot.integration
 
 import io.adamnfish.pokerdot.TestDates
+import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Database, Messaging, Rng}
@@ -45,5 +46,26 @@ trait IntegrationComponents {
         f(addressToContext, testDb)
       }
     }
+  }
+}
+object IntegrationComponents {
+  def betRequest(betAmount: Int, welcome: Welcome): String = {
+    val request = Bet(welcome.gameId, welcome.playerKey, welcome.playerId, betAmount)
+    encodeRequest(request).noSpaces
+  }
+
+  def checkRequest(welcome: Welcome): String = {
+    val request = Check(welcome.gameId, welcome.playerKey, welcome.playerId)
+    encodeRequest(request).noSpaces
+  }
+
+  def foldRequest(welcome: Welcome): String = {
+    val request = Fold(welcome.gameId, welcome.playerKey, welcome.playerId)
+    encodeRequest(request).noSpaces
+  }
+
+  def advancePhaseRequest(welcome: Welcome): String = {
+    val request = AdvancePhase(welcome.gameId, welcome.playerKey, welcome.playerId)
+    encodeRequest(request).noSpaces
   }
 }
