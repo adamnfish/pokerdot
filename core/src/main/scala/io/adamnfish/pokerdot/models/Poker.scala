@@ -138,7 +138,7 @@ case class PlayerHand(
 
 case class PlayerWinnings(
   playerId: PlayerId,
-  hand: Hand,
+  hand: Option[Hand],
   winnings: Int,
 )
 

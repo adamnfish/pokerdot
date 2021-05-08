@@ -481,7 +481,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         val playerWinnings = List(
           PlayerWinnings(
             player.playerId,
-            HighCard(Ace of Clubs, King of Spades, Queen of Hearts, Ten of Diamonds, Eight of Clubs),
+            Some(HighCard(Ace of Clubs, King of Spades, Queen of Hearts, Ten of Diamonds, Eight of Clubs)),
             winnings,
           )
         )

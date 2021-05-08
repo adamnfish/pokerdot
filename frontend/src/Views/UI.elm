@@ -425,7 +425,7 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                     column
                         []
                         [ text name
-                        , handUi pw.hand
+                        , Maybe.withDefault none <| Maybe.map handUi pw.hand
                         , text <| "Winnings: " ++ String.fromInt pw.winnings
                         ]
                 )

@@ -3,7 +3,7 @@ module Model exposing (..)
 import Browser exposing (UrlRequest)
 import Browser.Dom exposing (Viewport)
 import Browser.Navigation
-import Json.Decode
+import Json.Decode exposing (nullable)
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode
 import Time exposing (Posix(..))
@@ -255,7 +255,7 @@ type alias PotResult =
 
 type alias PlayerWinnings =
     { playerId : PlayerId
-    , hand : Hand
+    , hand : Maybe Hand
     , winnings : Int
     }
 
@@ -597,7 +597,7 @@ playerWinningsDecoder : Json.Decode.Decoder PlayerWinnings
 playerWinningsDecoder =
     Json.Decode.succeed PlayerWinnings
         |> required "playerId" playerIdDecoder
-        |> required "hand" handDecoder
+        |> required "hand" (nullable handDecoder)
         |> required "winnings" Json.Decode.int
 
 

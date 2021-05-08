@@ -213,7 +213,7 @@ object PokerHands {
       }
     }
     playerHands.reverse.map { case (playerId, hand) =>
-      PlayerWinnings(playerId, hand,
+      PlayerWinnings(playerId, Some(hand),
         playerWinningsAmounts.getOrElse(playerId, 0)
       )
     }.sortBy(_.winnings).reverse
