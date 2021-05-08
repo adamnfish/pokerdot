@@ -71,6 +71,10 @@ object Play {
     !(player.stack == 0 || player.folded || player.busted)
   }
 
+  def playerIsInvolved(player: Player): Boolean = {
+    !(player.folded || player.busted)
+  }
+
   /**
    * If the player is in this round (i.e. not busted or folded), check if they have acted at this bid level.
    */

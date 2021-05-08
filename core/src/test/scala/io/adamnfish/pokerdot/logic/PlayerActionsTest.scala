@@ -1,9 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.PlayerActions.{advanceFromRiver, advancePhase, ensurePlayersHaveFinishedActing, fold}
+import io.adamnfish.pokerdot.logic.PlayerActions.{advanceFromFoldedFinish, advanceFromRiver, advancePhase, ensurePlayersHaveFinishedActing, fold}
 import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer}
-import io.adamnfish.pokerdot.models.{BigBlind, Flop, PlayerAddress, PreFlop, River, Round, SmallBlind, Turn}
+import io.adamnfish.pokerdot.models.{BigBlind, Flop, PlayerAddress, PlayerWinnings, PotWinnings, PreFlop, River, Round, Showdown, SmallBlind, Turn}
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -401,6 +401,35 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           }
         }
       }
+
+      "skips straight to showdown if only one player remains in the round" in {
+        forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
+          val round = Play.generateRound(phase, 5, game.seed)
+          val testGame = game.copy(
+            round = round,
+            players = List(
+              p1.copy(
+                folded = true,
+                bet = 25,
+                pot = 10,
+                blind = BigBlind,
+              ),
+              p2.copy(
+                bet = 35,
+                pot = 10
+              ),
+              p3.copy(
+                folded = true,
+                bet = 10,
+                pot = 10,
+                blind = SmallBlind,
+              ),
+            )
+          )
+          val (updatedGame, _, _) = advancePhase(testGame, TestRng).value
+          updatedGame.round.phase shouldEqual Showdown
+        }
+      }
     }
 
     "when advancing from the river phase to the showdown" - {
@@ -477,6 +506,41 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           }
         }
       }
+
+      "advances even if there is only one player left in the round" in {
+        val game = newGame("Game name", trackStacks = true, TestDates, 1L)
+        val p1 = newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
+          .copy(stack = 1000)
+        val p2 = newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
+          .copy(stack = 1000)
+        val p3 = newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
+          .copy(stack = 1000)
+
+        val round = Play.generateRound(Showdown, 5, game.seed)
+        val testGame = game.copy(
+          round = round,
+          players = List(
+            p1.copy(
+              folded = true,
+              bet = 25,
+              pot = 10,
+              blind = BigBlind,
+            ),
+            p2.copy(
+              bet = 35,
+              pot = 10,
+            ),
+            p3.copy(
+              folded = true,
+              bet = 10,
+              pot = 10,
+              blind = BigBlind,
+            ),
+          )
+        )
+        val (updatedGame, _, _) = advancePhase(testGame, TestRng).value
+        updatedGame.round.phase shouldEqual PreFlop
+      }
     }
   }
 
@@ -509,6 +573,48 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       )
       val (_, playerWinnings, _) = advanceFromRiver(game)
       playerWinnings.find(_.playerId == p3.playerId) shouldEqual None
+    }
+  }
+
+  "advanceFromFoldedFinish" - {
+    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates)
+    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates)
+    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates)
+
+    "is correct for an example, heads-up" in {
+      forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
+        val round = Play.generateRound(phase, 5, rawGame.seed)
+        val game = rawGame.copy(
+          round = round,
+          players = List(
+            p1.copy(folded = true, bet = 25, pot = 10),
+            p2.copy(bet = 35, pot = 10),
+          )
+        )
+        val (_, playerWinnings, potWinnings) = advanceFromFoldedFinish(game)
+        val expectedHaul = 25 + 10 + 35 + 10
+        playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, expectedHaul)
+        potWinnings shouldEqual PotWinnings(expectedHaul, Set(p2.playerId), Set(p2.playerId))
+      }
+    }
+
+    "is correct for an example, larger game" in {
+      forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
+        val round = Play.generateRound(phase, 5, rawGame.seed)
+        val game = rawGame.copy(
+          round = round,
+          players = List(
+            p1.copy(folded = true, bet = 25, pot = 10),
+            p2.copy(bet = 35, pot = 10),
+            p3.copy(folded = true, bet = 10, pot = 10),
+          )
+        )
+        val (_, playerWinnings, potWinnings) = advanceFromFoldedFinish(game)
+        val expectedHaul = 25 + 10 + 35 + 10 + 10 + 10
+        playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, expectedHaul)
+        potWinnings shouldEqual PotWinnings(expectedHaul, Set(p2.playerId), Set(p2.playerId))
+      }
     }
   }
 

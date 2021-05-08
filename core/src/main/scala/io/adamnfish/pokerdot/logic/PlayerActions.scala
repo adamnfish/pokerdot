@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Games._
-import io.adamnfish.pokerdot.logic.Play.dealHoles
+import io.adamnfish.pokerdot.logic.Play.{dealHoles, playerIsActive, playerIsInvolved}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Rng
 
@@ -146,24 +146,32 @@ object PlayerActions {
     for {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
+      involvedPlayers = game.players.filter(playerIsInvolved)
     } yield {
-      game.round.phase match {
-        case PreFlop =>
+      val foldedFinish = involvedPlayers.length == 1
+      (foldedFinish, game.round.phase) match {
+        // only progress through standard phases while players are still playing
+        case (false, PreFlop) =>
           val newGame = advanceFromPreFlop(game)
           (newGame, nonBustedPlayerIds, None)
-        case Flop =>
+        case (false, Flop) =>
           val newGame = advanceFromFlop(game)
           (newGame, nonBustedPlayerIds, None)
-        case Turn =>
+        case (false, Turn) =>
           val newGame = advanceFromTurn(game)
           (newGame, nonBustedPlayerIds, None)
-        case River =>
+        case (false, River) =>
           val (newGame, playerWinnings, potWinnings) = advanceFromRiver(game)
           (newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings))
-        case Showdown =>
+        case (_, Showdown) =>
+          // we can proceed from showdown however many players are left
           val newGame = startNewRound(game, rng)
           val allPlayerIds = game.players.map(_.playerId).toSet
           (newGame, allPlayerIds, None)
+        case (true, _) =>
+          // skip straight to showdown if everyone else has folded
+          val (newGame, playerWinning, potWinning) = advanceFromFoldedFinish(game)
+          (newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning)))
       }
     }
   }
@@ -260,6 +268,30 @@ object PlayerActions {
       playersWinnings,
       potsWinnings
     )
+  }
+
+  private[logic] def advanceFromFoldedFinish(game: Game): (Game, PlayerWinnings, PotWinnings) = {
+    val gameAtRoundEnd = game.copy(
+      players = game.players.map(resetPlayerForNextPhase)
+    )
+
+    gameAtRoundEnd.players.filter(playerIsInvolved) match {
+      case singleActivePlayer :: Nil =>
+        val potSize = gameAtRoundEnd.players.map(_.pot).sum
+        val winnerId = singleActivePlayer.playerId
+        val playerWinnings = PlayerWinnings(winnerId, None, potSize)
+        (
+          gameAtRoundEnd.copy(
+            round = gameAtRoundEnd.round.copy(phase = Showdown),
+            inTurn = None,
+            players = gameAtRoundEnd.players.map(resetPlayerForShowdown(List(playerWinnings))),
+          ),
+          playerWinnings,
+          PotWinnings(potSize, Set(winnerId), Set(winnerId)),
+        )
+      case incorrectNumberOfActivePlayers =>
+        throw new RuntimeException(s"advanceFromFoldedFinish with ${incorrectNumberOfActivePlayers.length} players: Unreachable code, only call this fn when a single player remains")
+    }
   }
 
   /**

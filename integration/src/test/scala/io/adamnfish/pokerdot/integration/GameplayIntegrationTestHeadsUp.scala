@@ -37,13 +37,7 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     // host gas Q♦  7♣ and folds
     PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).value()
     // no more actions required
-    // advances to flop
-    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
-    // advances to turn
-    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
-    // advances to river
-    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
-    // advance to showdown
+    // advances straight to showdown (since there is only a winner left in the round)
     PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
     // advance to next round
     PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
