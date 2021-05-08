@@ -105,8 +105,9 @@ object Play {
   }
 
   def currentBetAmount(players: List[Player]): Int = {
-    if (players.isEmpty) 0
-    else players.map(_.bet).max
+    val activePlayers = players.filterNot(_.folded)
+    if (activePlayers.isEmpty) 0
+    else activePlayers.map(_.bet).max
   }
 
   def currentRaiseAmount(players: List[Player]): Int = {
@@ -136,11 +137,12 @@ object Play {
       } yield next
       // if there is no active player to count from
       nextPlayer.orElse {
-        val newRound = players.find(_.blind == BigBlind).exists(_.bet != 0)
+        val newRound = players.find(_.blind == BigBlind).exists(p => p.bet != 0 && p.pot == 0)
         if (activePlayers.length == 2) {
           if (newRound) {
             // in heads-up the dealer acts first in a new round
-            players.find(_.blind != BigBlind).map(_.playerId)
+            players.findIndex(_.blind != BigBlind)
+              .flatMap(nextActiveFromIndex(players, _))
           } else {
             // player after dealer for new phases within the round
             nextActiveFromIndex(players, (button + 1) % players.length)

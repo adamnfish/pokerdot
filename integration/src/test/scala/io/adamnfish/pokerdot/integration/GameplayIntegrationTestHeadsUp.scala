@@ -75,6 +75,71 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     PokerDot.pokerdot(foldRequest(p1Welcome), context(player1Address)).value()
   }
 
+  "checking on big blind should end the phase" in withAppContext { (context, db) =>
+    val (_, hostWelcome, p1Welcome) = gameFixture(context,
+      initialSeed = 0L, // determines deck order
+      startingStack = Some(1000),
+      initialSmallBlind = Some(5),
+      timerConfig = None,
+    ).value()
+
+    // host:    Q♦  7♣
+    // p1:      10♠ 7♦
+    // host is dealer and small blind, p1 big blind
+    // host is initial player, and calls
+    PokerDot.pokerdot(betRequest(5, hostWelcome), context(hostAddress)).value()
+    // p1 checks as big blind
+    PokerDot.pokerdot(checkRequest(p1Welcome), context(player1Address)).value()
+
+    // players have acted and should be marked as checked
+    val playerDbsNewRound = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
+    playerDbsNewRound.get(hostWelcome.playerId).value should have(
+      "checked" as true,
+      "bet" as 10,
+    )
+    playerDbsNewRound.get(p1Welcome.playerId).value should have(
+      "checked" as true,
+      "bet" as 10,
+    )
+
+    // both players have acted, no-one should be "in turn"
+    db.getGame(hostWelcome.gameId).value().value should have(
+      "inTurn" as None,
+    )
+  }
+
+  "calling a bet should end the phase" in withAppContext { (context, db) =>
+    val (_, hostWelcome, p1Welcome) = gameFixture(context,
+      initialSeed = 0L, // determines deck order
+      startingStack = Some(1000),
+      initialSmallBlind = Some(5),
+      timerConfig = None,
+    ).value()
+
+    // host:    Q♦  7♣
+    // p1:      10♠ 7♦
+    // host is dealer and small blind, p1 big blind
+    // host is initial player, and raises
+    PokerDot.pokerdot(betRequest(15, hostWelcome), context(hostAddress)).value()
+    // p1 calls
+    PokerDot.pokerdot(betRequest(10, p1Welcome), context(player1Address)).value()
+    // players have acted and should be marked as checked
+    val playerDbsNewRound = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
+    playerDbsNewRound.get(hostWelcome.playerId).value should have(
+      "checked" as true,
+      "bet" as 20,
+    )
+    playerDbsNewRound.get(p1Welcome.playerId).value should have(
+      "checked" as true,
+      "bet" as 20,
+    )
+
+    // both players have acted, no-one should be "in turn"
+    db.getGame(hostWelcome.gameId).value().value should have(
+      "inTurn" as None,
+    )
+  }
+
   private def gameFixture(
     contextBuilder: PlayerAddress => AppContext,
     initialSeed: Long,

@@ -5,7 +5,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.newPlayer
-import io.adamnfish.pokerdot.models.{Ace, BigBlind, Clubs, Diamonds, Flop, GameId, Hole, NoBlind, Player, PlayerAddress, PreFlop, River, Showdown, SmallBlind, Three, Turn, Two}
+import io.adamnfish.pokerdot.models.{Ace, BigBlind, Clubs, Diamonds, Flop, GameId, Hole, NoBlind, Player, PlayerAddress, PlayerId, PreFlop, River, Showdown, SmallBlind, Three, Turn, Two}
 import org.scalacheck.Gen
 import org.scalatest.{EitherValues, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -326,6 +326,21 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         result should (be >= b1 and be >= b2 and be >= b3)
       }
     }
+
+    "excludes folded players from this calculation" in {
+      val players = List(
+        newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestDates)
+          .copy(bet = 10),
+        newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestDates)
+          .copy(bet = 20),
+        newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestDates)
+          .copy(
+            bet = 30,
+            folded = true,
+          ),
+      )
+      currentBetAmount(players) shouldEqual 20
+    }
   }
 
   "currentRaiseAmount" - {
@@ -372,13 +387,13 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "nextPlayer" - {
     val p1 = newPlayer(GameId("game-id"), "p1", false, PlayerAddress("p1-address"), TestDates)
-      .copy(stack = 1000)
+      .copy(stack = 1000, playerId = PlayerId("p1-id"))
     val p2 = newPlayer(GameId("game-id"), "p2", false, PlayerAddress("p2-address"), TestDates)
-      .copy(stack = 1000)
+      .copy(stack = 1000, playerId = PlayerId("p2-id"))
     val p3 = newPlayer(GameId("game-id"), "p3", false, PlayerAddress("p3-address"), TestDates)
-      .copy(stack = 1000)
+      .copy(stack = 1000, playerId = PlayerId("p3-id"))
     val p4 = newPlayer(GameId("game-id"), "p4", false, PlayerAddress("p4-address"), TestDates)
-      .copy(stack = 1000)
+      .copy(stack = 1000, playerId = PlayerId("p4-id"))
 
     "when a player is already active" - {
       "returns the next player" in {
@@ -465,6 +480,42 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       "returns None if no players are eligible to become active" in {
         val ineligiblePlayers = List(p1, p2, p3, p4).map(_.copy(folded = true))
         nextPlayer(ineligiblePlayers, Some(p3.playerId), 0) shouldEqual None
+      }
+
+      "all players have acted" - {
+        "returns None after a called bet (heads-up)" in {
+          nextPlayer(List(
+            p1.copy(
+              blind = SmallBlind,
+              bet = 25,
+              checked = true,
+            ),
+            p2.copy(
+              blind = BigBlind,
+              bet = 25,
+              checked = true,
+            ),
+          ), Some(p1.playerId), 0) shouldEqual None
+        }
+
+        "returns None after a called bet (larger game)" in {
+          nextPlayer(List(
+            p1.copy(
+              bet = 25,
+              checked = true,
+            ),
+            p2.copy(
+              blind = SmallBlind,
+              bet = 25,
+              checked = true,
+            ),
+            p2.copy(
+              blind = BigBlind,
+              bet = 25,
+              checked = true,
+            ),
+          ), Some(p1.playerId), 0) shouldEqual None
+        }
       }
     }
 

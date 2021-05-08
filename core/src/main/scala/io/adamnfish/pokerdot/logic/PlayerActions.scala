@@ -67,10 +67,10 @@ object PlayerActions {
             checked = true,
           )
         case p =>
-          // if it's just a call, other players do no need to react
-          if (isCall) p
           // if this action was a bet, uncheck other player so they can respond
-          else p.copy(checked = false)
+          if (isRaise) p.copy(checked = false)
+          // if it's just a call (or small all-in), other players do not need to react
+          else p
       }
       nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
     } yield (
@@ -101,13 +101,12 @@ object PlayerActions {
             "You have already checked.",
           )
         } else Right(())
-      updatedPlayer = player.copy(
-        checked = true,
-      )
       updatedPlayers = game.players.map {
         case p if p.playerId == player.playerId =>
           // use updated active player in game
-          updatedPlayer
+          player.copy(
+            checked = true,
+          )
         case p => p
       }
       // calculate next active player
