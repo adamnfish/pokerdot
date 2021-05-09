@@ -195,10 +195,50 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       )) shouldEqual false
     }
 
-    "false for an all-in player" in {
+    "all-in players can no longer act, and are not active" in {
       val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
       playerIsActive(player.copy(
         stack = 0,
+      )) shouldEqual false
+    }
+  }
+
+  "playerIsInvolved" - {
+    "true for an active player" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsInvolved(player.copy(
+        stack = 1000,
+        bet = 10,
+        pot = 10,
+      )) shouldEqual true
+    }
+
+    "an all-in player is still involved" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsInvolved(player.copy(
+        stack = 0,
+        bet = 990,
+        pot = 10,
+      )) shouldEqual true
+    }
+
+    "folded players are not involved" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsInvolved(player.copy(
+        stack = 1000,
+        bet = 10,
+        pot = 10,
+        folded = true,
+      )) shouldEqual false
+    }
+
+    "busted players are not involved" in {
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestDates)
+      playerIsInvolved(player.copy(
+        stack = 0,
+        bet = 990,
+        pot = 10,
+        busted = true,
       )) shouldEqual false
     }
   }
