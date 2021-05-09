@@ -56,7 +56,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
           | "playing": false
           |}""".stripMargin
       )
-      parseUpdateTimerRequest(json).value should have(
+      parseUpdateBlindRequest(json).value should have(
         "gameId" as "gid",
         "playerId" as "pid",
         "playerKey" as "pkey",
@@ -73,7 +73,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
           | "playing": false
           |}""".stripMargin
       )
-      parseUpdateTimerRequest(json).value should have(
+      parseUpdateBlindRequest(json).value should have(
         "gameId" as "gid",
         "playerId" as "pid",
         "playerKey" as "pkey",
@@ -91,7 +91,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
           | "playing": true
           |}""".stripMargin
       )
-      parseUpdateTimerRequest(json).value should have(
+      parseUpdateBlindRequest(json).value should have(
         "gameId" as "gid",
         "playerId" as "pid",
         "playerKey" as "pkey",
@@ -108,7 +108,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
           | "playing": true
           |}""".stripMargin
       )
-      parseUpdateTimerRequest(json).value should have(
+      parseUpdateBlindRequest(json).value should have(
         "gameId" as "gid",
         "playerId" as "pid",
         "playerKey" as "pkey",
@@ -130,7 +130,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
           | "playing": true
           |}""".stripMargin
       )
-      parseUpdateTimerRequest(json).value should have(
+      parseUpdateBlindRequest(json).value should have(
         "gameId" as "gid",
         "playerId" as "pid",
         "playerKey" as "pkey",
@@ -259,9 +259,9 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
       actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "start-timer"
     }
 
-    "editTimerSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = EditTimerSummary()
-      actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "edit-timer"
+    "editBlindSummary encoding includes correct the action name" in {
+      val actionSummary: ActionSummary = EditBlindSummary()
+      actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "edit-blind"
     }
 
     "noActionSummary encoding includes correct the action name" in {

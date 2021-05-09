@@ -237,6 +237,7 @@ type Action
     | PauseTimerAction
     | StartTimerAction
     | EditTimerAction
+    | EditBlindAction
     | NoAction
 
 
@@ -400,11 +401,12 @@ type alias PingRequest =
     }
 
 
-type alias UpdateTimerRequest =
+type alias UpdateBlindRequest =
     { gameId : GameId
     , playerId : PlayerId
     , playerKey : PlayerKey
     , timerLevels : Maybe (List TimerLevel)
+    , smallBlind : Maybe Int
     , playing : Bool
     }
 
@@ -508,6 +510,9 @@ actionDecoder =
 
                 "edit-timer" ->
                     Json.Decode.succeed EditTimerAction
+
+                "edit-blind" ->
+                    Json.Decode.succeed EditBlindAction
 
                 "no-action" ->
                     Json.Decode.succeed NoAction
@@ -983,15 +988,16 @@ startGameRequestEncoder startGameRequest =
         ]
 
 
-updateTimerRequestEncoder : UpdateTimerRequest -> Json.Encode.Value
-updateTimerRequestEncoder updateTimerRequest =
+updateBlindRequestEncoder : UpdateBlindRequest -> Json.Encode.Value
+updateBlindRequestEncoder updateBlindRequest =
     Json.Encode.object <|
         [ ( "operation", Json.Encode.string "update-timer" )
-        , ( "gameId", encodeGameId updateTimerRequest.gameId )
-        , ( "playerId", encodePlayerId updateTimerRequest.playerId )
-        , ( "playerKey", encodePlayerKey updateTimerRequest.playerKey )
-        , ( "timerLevels", (Maybe.map (Json.Encode.list encodeTimerLevel) >> Maybe.withDefault Json.Encode.null) updateTimerRequest.timerLevels )
-        , ( "playing", Json.Encode.bool updateTimerRequest.playing )
+        , ( "gameId", encodeGameId updateBlindRequest.gameId )
+        , ( "playerId", encodePlayerId updateBlindRequest.playerId )
+        , ( "playerKey", encodePlayerKey updateBlindRequest.playerKey )
+        , ( "timerLevels", (Maybe.map (Json.Encode.list encodeTimerLevel) >> Maybe.withDefault Json.Encode.null) updateBlindRequest.timerLevels )
+        , ( "smallBlind", (Maybe.map Json.Encode.int >> Maybe.withDefault Json.Encode.null) updateBlindRequest.smallBlind )
+        , ( "playing", Json.Encode.bool updateBlindRequest.playing )
         ]
 
 

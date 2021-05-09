@@ -110,6 +110,8 @@ case class StartTimerSummary(
 ) extends ActionSummary
 case class EditTimerSummary(
 ) extends ActionSummary
+case class EditBlindSummary(
+) extends ActionSummary
 case class NoActionSummary(
 ) extends ActionSummary
 
@@ -134,12 +136,13 @@ case class StartGame(
   timerConfig: Option[List[TimerLevel]],
   playerOrder: List[PlayerId],
 ) extends Request
-case class UpdateTimer(
+case class UpdateBlind(
   gameId: GameId,
   playerId: PlayerId,
   playerKey: PlayerKey,
   timerLevels: Option[List[TimerLevel]],
-  playing: Boolean,
+  smallBlind: Option[Int],
+  playing: Boolean, // TODO: make this optional?
 ) extends Request
 // game requests
 case class Bet(

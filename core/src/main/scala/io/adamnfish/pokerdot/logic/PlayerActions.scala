@@ -176,6 +176,10 @@ object PlayerActions {
     }
   }
 
+  def updateBlind(game: Game): Either[Failures, Game] = {
+    ???
+  }
+
   private[logic] def ensurePlayersHaveFinishedActing(game: Game): Either[Failures, Unit] = {
     val betAmount = Play.currentBetAmount(game.players)
     val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount, game.players))

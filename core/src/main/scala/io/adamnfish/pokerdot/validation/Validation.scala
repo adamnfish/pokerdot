@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.models.Serialisation.{parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateTimerRequest}
+import io.adamnfish.pokerdot.models.Serialisation.{parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateBlindRequest}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.validation.Validators._
 import io.circe.Json
@@ -143,20 +143,21 @@ object Validation {
     } yield validated
   }
 
-  def validate(updateTimer: UpdateTimer): Either[Failures, UpdateTimer] = {
-    asResult(updateTimer,
-      validate(updateTimer.gameId.gid, "gameId", isUUID) ++
-        validate(updateTimer.playerId.pid, "playerId", isUUID) ++
-        validate(updateTimer.playerKey.key, "playerId", isUUID) ++
-        updateTimer.timerLevels
+  def validate(updateBlind: UpdateBlind): Either[Failures, UpdateBlind] = {
+    asResult(updateBlind,
+      validate(updateBlind.gameId.gid, "gameId", isUUID) ++
+        validate(updateBlind.playerId.pid, "playerId", isUUID) ++
+        validate(updateBlind.playerKey.key, "playerId", isUUID) ++
+        updateBlind.timerLevels
           .map(tls => validate(tls, "timerLevels", nonEmptyList[TimerLevel]))
-          .getOrElse(Nil)
+          .getOrElse(Nil) ++
+        updateBlind.smallBlind.toList.flatMap(sb => validate(sb, "smallBlind", positiveInteger))
     )
   }
 
-  def extractUpdateTimer(json: Json): Either[Failures, UpdateTimer] = {
+  def extractUpdateBlind(json: Json): Either[Failures, UpdateBlind] = {
     for {
-      raw <- parseUpdateTimerRequest(json)
+      raw <- parseUpdateBlindRequest(json)
       validated <- validate(raw)
     } yield validated
   }

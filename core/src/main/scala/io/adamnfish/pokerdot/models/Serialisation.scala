@@ -53,8 +53,8 @@ object Serialisation {
     extractJson[StartGame](json, "Could not understand the start game request")
   }
 
-  def parseUpdateTimerRequest(json: Json): Either[Failures, UpdateTimer] = {
-    extractJson[UpdateTimer](json, "Could not understand the update time request")
+  def parseUpdateBlindRequest(json: Json): Either[Failures, UpdateBlind] = {
+    extractJson[UpdateBlind](json, "Could not understand the update blind request")
   }
 
   def parseBetRequest(json: Json): Either[Failures, Bet] = {
@@ -273,6 +273,7 @@ object Serialisation {
   private implicit val pauseTimerSummaryEncoder: Encoder[PauseTimerSummary] = deriveEncoder[PauseTimerSummary]
   private implicit val startTimerSummaryEncoder: Encoder[StartTimerSummary] = deriveEncoder[StartTimerSummary]
   private implicit val editTimerSummaryEncoder: Encoder[EditTimerSummary] = deriveEncoder[EditTimerSummary]
+  private implicit val editBlindSummaryEncoder: Encoder[EditBlindSummary] = deriveEncoder[EditBlindSummary]
   private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
   private[models] implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
     case gameStartedSummary: GameStartedSummary =>
@@ -305,6 +306,9 @@ object Serialisation {
     case editTimerSummary: EditTimerSummary =>
       editTimerSummaryEncoder.apply(editTimerSummary)
         .mapObject(o => o.add("action", Json.fromString("edit-timer")))
+    case editBlindSummary: EditBlindSummary =>
+      editBlindSummaryEncoder.apply(editBlindSummary)
+        .mapObject(o => o.add("action", Json.fromString("edit-blind")))
     case noActionSummary: NoActionSummary =>
       noActionSummaryEncoder.apply(noActionSummary)
         .mapObject(o => o.add("action", Json.fromString("no-action")))
@@ -343,7 +347,7 @@ object Serialisation {
   private implicit val createGameDecoder: Decoder[CreateGame] = deriveDecoder[CreateGame]
   private implicit val joinGameDecoder: Decoder[JoinGame] = deriveDecoder[JoinGame]
   private implicit val startGameDecoder: Decoder[StartGame] = deriveDecoder[StartGame]
-  private implicit val updateTimeDecoder: Decoder[UpdateTimer] = deriveDecoder[UpdateTimer]
+  private implicit val updateBlindDecoder: Decoder[UpdateBlind] = deriveDecoder[UpdateBlind]
   private implicit val betDecoder: Decoder[Bet] = deriveDecoder[Bet]
   private implicit val checkDecoder: Decoder[Check] = deriveDecoder[Check]
   private implicit val foldDecoder: Decoder[Fold] = deriveDecoder[Fold]
@@ -372,7 +376,7 @@ object Serialisation {
     private implicit val createGameEncoder: Encoder[CreateGame] = deriveEncoder[CreateGame]
     private implicit val joinGameEncoder: Encoder[JoinGame] = deriveEncoder[JoinGame]
     private implicit val startGameEncoder: Encoder[StartGame] = deriveEncoder[StartGame]
-    private implicit val updateTimeEncoder: Encoder[UpdateTimer] = deriveEncoder[UpdateTimer]
+    private implicit val updateBlindEncoder: Encoder[UpdateBlind] = deriveEncoder[UpdateBlind]
     private implicit val betEncoder: Encoder[Bet] = deriveEncoder[Bet]
     private implicit val checkEncoder: Encoder[Check] = deriveEncoder[Check]
     private implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
@@ -390,9 +394,9 @@ object Serialisation {
       case startGame: StartGame =>
         startGameEncoder.apply(startGame)
           .mapObject(o => o.add("operation", Json.fromString("start-game")))
-      case updateTime: UpdateTimer =>
-        updateTimeEncoder.apply(updateTime)
-          .mapObject(o => o.add("operation", Json.fromString("update-timer")))
+      case updateBlind: UpdateBlind =>
+        updateBlindEncoder.apply(updateBlind)
+          .mapObject(o => o.add("operation", Json.fromString("update-blind")))
       case bet: Bet =>
         betEncoder.apply(bet)
           .mapObject(o => o.add("operation", Json.fromString("bet")))

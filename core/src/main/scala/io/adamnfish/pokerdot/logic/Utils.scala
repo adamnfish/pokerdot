@@ -15,9 +15,11 @@ object Utils {
       }
     }
 
-    // TODO: this should collect failures rather than bailing on the first
     def ioTraverse[B](f: A => Attempt[B]): Attempt[List[B]] = {
-      as.foldRight[Attempt[List[B]]](IO.succeed(Nil))((a, acc) => IO.mapParN(f(a), acc)(_ :: _))
+      IO.validatePar(as)(f).mapError { fss =>
+        // collect failure instances from multiple failures into a single Failures instance
+        Failures(fss.flatMap(_.failures))
+      }
     }
 
     /**

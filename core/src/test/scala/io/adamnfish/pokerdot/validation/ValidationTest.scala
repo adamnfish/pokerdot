@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.validation
 
 import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer, validate}
+import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind, validate}
 import io.circe.parser.parse
 import org.scalacheck.Gen
 import org.scalatest.freespec.AnyFreeSpec
@@ -120,29 +120,44 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     )
   }
 
-  "extractUpdateTimer" - {
+  "extractUpdateBlind" - {
     "with timer levels" in {
       val jsonStr =
-        s"""{"operation":"start-game","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
+        s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
            |"timerLevels":[{"durationSeconds":300,"smallBlind":5},{"durationSeconds":60},{"durationSeconds":500,"smallBlind":10}],
            |"playing":true}""".stripMargin
       val json = parse(jsonStr).value
-      extractUpdateTimer(json).value shouldEqual UpdateTimer(
+      extractUpdateBlind(json).value shouldEqual UpdateBlind(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = Some(List(RoundLevel(300, 5), BreakLevel(60), RoundLevel(500, 10))),
+        smallBlind = None,
         playing = true,
       )
     }
 
-    "without timer levels" in {
+    "playing status update" in {
       val jsonStr =
-        s"""{"operation":"start-game","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
+        s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
            |"playing":true}""".stripMargin
       val json = parse(jsonStr).value
-      extractUpdateTimer(json).value shouldEqual UpdateTimer(
+      extractUpdateBlind(json).value shouldEqual UpdateBlind(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = None,
+        smallBlind = None,
         playing = true,
+      )
+    }
+
+    "with manual blind change" in {
+      val jsonStr =
+        s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
+           |"smallBlind":50,"playing":false}""".stripMargin
+      val json = parse(jsonStr).value
+      extractUpdateBlind(json).value shouldEqual UpdateBlind(
+        GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
+        timerLevels = None,
+        smallBlind = Some(50),
+        playing = false,
       )
     }
   }
@@ -283,38 +298,45 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     }
   }
 
-  "validate UpdateTimer" - {
-    val request = UpdateTimer(
+  "validate UpdateBlind" - {
+    val rawRequest = UpdateBlind(
       GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
-      Some(List(RoundLevel(300, 1), BreakLevel(60), RoundLevel(300, 2))),
+      timerLevels = None,
+      smallBlind = None,
       playing = true
     )
 
     "returns the request for a valid update timer requests" - {
       "with timer levels" in {
-        validate(request).value shouldEqual request
+        val timerLevelsRequest = rawRequest.copy(timerLevels = Some(List(RoundLevel(300, 1), BreakLevel(60), RoundLevel(300, 2))))
+        validate(timerLevelsRequest).value shouldEqual timerLevelsRequest
       }
 
       "without timer levels" in {
-        val requestWithoutTimerLevels = request.copy(timerLevels = None)
+        val requestWithoutTimerLevels = rawRequest.copy(timerLevels = None)
+        validate(requestWithoutTimerLevels).value shouldEqual requestWithoutTimerLevels
+      }
+
+      "with manual blind update" in {
+        val requestWithoutTimerLevels = rawRequest.copy(timerLevels = None, smallBlind = Some(50))
         validate(requestWithoutTimerLevels).value shouldEqual requestWithoutTimerLevels
       }
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate(rawRequest.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate(rawRequest.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate(rawRequest.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
     }
 
     "returns a failure if the timer levels are present and empty" in {
-      validate(request.copy(timerLevels = Some(Nil))).isLeft shouldEqual true
+      validate(rawRequest.copy(timerLevels = Some(Nil))).isLeft shouldEqual true
     }
   }
 

@@ -4,7 +4,7 @@ import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
 import io.adamnfish.pokerdot.logic.{Games, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
-import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateTimer}
+import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind}
 import io.circe.Json
 import zio._
 
@@ -24,8 +24,8 @@ object PokerDot {
           joinGame(requestJson, appContext)
         case "start-game" =>
           startGame(requestJson, appContext)
-        case "update-timer" =>
-          updateTimer(requestJson, appContext)
+        case "update-blind" =>
+          updateBlind(requestJson, appContext)
         case "bet" =>
           bet(requestJson, appContext)
         case "check" =>
@@ -231,10 +231,9 @@ object PokerDot {
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
-      // fetch game
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
-      // TODO: recursively call this operation if we are auto-advancing
+      // TODO: recursively call this operation if we are auto-advancing?
       advanceResult <- PlayerActions.advancePhase(game, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)
@@ -254,16 +253,30 @@ object PokerDot {
   }
 
   /**
-   * Allows control of the timer. Typically this is just play/pause, but may also be editing the phases.
+   * Allows control of the blinds, manually or via the timer.
+   *
+   * This is commonly a manual update (for manual blind games) or play/pause (for timed games),
+   * but may also be editing the phases in timed games.
    *
    * Pausing / playing is done by setting the optional pauseTime and by faking the start time, respectively.
    */
-  def updateTimer(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+  def updateBlind(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
-      updateTimer <- extractUpdateTimer(requestJson).attempt
-      // ensure host / admin
-      // ensure started
-    } yield Responses.tbd() // Responses.gameStatuses(???, ???)
+      updateTimer <- extractUpdateBlind(requestJson).attempt
+      maybeGame <- appContext.db.getGame(updateTimer.gameId)
+      rawGameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot start game, game ID not found", "Couldn't find game to start",
+      ))
+      playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
+      game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
+      _ <- Games.ensureStarted(game).attempt
+      _ <- Games.ensureAdmin(game.players, updateTimer.playerKey).attempt
+      updatedGame <- PlayerActions.updateBlind(game).attempt
+      newGameDb = Representations.gameToDb(updatedGame)
+      action = EditBlindSummary() // TODO: determine this from the update timer request
+      _ <- appContext.db.writeGame(newGameDb)
+      // this endpoint won't update players so there's no need to save them
+    } yield Responses.gameStatuses(updatedGame, action)
   }
 
   /**
