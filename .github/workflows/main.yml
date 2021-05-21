@@ -1,4 +1,4 @@
-name: Scala CI
+name: Poker Dot
 
 on:
   push:
@@ -9,7 +9,6 @@ on:
 jobs:
   test-api:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK 8
@@ -22,7 +21,6 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
-    
     steps:
     - uses: actions/checkout@v2
     - name: Set up frontend toolchain
