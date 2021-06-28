@@ -13,8 +13,9 @@ import FontAwesome.Icon as Icon exposing (Icon)
 import FontAwesome.Solid as Icon
 import FontAwesome.Styles
 import List.Extra
-import Model exposing (ActSelection(..), Card, ChipsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Self, TimerLevel, TimerStatus, UI(..), Welcome)
-import Views.Elements exposing (dotContainer, pdButton, pdButtonSmall, pdTab, pdText, zWidths)
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import Views.Elements exposing (cardUi, communityCardsUi, dotContainer, handUi, pdButton, pdButtonSmall, pdTab, pdText, selfUi, tableUi, uiElements, zWidths)
+import Views.Generators exposing (cardsGen)
 
 
 type alias Page =
@@ -100,7 +101,7 @@ view model =
                     }
 
                 CommunityCardsScreen game welcome ->
-                    { body = communityCardsScreen model game welcome
+                    { body = communityCardsUi game.round
                     , title = welcome.gameName
                     }
 
@@ -112,6 +113,11 @@ view model =
                 ChipSummaryScreen game welcome ->
                     { body = chipSummaryScreen model game welcome
                     , title = welcome.gameName
+                    }
+
+                UIElementsScreen seed ->
+                    { body = uiElements seed
+                    , title = "Debugging | UI Elements"
                     }
     in
     { title = page.title
@@ -387,7 +393,7 @@ gameScreen model playingState currentAct self game welcome =
         ]
         [ selfUi model.peeking self
         , tableUi game
-        , communityCardsScreen model game welcome
+        , communityCardsUi game.round
         , case playingState of
             Playing ->
                 pokerControlsScreen True currentAct self game
@@ -507,28 +513,6 @@ pokerControlsScreen isActive actSelection self game =
         ]
 
 
-communityCardsScreen : Model -> Game -> Welcome -> Element Msg
-communityCardsScreen model game welcome =
-    row
-        [ width fill ]
-    <|
-        case game.round of
-            Model.PreFlopRound ->
-                []
-
-            Model.FlopRound flop1 flop2 flop3 ->
-                List.map cardUi [ flop1, flop2, flop3 ]
-
-            Model.TurnRound flop1 flop2 flop3 turn ->
-                List.map cardUi [ flop1, flop2, flop3, turn ]
-
-            Model.RiverRound flop1 flop2 flop3 turn river ->
-                List.map cardUi [ flop1, flop2, flop3, turn, river ]
-
-            Model.ShowdownRound flop1 flop2 flop3 turn river _ ->
-                List.map cardUi [ flop1, flop2, flop3, turn, river ]
-
-
 timerScreen : Model -> TimerStatus -> Game -> Welcome -> Element Msg
 timerScreen model timerStatus game welcome =
     Element.none
@@ -537,262 +521,3 @@ timerScreen model timerStatus game welcome =
 chipSummaryScreen : Model -> Game -> Welcome -> Element Msg
 chipSummaryScreen model game welcome =
     Element.none
-
-
-tableUi : Game -> Element Msg
-tableUi game =
-    let
-        pot =
-            List.sum <| List.map .pot game.players
-
-        seat : Player -> Element Msg
-        seat player =
-            row
-                [ width fill
-                , spacing 8
-                ]
-                [ text player.screenName
-                , text <| String.fromInt player.stack
-                , text <| String.fromInt player.bet
-                ]
-    in
-    column
-        [ width fill
-        ]
-        [ column
-            [ width fill ]
-          <|
-            List.map seat game.players
-        , text <| "pot: " ++ String.fromInt pot
-        ]
-
-
-selfUi : Bool -> Self -> Element Msg
-selfUi isPeeking self =
-    if self.busted then
-        row
-            [ width fill ]
-            [ text self.screenName ]
-
-    else
-        row
-            [ width fill ]
-            [ text self.screenName
-            , text " "
-            , case self.hole of
-                Nothing ->
-                    text " - "
-
-                Just ( card1, card2 ) ->
-                    row
-                        []
-                    <|
-                        if isPeeking then
-                            List.intersperse (text " ") <| List.map cardUi [ card1, card2 ]
-
-                        else
-                            [ text " - ", text " - " ]
-            , pdTab TogglePeek <|
-                if isPeeking then
-                    "stop looking at hand"
-
-                else
-                    "look at hand"
-            ]
-
-
-cardUi : Card -> Element Msg
-cardUi card =
-    let
-        rank =
-            case card.rank of
-                Model.Two ->
-                    text "2"
-
-                Model.Three ->
-                    text "3"
-
-                Model.Four ->
-                    text "4"
-
-                Model.Five ->
-                    text "5"
-
-                Model.Six ->
-                    text "6"
-
-                Model.Seven ->
-                    text "7"
-
-                Model.Eight ->
-                    text "8"
-
-                Model.Nine ->
-                    text "9"
-
-                Model.Ten ->
-                    text "10"
-
-                Model.Jack ->
-                    text "J"
-
-                Model.Queen ->
-                    text "Q"
-
-                Model.King ->
-                    text "K"
-
-                Model.Ace ->
-                    text "A"
-
-        suit =
-            case card.suit of
-                Model.Clubs ->
-                    text "♣"
-
-                Model.Diamonds ->
-                    text "♦"
-
-                Model.Spades ->
-                    text "♠"
-
-                Model.Hearts ->
-                    text "♥"
-    in
-    row [] [ rank, suit ]
-
-
-handUi : Hand -> Element Msg
-handUi hand =
-    case hand of
-        HighCard c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "High card"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]
-
-        Pair p1 p2 k1 k2 k3 ->
-            column
-                []
-                [ text "Pair"
-                , row
-                    []
-                    [ cardUi p1
-                    , cardUi p2
-                    , text " | "
-                    , cardUi k1
-                    , cardUi k2
-                    , cardUi k3
-                    ]
-                ]
-
-        TwoPair p11 p12 p21 p22 k ->
-            column
-                []
-                [ text "Two pair"
-                , row
-                    []
-                    [ cardUi p11
-                    , cardUi p12
-                    , text " | "
-                    , cardUi p21
-                    , cardUi p22
-                    , text " | "
-                    , cardUi k
-                    ]
-                ]
-
-        ThreeOfAKind t1 t2 t3 k1 k2 ->
-            column
-                []
-                [ text "Three of a kind"
-                , row
-                    []
-                    [ cardUi t1
-                    , cardUi t2
-                    , cardUi t3
-                    , text " | "
-                    , cardUi k1
-                    , cardUi k2
-                    ]
-                ]
-
-        Straight c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "Straight"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]
-
-        Flush c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "Flush"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]
-
-        FullHouse t1 t2 t3 p1 p2 ->
-            column
-                []
-                [ text "Full house"
-                , row
-                    []
-                    [ cardUi t1
-                    , cardUi t2
-                    , cardUi t3
-                    , text " | "
-                    , cardUi p1
-                    , cardUi p2
-                    ]
-                ]
-
-        FourOfAKind q1 q2 q3 q4 k ->
-            column
-                []
-                [ text "Four of a kind"
-                , row
-                    []
-                    [ cardUi q1
-                    , cardUi q2
-                    , cardUi q3
-                    , cardUi q4
-                    , text " | "
-                    , cardUi k
-                    ]
-                ]
-
-        StraightFlush c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "Straight flush"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]

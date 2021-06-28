@@ -319,6 +319,11 @@ update msg model =
                             , Cmd.none
                             )
 
+                        UIElementsScreen seed ->
+                            ( registerEvent model action
+                            , Cmd.none
+                            )
+
                 Ok (SpectatorGameStatusMessage spectator game action) ->
                     ( registerEvent model action
                     , Cmd.none
@@ -419,6 +424,9 @@ update msg model =
                     ( newModel
                     , sendPing welcome
                     )
+
+                UIElementsScreen seed ->
+                    ( newModel, Cmd.none )
 
         SocketDisconnect ->
             ( { model | connected = False }
@@ -715,6 +723,11 @@ update msg model =
                     , Cmd.none
                     )
 
+        NavigateUIElements seed ->
+            ( { model | ui = UIElementsScreen seed }
+            , Cmd.none
+            )
+
 
 failureMessage : String -> Failure
 failureMessage message =
@@ -833,6 +846,9 @@ welcomeFromUi ui =
         ChipSummaryScreen _ welcome ->
             Just welcome
 
+        UIElementsScreen seed ->
+            Nothing
+
 
 
 -- routing
@@ -898,6 +914,9 @@ routeFromUi ui =
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
+        UIElementsScreen seed ->
+            UiElementsRoute
+
 
 routeFromUrl : Url.Url -> Route
 routeFromUrl rawUrl =
@@ -937,6 +956,11 @@ routeFromUrl rawUrl =
                 (\s -> JoinRoute <| Just s)
                 (Url.Parser.s "join" </> Url.Parser.string)
 
+        uiElementsParser =
+            Url.Parser.map
+                UiElementsRoute
+                (Url.Parser.s "ui-elements")
+
         -- etc
         routeParser =
             Url.Parser.oneOf
@@ -946,6 +970,7 @@ routeFromUrl rawUrl =
                 , createParser
                 , joinInternalParser
                 , joinExternalParser
+                , uiElementsParser
                 ]
     in
     Url.Parser.parse routeParser url
@@ -983,6 +1008,9 @@ uiFromRoute route library =
 
         NotFound ->
             WelcomeScreen
+
+        UiElementsRoute ->
+            UIElementsScreen 0
 
 
 navigate : Browser.Navigation.Key -> Bool -> Route -> Cmd Msg
@@ -1022,6 +1050,13 @@ navigate navKey withHistory route =
 
                 NotFound ->
                     Url.Builder.custom Url.Builder.Relative [] [] <| Just ""
+
+                UiElementsRoute ->
+                    Url.Builder.custom Url.Builder.Relative
+                        []
+                        []
+                    <|
+                        Just "ui-elements"
     in
     if withHistory then
         Browser.Navigation.pushUrl navKey newUrl

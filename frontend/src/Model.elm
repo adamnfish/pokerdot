@@ -51,6 +51,8 @@ type Msg
     | Bet Int
     | Fold
     | AdvancePhase
+      -- debugging / development
+    | NavigateUIElements Int
 
 
 type alias Model =
@@ -82,6 +84,8 @@ type UI
     | CommunityCardsScreen Game Welcome
     | TimerScreen TimerStatus Game Welcome
     | ChipSummaryScreen Game Welcome
+      -- debugging / development
+    | UIElementsScreen Int
 
 
 type Route
@@ -91,6 +95,7 @@ type Route
     | JoinRoute (Maybe String)
     | GameRoute String String
       -- TODO: routes for spectating screens?
+    | UiElementsRoute
     | NotFound
 
 
