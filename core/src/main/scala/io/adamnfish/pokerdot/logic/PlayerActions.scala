@@ -176,8 +176,67 @@ object PlayerActions {
     }
   }
 
-  def updateBlind(game: Game): Either[Failures, Game] = {
-    ???
+  def updateBlind(game: Game, updateBlind: UpdateBlind, now: Long): Either[Failures, Game] = {
+    val newSmallBlind = updateBlind.smallBlind.getOrElse(game.round.smallBlind)
+    val currentlyPlaying = !game.timer.exists(_.pausedTime.isDefined)
+
+    for {
+      newTimerStatus <-
+        (updateBlind.smallBlind, updateBlind.playing, updateBlind.timerLevels) match {
+          // TODO: can be much simpler!
+          case (Some(_), _, _) =>
+            // if we're manually setting the blind then the timer will be removed
+            Right(None)
+          case (_, Some(playing), Some(timerLevels)) =>
+            if (playing == currentlyPlaying && playing) {
+              Left(Failures("Cannot start timer when it's already running", "The timer is already running."))
+            } else if (playing == currentlyPlaying && !playing) {
+              Left(Failures("Cannot pause timer when it's already paused", "The timer is already paused."))
+            } else {
+              Right {
+                game.timer.map { timerStatus =>
+                  val pausedTime =
+                    if (playing) None
+                    else Some(now)
+                  timerStatus.copy(
+                    pausedTime = pausedTime,
+                    levels = timerLevels,
+                  )
+                }
+              }
+            }
+          case (_, Some(playing), None) =>
+            if (playing == currentlyPlaying && playing) {
+              Left(Failures("Cannot start timer when it's already running", "The timer is already running."))
+            } else if (playing == currentlyPlaying && !playing) {
+              Left(Failures("Cannot pause timer when it's already paused", "The timer is already paused."))
+            } else {
+              Right {
+                game.timer.map { timerStatus =>
+                  val pausedTime =
+                    if (playing) None
+                    else Some(now)
+                  timerStatus.copy(pausedTime = pausedTime)
+                }
+              }
+            }
+          case (_, None, Some(timerLevels)) =>
+            Right(Some {
+              game.timer.map { timerStatus =>
+                timerStatus.copy(levels = timerLevels)
+              }.getOrElse {
+                TimerStatus(
+                  now, None, timerLevels
+                )
+              }
+            })
+          case _ =>
+            Right(game.timer)
+        }
+    } yield game.copy(
+      round = game.round.copy(smallBlind = newSmallBlind),
+      timer = newTimerStatus,
+    )
   }
 
   private[logic] def ensurePlayersHaveFinishedActing(game: Game): Either[Failures, Unit] = {

@@ -270,8 +270,7 @@ object Serialisation {
   private implicit val checkSummaryEncoder: Encoder[CheckSummary] = deriveEncoder[CheckSummary]
   private implicit val foldSummaryEncoder: Encoder[FoldSummary] = deriveEncoder[FoldSummary]
   private implicit val advancePhaseSummaryEncoder: Encoder[AdvancePhaseSummary] = deriveEncoder[AdvancePhaseSummary]
-  private implicit val pauseTimerSummaryEncoder: Encoder[PauseTimerSummary] = deriveEncoder[PauseTimerSummary]
-  private implicit val startTimerSummaryEncoder: Encoder[StartTimerSummary] = deriveEncoder[StartTimerSummary]
+  private implicit val timerStatusSummaryEncoder: Encoder[TimerStatusSummary] = deriveEncoder[TimerStatusSummary]
   private implicit val editTimerSummaryEncoder: Encoder[EditTimerSummary] = deriveEncoder[EditTimerSummary]
   private implicit val editBlindSummaryEncoder: Encoder[EditBlindSummary] = deriveEncoder[EditBlindSummary]
   private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
@@ -297,12 +296,9 @@ object Serialisation {
     case advancePhaseSummary: AdvancePhaseSummary =>
       advancePhaseSummaryEncoder.apply(advancePhaseSummary)
         .mapObject(o => o.add("action", Json.fromString("advance-phase")))
-    case pauseTimerSummary: PauseTimerSummary =>
-      pauseTimerSummaryEncoder.apply(pauseTimerSummary)
-        .mapObject(o => o.add("action", Json.fromString("pause-timer")))
-    case startTimerSummary: StartTimerSummary =>
-      startTimerSummaryEncoder.apply(startTimerSummary)
-        .mapObject(o => o.add("action", Json.fromString("start-timer")))
+    case timerStatusSummary: TimerStatusSummary =>
+      timerStatusSummaryEncoder.apply(timerStatusSummary)
+        .mapObject(o => o.add("action", Json.fromString("timer-status")))
     case editTimerSummary: EditTimerSummary =>
       editTimerSummaryEncoder.apply(editTimerSummary)
         .mapObject(o => o.add("action", Json.fromString("edit-timer")))

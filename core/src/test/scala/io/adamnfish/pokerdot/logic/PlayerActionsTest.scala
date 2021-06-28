@@ -1,9 +1,10 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.PlayerActions.{advanceFromFoldedFinish, advanceFromRiver, advancePhase, ensurePlayersHaveFinishedActing, fold}
-import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
+import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer}
-import io.adamnfish.pokerdot.models.{BigBlind, Flop, PlayerAddress, PlayerWinnings, PotWinnings, PreFlop, River, Round, Showdown, SmallBlind, Turn}
+import io.adamnfish.pokerdot.logic.PlayerActions._
+import io.adamnfish.pokerdot.models._
+import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -614,6 +615,182 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         val expectedHaul = 25 + 10 + 35 + 10 + 10 + 10
         playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, expectedHaul)
         potWinnings shouldEqual PotWinnings(expectedHaul, Set(p2.playerId), Set(p2.playerId))
+      }
+    }
+  }
+
+  "updateBlind" - {
+    val rawUpdateGame = UpdateBlind(
+      GameId("game-id"), PlayerId("player-id"), PlayerKey("player-key"),
+      None, None, None
+    )
+    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestDates)
+    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestDates)
+    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestDates)
+    val game = rawGame.copy(
+      players = List(p1, p2, p3),
+      started = true,
+    )
+
+    "for a timer update" - {
+      "updates the timer levels" in {
+        val updatedGame = updateBlind(game,
+          rawUpdateGame.copy(
+            timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
+          ),
+          now = 1000L
+        )
+        val timerStatus = updatedGame.value.timer.value
+        timerStatus.levels shouldEqual List(RoundLevel(100, 10), BreakLevel(50))
+      }
+
+      "updates the timer status" in {
+        val updatedGame = updateBlind(game,
+          rawUpdateGame.copy(
+            timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
+          ),
+          now = 0L
+        )
+        updatedGame.value.timer.value should have(
+          "timerStartTime" as 0L,
+          "pausedTime" as None,
+        )
+      }
+    }
+
+    "for a playing status update" - {
+      "for a pause request" - {
+        "pauses the timer when playing is false" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 0L,
+                  pausedTime = None,
+                  levels = List(RoundLevel(100, 10), BreakLevel(50))
+                )
+              )
+            ),
+            rawUpdateGame.copy(
+              playing = Some(false),
+            ),
+            now = 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.pausedTime shouldEqual Some(1000L)
+        }
+
+        "fails to pause game timer if it was already paused" in {
+          updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 0L,
+                  pausedTime = Some(100L),
+                  levels = List(RoundLevel(100, 10), BreakLevel(50))
+                )
+              )
+            ),
+            rawUpdateGame.copy(
+              playing = Some(false),
+            ),
+            now = 1000L
+          ).isLeft shouldEqual true
+        }
+      }
+
+      "for a timer restart" - {
+        // TODO: test and implement pausing / restarting
+        "calculates a correct start time from how long has elapsed" ignore {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 0L,
+                  pausedTime = Some(100L),
+                  levels = List(RoundLevel(100, 10), BreakLevel(50))
+                )
+              )
+            ),
+            rawUpdateGame.copy(
+              playing = Some(true),
+            ),
+            now = 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.timerStartTime shouldEqual 990L
+        }
+
+        "restarts the timer" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 0L,
+                  pausedTime = Some(100L),
+                  levels = List(RoundLevel(100, 10), BreakLevel(50))
+                )
+              )
+            ),
+            rawUpdateGame.copy(
+              playing = Some(true),
+            ),
+            now = 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.pausedTime shouldEqual None
+        }
+
+        "fails to restart the game timer if the it was already running" in {
+          updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 0L,
+                  pausedTime = None,
+                  levels = List(RoundLevel(100, 10), BreakLevel(50))
+                )
+              )
+            ),
+            rawUpdateGame.copy(
+              playing = Some(true),
+            ),
+            now = 1000L
+          ).isLeft shouldEqual true
+        }
+      }
+    }
+
+    "for a manual blind update" - {
+      "sets the blind to the specified amount" in {
+        val updatedGame = updateBlind(
+          game.copy(
+            round = Round(
+              River, 10, Two of Clubs, Three of Diamonds, Four of Spades, Five of Hearts, Six of Clubs, Seven of Diamonds, Eight of Hearts, Nine of Spades
+            )
+          ),
+          rawUpdateGame.copy(
+            smallBlind = Some(20),
+          ),
+          now = 1000L
+        )
+        updatedGame.value.round.smallBlind shouldEqual 20
+      }
+
+      "removes any existing timer" in {
+        val updatedGame = updateBlind(
+          game.copy(
+            round = Round(
+              River, 10, Two of Clubs, Three of Diamonds, Four of Spades, Five of Hearts, Six of Clubs, Seven of Diamonds, Eight of Hearts, Nine of Spades
+            )
+          ),
+          rawUpdateGame.copy(
+            smallBlind = Some(20),
+          ),
+          now = 1000L
+        )
+        updatedGame.value.timer shouldEqual None
       }
     }
   }
