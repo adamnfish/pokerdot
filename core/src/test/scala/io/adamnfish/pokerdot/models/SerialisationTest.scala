@@ -3,7 +3,7 @@ package io.adamnfish.pokerdot.models
 import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.models.Serialisation._
+import io.adamnfish.pokerdot.models.Serialisation.{parseUpdateBlindRequest, _}
 import io.circe.Json
 import io.circe.generic.semiauto.deriveDecoder
 import org.scalatest.freespec.AnyFreeSpec
@@ -61,7 +61,8 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "playerId" as "pid",
         "playerKey" as "pkey",
         "timerLevels" as None,
-        "playing" as false,
+        "playing" as Some(false),
+        "smallBlind" as None,
       )
     }
 
@@ -78,7 +79,8 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "playerId" as "pid",
         "playerKey" as "pkey",
         "timerLevels" as None,
-        "playing" as false,
+        "playing" as Some(false),
+        "smallBlind" as None,
       )
     }
 
@@ -96,7 +98,8 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "playerId" as "pid",
         "playerKey" as "pkey",
         "timerLevels" as None,
-        "playing" as true,
+        "playing" as Some(true),
+        "smallBlind" as None,
       )
     }
 
@@ -113,7 +116,8 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "playerId" as "pid",
         "playerKey" as "pkey",
         "timerLevels" as None,
-        "playing" as true,
+        "playing" as Some(true),
+        "smallBlind" as None,
       )
     }
 
@@ -123,9 +127,9 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
           | "playerId": "pid",
           | "playerKey": "pkey",
           | "timerLevels": [
-          |  {"durationSeconds": 300, "smallBlind": 5},
-          |  {"durationSeconds": 45},
-          |  {"durationSeconds": 200, "smallBlind": 10}
+          |    {"durationSeconds": 300, "smallBlind": 5},
+          |    {"durationSeconds": 45},
+          |    {"durationSeconds": 200, "smallBlind": 10}
           | ],
           | "playing": true
           |}""".stripMargin
@@ -137,7 +141,27 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
         "timerLevels" as Some(List(
           RoundLevel(300, 5), BreakLevel(45), RoundLevel(200, 10)
         )),
-        "playing" as true,
+        "playing" as Some(true),
+        "smallBlind" as None,
+      )
+    }
+
+    "parses a manual update to the blind level" in {
+
+      val json = parseReq(
+        """{"gameId": "gid",
+          | "playerId": "pid",
+          | "playerKey": "pkey",
+          | "smallBlind": 25
+          |}""".stripMargin
+      )
+      parseUpdateBlindRequest(json).value should have(
+        "gameId" as "gid",
+        "playerId" as "pid",
+        "playerKey" as "pkey",
+        "timerLevels" as None,
+        "playing" as None,
+        "smallBlind" as Some(25),
       )
     }
   }
@@ -249,14 +273,9 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
       actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "advance-phase"
     }
 
-    "pauseTimerSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = PauseTimerSummary()
-      actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "pause-timer"
-    }
-
-    "startTimerSummary encoding includes correct the action name" in {
-      val actionSummary: ActionSummary = StartTimerSummary()
-      actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "start-timer"
+    "timerStatusSummary encoding includes correct the action name" in {
+      val actionSummary: ActionSummary = TimerStatusSummary(true)
+      actionSummary.asJson.hcursor.downField("action").as[String].value shouldEqual "timer-status"
     }
 
     "editBlindSummary encoding includes correct the action name" in {

@@ -262,18 +262,19 @@ object PokerDot {
    */
   def updateBlind(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
     for {
-      updateTimer <- extractUpdateBlind(requestJson).attempt
-      maybeGame <- appContext.db.getGame(updateTimer.gameId)
+      updateBlind <- extractUpdateBlind(requestJson).attempt
+      maybeGame <- appContext.db.getGame(updateBlind.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
         s"Cannot start game, game ID not found", "Couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       _ <- Games.ensureStarted(game).attempt
-      _ <- Games.ensureAdmin(game.players, updateTimer.playerKey).attempt
-      updatedGame <- PlayerActions.updateBlind(game).attempt
+      _ <- Games.ensureAdmin(game.players, updateBlind.playerKey).attempt
+      now = appContext.dates.now()
+      updatedGame <- PlayerActions.updateBlind(game, updateBlind, now).attempt
       newGameDb = Representations.gameToDb(updatedGame)
-      action = EditBlindSummary() // TODO: determine this from the update timer request
+      action <- Games.updateBlindAction(updateBlind).attempt
       _ <- appContext.db.writeGame(newGameDb)
       // this endpoint won't update players so there's no need to save them
     } yield Responses.gameStatuses(updatedGame, action)

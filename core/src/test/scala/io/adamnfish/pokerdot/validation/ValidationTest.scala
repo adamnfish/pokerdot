@@ -131,7 +131,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = Some(List(RoundLevel(300, 5), BreakLevel(60), RoundLevel(500, 10))),
         smallBlind = None,
-        playing = true,
+        playing = Some(true),
       )
     }
 
@@ -144,20 +144,20 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = None,
         smallBlind = None,
-        playing = true,
+        playing = Some(true),
       )
     }
 
     "with manual blind change" in {
       val jsonStr =
         s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
-           |"smallBlind":50,"playing":false}""".stripMargin
+           |"smallBlind":50}""".stripMargin
       val json = parse(jsonStr).value
       extractUpdateBlind(json).value shouldEqual UpdateBlind(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = None,
         smallBlind = Some(50),
-        playing = false,
+        playing = None,
       )
     }
   }
@@ -303,7 +303,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
       timerLevels = None,
       smallBlind = None,
-      playing = true
+      playing = None,
     )
 
     "returns the request for a valid update timer requests" - {

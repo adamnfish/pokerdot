@@ -198,6 +198,18 @@ object Games {
     )
   }
 
+  def updateBlindAction(updateBlind: UpdateBlind): Either[Failures, ActionSummary] = {
+    if (updateBlind.timerLevels.isDefined) {
+      Right(EditTimerSummary())
+    } else if (updateBlind.playing.isDefined) {
+      Right(TimerStatusSummary(updateBlind.playing.contains(true)))
+    } else if (updateBlind.smallBlind.isDefined) {
+      Right(EditBlindSummary())
+    } else {
+      Left(Failures("Couldn't determine action from update blind request", "Couldn't update the blinds."))
+    }
+  }
+
   /**
    * Copies the round's bet over to the player's pot contribution and resets the checked state.
    *

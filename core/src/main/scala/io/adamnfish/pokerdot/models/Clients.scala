@@ -104,9 +104,8 @@ case class FoldSummary(
 ) extends ActionSummary
 case class AdvancePhaseSummary(
 ) extends ActionSummary
-case class PauseTimerSummary(
-) extends ActionSummary
-case class StartTimerSummary(
+case class TimerStatusSummary(
+  playing: Boolean,
 ) extends ActionSummary
 case class EditTimerSummary(
 ) extends ActionSummary
@@ -142,7 +141,7 @@ case class UpdateBlind(
   playerKey: PlayerKey,
   timerLevels: Option[List[TimerLevel]],
   smallBlind: Option[Int],
-  playing: Boolean, // TODO: make this optional?
+  playing: Option[Boolean], // TODO: make this optional?
 ) extends Request
 // game requests
 case class Bet(

@@ -445,6 +445,52 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
   }
 
+  "updateBlindAction" - {
+    val rawUpdateGame = UpdateBlind(
+      GameId("game-id"), PlayerId("player-id"), PlayerKey("player-key"),
+      None, None, None
+    )
+
+    "for a timer update" - {
+      "returns update timer action" in {
+        updateBlindAction(rawUpdateGame.copy(
+          timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
+        )).value shouldEqual EditTimerSummary()
+      }
+
+      "action is edit timer even if the status also changes" in {
+        updateBlindAction(rawUpdateGame.copy(
+          timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50))),
+          playing = Some(true),
+        )).value shouldEqual EditTimerSummary()
+      }
+    }
+
+    "for a playing status update" - {
+      "returns 'playing' timer status action if the timer was started" in {
+        updateBlindAction(rawUpdateGame.copy(
+          playing = Some(true),
+        )).value shouldEqual TimerStatusSummary(true)
+      }
+
+      "returns 'paused' timer status action if the timer was stopped" in {
+        updateBlindAction(rawUpdateGame.copy(
+          playing = Some(false),
+        )).value shouldEqual TimerStatusSummary(false)
+      }
+    }
+
+    "returns update blind status for a manual blind edit" in {
+      updateBlindAction(rawUpdateGame.copy(
+        smallBlind = Some(10),
+      )).value shouldEqual EditBlindSummary()
+    }
+
+    "returns an error if the request doesn't include any actions" in {
+      updateBlindAction(rawUpdateGame).isLeft shouldEqual true
+    }
+  }
+
   "resetPlayerForNextPhase" - {
     val gameId = GameId("game-id")
     val player = newPlayer(gameId, "player", false, PlayerAddress("address"), TestDates)

@@ -234,8 +234,7 @@ type Action
     | CheckAction PlayerId
     | FoldAction PlayerId
     | AdvancePhaseAction
-    | PauseTimerAction
-    | StartTimerAction
+    | TimerStatusAction Bool
     | EditTimerAction
     | EditBlindAction
     | NoAction
@@ -474,6 +473,9 @@ actionDecoder =
         playerIdFieldDecoder =
             Json.Decode.field "playerId" playerIdDecoder
 
+        playingStatusFieldDecoder =
+            Json.Decode.field "playing" Json.Decode.bool
+
         decode id =
             case id of
                 "game-started" ->
@@ -502,11 +504,9 @@ actionDecoder =
                 "advance-phase" ->
                     Json.Decode.succeed AdvancePhaseAction
 
-                "pause-timer" ->
-                    Json.Decode.succeed PauseTimerAction
-
-                "start-timer" ->
-                    Json.Decode.succeed StartTimerAction
+                "timer-status" ->
+                    playingStatusFieldDecoder
+                        |> Json.Decode.map TimerStatusAction
 
                 "edit-timer" ->
                     Json.Decode.succeed EditTimerAction
