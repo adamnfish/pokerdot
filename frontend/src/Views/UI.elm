@@ -122,7 +122,8 @@ view model =
     in
     { title = page.title
     , body =
-        [ layout
+        [ FontAwesome.Styles.css
+        , layout
             [ Font.family
                 [ Font.typeface "Nunito"
                 , Font.sansSerif
@@ -391,8 +392,8 @@ gameScreen model playingState currentAct self game welcome =
     column
         [ width fill
         ]
-        [ selfUi model.peeking self
-        , tableUi game
+        [ tableUi game
+        , selfUi model.peeking self
         , communityCardsUi game.round
         , case playingState of
             Playing ->
@@ -415,10 +416,13 @@ roundResultsScreen model potResults playerWinnings self game welcome =
     column
         [ width fill
         ]
-        [ selfUi model.peeking self
-        , tableUi game
+        [ tableUi game
+        , selfUi model.peeking self
+        , communityCardsUi game.round
         , column
-            []
+            [ width fill
+            , spacing 5
+            ]
           <|
             List.map
                 (\pw ->
@@ -429,10 +433,10 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                                     List.Extra.find (\p -> p.playerId == pw.playerId) game.players
                     in
                     column
-                        []
-                        [ text name
-                        , Maybe.withDefault none <| Maybe.map handUi pw.hand
-                        , text <| "Winnings: " ++ String.fromInt pw.winnings
+                        [ width fill
+                        , spacing 5
+                        ]
+                        [ Maybe.withDefault none <| Maybe.map (handUi name pw.winnings) pw.hand
                         ]
                 )
                 playerWinnings
@@ -449,8 +453,8 @@ gameResultsScreen model self game welcome =
     column
         [ width fill
         ]
-        [ selfUi model.peeking self
-        , tableUi game
+        [ tableUi game
+        , selfUi model.peeking self
         ]
 
 

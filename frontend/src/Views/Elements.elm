@@ -1,4 +1,4 @@
-module Views.Elements exposing (cardUi, communityCardsUi, dotContainer, handUi, pdButton, pdButtonSmall, pdTab, pdText, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (cardUi, communityCardsUi, dotContainer, handUi, hiddenCardUi, pdButton, pdButtonSmall, pdTab, pdText, selfUi, tableUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -7,7 +7,11 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, labelLeft)
 import Element.Region as Region
-import Model exposing (Card, Game, Hand(..), Msg(..), Player, Round(..), Self)
+import FontAwesome.Attributes
+import FontAwesome.Icon
+import FontAwesome.Regular
+import FontAwesome.Solid
+import Model exposing (Card, Game, Hand(..), Msg(..), Player, Rank(..), Round(..), Self)
 import Random
 import Random.Extra
 import Views.Generators exposing (..)
@@ -189,24 +193,70 @@ selfUi isPeeking self =
 
                 Just ( card1, card2 ) ->
                     row
-                        []
+                        [ spacing 2 ]
                     <|
                         if isPeeking then
-                            List.intersperse (text " ") <| List.map cardUi [ card1, card2 ]
+                            [ cardUi 0 card1, cardUi 0 card2 ]
 
                         else
-                            [ text " - ", text " - " ]
-            , pdTab TogglePeek <|
-                if isPeeking then
-                    "stop looking at hand"
+                            [ hiddenCardUi, hiddenCardUi ]
+            , Input.button
+                []
+                { onPress = Just TogglePeek
+                , label =
+                    if isPeeking then
+                        Element.html <|
+                            (FontAwesome.Regular.eyeSlash
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.fa2x ]
+                                |> FontAwesome.Icon.withId "self-peeking-toggle_pokerdot"
+                                |> FontAwesome.Icon.titled "Stop looking at hand"
+                                |> FontAwesome.Icon.view
+                            )
 
-                else
-                    "look at hand"
+                    else
+                        Element.html <|
+                            (FontAwesome.Regular.eye
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.fa2x ]
+                                |> FontAwesome.Icon.withId "self-peeking-toggle_pokerdot"
+                                |> FontAwesome.Icon.titled "Look at hand"
+                                |> FontAwesome.Icon.view
+                            )
+                }
             ]
 
 
-cardUi : Card -> Element Msg
-cardUi card =
+hiddenCardUi : Element Msg
+hiddenCardUi =
+    let
+        bgColour =
+            rgb255 253 253 253
+
+        textColour =
+            rgb255 40 40 40
+    in
+    Element.el
+        [ height <| px 76
+        , width <| px 76
+        , Border.rounded 38
+        , Background.color bgColour
+        , Border.width 2
+        , Border.color textColour
+        , clip
+        , Font.size 25
+        , Font.color textColour
+        ]
+    <|
+        row
+            [ centerX
+            , centerY
+            ]
+            [ text "x" ]
+
+
+cardUi : Int -> Card -> Element Msg
+cardUi offsetIndex card =
     let
         rank =
             case card.rank of
@@ -249,157 +299,240 @@ cardUi card =
                 Model.Ace ->
                     text "A"
 
-        suit =
+        ( suit, textColour, bgColour ) =
             case card.suit of
                 Model.Clubs ->
-                    text "♣"
+                    ( text "♣"
+                    , rgb255 40 40 40
+                    , rgb255 253 255 255
+                    )
 
                 Model.Diamonds ->
-                    text "♦"
+                    ( text "♦"
+                    , rgb255 150 20 20
+                    , rgb255 255 253 253
+                    )
 
                 Model.Spades ->
-                    text "♠"
+                    ( text "♠"
+                    , rgb255 40 40 40
+                    , rgb255 253 255 253
+                    )
 
                 Model.Hearts ->
-                    text "♥"
+                    ( text "♥"
+                    , rgb255 150 20 20
+                    , rgb255 255 253 253
+                    )
     in
-    row [] [ rank, suit ]
+    Element.el
+        [ height <| px 76
+        , width <| px 76
+        , Border.rounded 38
+        , Background.color bgColour
+        , Border.width 2
+        , Border.color textColour
+        , clip
+        , Font.size 25
+        , Font.color textColour
+        , moveLeft <| toFloat offsetIndex * 10
+
+        --, Background.color <| rgb255 200 200 200
+        ]
+    <|
+        row
+            [ centerX
+            , centerY
+            ]
+            [ rank, suit ]
 
 
-handUi : Hand -> Element Msg
-handUi hand =
-    case hand of
-        HighCard c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "High card"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
+handUi : String -> Int -> Hand -> Element Msg
+handUi name winnings hand =
+    let
+        cardSpacing =
+            2
+
+        ( label, cardEls ) =
+            case hand of
+                HighCard c1 c2 c3 c4 c5 ->
+                    ( "HIGH CARD"
+                    , [ cardUi 0 c1
+                      , cardUi 0 c2
+                      , cardUi 0 c3
+                      , cardUi 0 c4
+                      , cardUi 0 c5
+                      ]
+                    )
+
+                Pair p1 p2 k1 k2 k3 ->
+                    ( "PAIR"
+                    , [ cardUi 0 p1
+                      , cardUi 1 p2
+                      , cardUi 0 k1
+                      , cardUi 0 k2
+                      , cardUi 0 k3
+                      ]
+                    )
+
+                TwoPair p11 p12 p21 p22 k ->
+                    ( "TWO PAIR"
+                    , [ cardUi 0 p11
+                      , cardUi 1 p12
+                      , cardUi 0 p21
+                      , cardUi 1 p22
+                      , cardUi 0 k
+                      ]
+                    )
+
+                ThreeOfAKind t1 t2 t3 k1 k2 ->
+                    ( "THREE OF A KIND"
+                    , [ cardUi 0 t1
+                      , cardUi 1 t2
+                      , cardUi 2 t3
+                      , cardUi 0 k1
+                      , cardUi 0 k2
+                      ]
+                    )
+
+                Straight c1 c2 c3 c4 c5 ->
+                    ( "STRAIGHT"
+                    , [ cardUi 0 c1
+                      , cardUi 1 c2
+                      , cardUi 2 c3
+                      , cardUi 3 c4
+                      , cardUi 4 c5
+                      ]
+                    )
+
+                Flush c1 c2 c3 c4 c5 ->
+                    ( "FLUSH"
+                    , [ cardUi 0 c1
+                      , cardUi 1 c2
+                      , cardUi 2 c3
+                      , cardUi 3 c4
+                      , cardUi 4 c5
+                      ]
+                    )
+
+                FullHouse t1 t2 t3 p1 p2 ->
+                    ( "FULL HOUSE"
+                    , [ cardUi 0 t1
+                      , cardUi 1 t2
+                      , cardUi 2 t3
+                      , cardUi 0 p1
+                      , cardUi 1 p2
+                      ]
+                    )
+
+                FourOfAKind q1 q2 q3 q4 k ->
+                    ( "FOUR OF A KIND"
+                    , [ cardUi 0 q1
+                      , cardUi 1 q2
+                      , cardUi 2 q3
+                      , cardUi 3 q4
+                      , cardUi 0 k
+                      ]
+                    )
+
+                StraightFlush c1 c2 c3 c4 c5 ->
+                    ( if c1.rank == Ten then
+                        "ROYAL FLUSH"
+
+                      else
+                        "STRAIGHT FLUSH"
+                    , [ cardUi 0 c1
+                      , cardUi 1 c2
+                      , cardUi 2 c3
+                      , cardUi 3 c4
+                      , cardUi 4 c5
+                      ]
+                    )
+
+        winningsIcon =
+            if winnings > 0 then
+                FontAwesome.Solid.angleDoubleUp
+
+            else
+                FontAwesome.Solid.angleDown
+    in
+    column
+        [ width fill
+        , spacing 5
+        , padding 10
+        , Background.color <| rgb255 50 50 50
+        ]
+        [ el
+            [ Font.size 25
+            , Font.color <| rgba255 250 250 250 0.8
+            , Font.shadow
+                { offset = ( 1, 1 )
+                , blur = 0.5
+                , color = rgba255 100 100 100 0.8
+                }
+            , paddingEach
+                { top = 0
+                , bottom = 2
+                , left = 5
+                , right = 10
+                }
+            ]
+          <|
+            text name
+
+        -- TODO: Include player hole display here
+        , row
+            [ spacing cardSpacing ]
+          <|
+            List.append cardEls
+                [ el
+                    [ Font.size 25
+                    , Font.color <| rgba255 250 250 250 0.8
+                    , Font.shadow
+                        { offset = ( 1, 1 )
+                        , blur = 0.5
+                        , color = rgba255 100 100 100 0.8
+                        }
+                    , paddingEach
+                        { top = 0
+                        , bottom = 2
+                        , left = 10
+                        , right = 10
+                        }
                     ]
+                  <|
+                    row
+                        []
+                        [ Element.html <|
+                            (winningsIcon
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                |> FontAwesome.Icon.withId ("self-peeking-toggle_pokerdot_" ++ name)
+                                |> FontAwesome.Icon.titled "Winnings"
+                                |> FontAwesome.Icon.view
+                            )
+                        , text " "
+                        , text <| String.fromInt winnings
+                        ]
                 ]
-
-        Pair p1 p2 k1 k2 k3 ->
-            column
-                []
-                [ text "Pair"
-                , row
-                    []
-                    [ cardUi p1
-                    , cardUi p2
-                    , text " | "
-                    , cardUi k1
-                    , cardUi k2
-                    , cardUi k3
-                    ]
-                ]
-
-        TwoPair p11 p12 p21 p22 k ->
-            column
-                []
-                [ text "Two pair"
-                , row
-                    []
-                    [ cardUi p11
-                    , cardUi p12
-                    , text " | "
-                    , cardUi p21
-                    , cardUi p22
-                    , text " | "
-                    , cardUi k
-                    ]
-                ]
-
-        ThreeOfAKind t1 t2 t3 k1 k2 ->
-            column
-                []
-                [ text "Three of a kind"
-                , row
-                    []
-                    [ cardUi t1
-                    , cardUi t2
-                    , cardUi t3
-                    , text " | "
-                    , cardUi k1
-                    , cardUi k2
-                    ]
-                ]
-
-        Straight c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "Straight"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]
-
-        Flush c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "Flush"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]
-
-        FullHouse t1 t2 t3 p1 p2 ->
-            column
-                []
-                [ text "Full house"
-                , row
-                    []
-                    [ cardUi t1
-                    , cardUi t2
-                    , cardUi t3
-                    , text " | "
-                    , cardUi p1
-                    , cardUi p2
-                    ]
-                ]
-
-        FourOfAKind q1 q2 q3 q4 k ->
-            column
-                []
-                [ text "Four of a kind"
-                , row
-                    []
-                    [ cardUi q1
-                    , cardUi q2
-                    , cardUi q3
-                    , cardUi q4
-                    , text " | "
-                    , cardUi k
-                    ]
-                ]
-
-        StraightFlush c1 c2 c3 c4 c5 ->
-            column
-                []
-                [ text "Straight flush"
-                , row
-                    []
-                    [ cardUi c1
-                    , cardUi c2
-                    , cardUi c3
-                    , cardUi c4
-                    , cardUi c5
-                    ]
-                ]
+        , el
+            [ Font.size 15
+            , Font.color <| rgba255 250 250 250 0.8
+            , Font.shadow
+                { offset = ( 1, 1 )
+                , blur = 0.5
+                , color = rgba255 100 100 100 0.8
+                }
+            , paddingEach
+                { top = 0
+                , bottom = 2
+                , left = 5
+                , right = 10
+                }
+            ]
+          <|
+            text label
+        ]
 
 
 communityCardsUi : Round -> Element Msg
@@ -412,16 +545,33 @@ communityCardsUi round =
                 []
 
             FlopRound flop1 flop2 flop3 ->
-                List.map cardUi [ flop1, flop2, flop3 ]
+                [ cardUi 0 flop1
+                , cardUi 0 flop2
+                , cardUi 0 flop3
+                ]
 
             TurnRound flop1 flop2 flop3 turn ->
-                List.map cardUi [ flop1, flop2, flop3, turn ]
+                [ cardUi 0 flop1
+                , cardUi 0 flop2
+                , cardUi 0 flop3
+                , cardUi 0 turn
+                ]
 
             RiverRound flop1 flop2 flop3 turn river ->
-                List.map cardUi [ flop1, flop2, flop3, turn, river ]
+                [ cardUi 0 flop1
+                , cardUi 0 flop2
+                , cardUi 0 flop3
+                , cardUi 0 turn
+                , cardUi 0 river
+                ]
 
             ShowdownRound flop1 flop2 flop3 turn river _ ->
-                List.map cardUi [ flop1, flop2, flop3, turn, river ]
+                [ cardUi 0 flop1
+                , cardUi 0 flop2
+                , cardUi 0 flop3
+                , cardUi 0 turn
+                , cardUi 0 river
+                ]
 
 
 
@@ -431,6 +581,12 @@ communityCardsUi round =
 uiElements : Int -> Element Msg
 uiElements seed =
     let
+        namesGen =
+            Random.list 11 nameGen
+
+        winningsGen =
+            Random.list 11 <| Random.int 0 150
+
         handsGen =
             Random.andThen
                 (\record ->
@@ -445,7 +601,7 @@ uiElements seed =
                             , fullHouse = fh
                             , fourOfAKind = foak
                             , straightFlush = sf
-                            , royalFlush = sf
+                            , royalFlush = rf
                             }
                         )
                         fullHouseHandGen
@@ -471,36 +627,103 @@ uiElements seed =
                     straightHandGen
                     flushHandGen
 
-        ( { hands, flopRound, turnRound, riverRound }, seed2 ) =
+        ( { hands, flopRound, turnRound, riverRound, names, winnings }, seed2 ) =
             Random.step
-                (Random.map4
-                    (\h f t r ->
+                (Random.Extra.map6
+                    (\h f t r n w ->
                         { hands = h
                         , flopRound = f
                         , turnRound = t
                         , riverRound = r
+                        , names = n
+                        , winnings = w
                         }
                     )
                     handsGen
                     flopRoundGen
                     turnRoundGen
                     riverRoundGen
+                    namesGen
+                    winningsGen
                 )
             <|
                 Random.initialSeed seed
+
+        getName i =
+            Maybe.withDefault
+                "abc"
+            <|
+                List.head <|
+                    List.drop i names
+
+        getWinnings i =
+            Maybe.withDefault
+                -1
+            <|
+                List.head <|
+                    List.drop i winnings
     in
     column
-        [ spacing 15 ]
-        [ handUi hands.highCard
-        , handUi hands.pair
-        , handUi hands.twoPair
-        , handUi hands.threeOfAKind
-        , handUi hands.straight
-        , handUi hands.flush
-        , handUi hands.fullHouse
-        , handUi hands.fourOfAKind
-        , handUi hands.straight
-        , handUi hands.royalFlush
+        [ width fill
+        , spacing 5
+        ]
+        [ row
+            [ width fill
+            , spacing 25
+            ]
+            [ Input.button
+                [ height <| px 25
+                , width <| px 25
+                ]
+                { onPress = Just (NavigateUIElements <| seed - 1)
+                , label = text "-"
+                }
+            , Input.slider
+                [ height <| px 30
+                , width <| px 250
+
+                -- Here is where we're creating/styling the "track"
+                , Element.behindContent
+                    (Element.el
+                        [ width fill
+                        , height (px 2)
+                        , centerY
+                        , Background.color <| rgb255 0 0 0
+                        , Border.rounded 2
+                        ]
+                        Element.none
+                    )
+                ]
+                { onChange = round >> NavigateUIElements
+                , label =
+                    Input.labelAbove []
+                        (text "Seed")
+                , min = 0
+                , max = 400
+                , step = Nothing
+                , value = toFloat seed
+                , thumb =
+                    Input.defaultThumb
+                }
+            , Input.button
+                [ height <| px 25
+                , width <| px 25
+                ]
+                { onPress = Just (NavigateUIElements <| seed + 1)
+                , label = text "+"
+                }
+            ]
+        , handUi (getName 0) (getWinnings 0) hands.highCard
+        , handUi (getName 1) (getWinnings 1) hands.pair
+        , handUi (getName 2) (getWinnings 2) hands.twoPair
+        , handUi (getName 3) (getWinnings 3) hands.threeOfAKind
+        , handUi (getName 4) (getWinnings 4) hands.straight
+        , handUi (getName 5) (getWinnings 5) hands.flush
+        , handUi (getName 6) (getWinnings 6) hands.fullHouse
+        , handUi (getName 7) (getWinnings 7) hands.fourOfAKind
+        , handUi (getName 8) (getWinnings 8) hands.straight
+        , handUi (getName 9) (getWinnings 9) hands.straightFlush
+        , handUi (getName 10) (getWinnings 10) hands.royalFlush
         , communityCardsUi flopRound
         , communityCardsUi turnRound
         , communityCardsUi riverRound

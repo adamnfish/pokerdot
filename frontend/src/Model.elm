@@ -259,6 +259,7 @@ type alias PotResult =
 
 
 type alias PlayerWinnings =
+    -- TODO: include hole here for convenience?
     { playerId : PlayerId
     , hand : Maybe Hand
     , winnings : Int
