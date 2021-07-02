@@ -16,6 +16,7 @@
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
             "elm-community/list-extra": "8.2.4",
+            "elm-community/maybe-extra": "5.2.0",
             "elm-community/random-extra": "3.2.0",
             "lattyware/elm-fontawesome": "5.0.0",
             "mdgriffith/elm-ui": "1.1.8"

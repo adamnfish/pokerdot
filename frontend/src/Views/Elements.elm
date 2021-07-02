@@ -11,10 +11,17 @@ import FontAwesome.Attributes
 import FontAwesome.Icon
 import FontAwesome.Regular
 import FontAwesome.Solid
-import Model exposing (Card, Game, Hand(..), Msg(..), Player, Rank(..), Round(..), Self)
+import List.Extra
+import Maybe.Extra
+import Model exposing (Card, Game, Hand(..), Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
 import Random
 import Random.Extra
 import Views.Generators exposing (..)
+
+
+type CardSize
+    = SmallCard
+    | NormalCard
 
 
 pdButton : Msg -> List String -> Element Msg
@@ -147,31 +154,106 @@ dotContainer viewport radius content =
                 content
 
 
-tableUi : Game -> Element Msg
-tableUi game =
+tableUi : Round -> List Player -> Element Msg
+tableUi round players =
     let
         pot =
-            List.sum <| List.map .pot game.players
+            List.sum <| List.map .pot players
 
         seat : Player -> Element Msg
         seat player =
+            let
+                betIcon =
+                    if player.bet > 0 then
+                        FontAwesome.Solid.caretRight
+
+                    else
+                        FontAwesome.Regular.circle
+            in
             row
                 [ width fill
                 , spacing 8
+                , padding 8
+                , Background.color <| rgb255 200 200 200
                 ]
-                [ text player.screenName
-                , text <| String.fromInt player.stack
-                , text <| String.fromInt player.bet
+                [ el
+                    [ width fill
+                    , Font.alignLeft
+                    , clip
+                    ]
+                  <|
+                    text player.screenName
+                , el
+                    [ width <| px 50
+                    , Font.alignRight
+                    ]
+                  <|
+                    text <|
+                        String.fromInt player.stack
+                , row
+                    [ width <| px 60 ]
+                    [ html
+                        (betIcon
+                            |> FontAwesome.Icon.present
+                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                            |> FontAwesome.Icon.withId "self-peeking-toggle_pokerdot"
+                            |> FontAwesome.Icon.titled "Stop looking at hand"
+                            |> FontAwesome.Icon.view
+                        )
+                    , text " "
+                    , if player.bet > 0 then
+                        text <|
+                            String.fromInt player.bet
+
+                      else
+                        Element.none
+                    ]
                 ]
     in
     column
         [ width fill
         ]
         [ column
-            [ width fill ]
+            [ width fill
+            , spacing 2
+            ]
           <|
-            List.map seat game.players
-        , text <| "pot: " ++ String.fromInt pot
+            List.map seat players
+        , case round of
+            PreFlopRound ->
+                Element.none
+
+            _ ->
+                row
+                    [ width fill
+                    , paddingXY 8 2
+                    ]
+                    [ el
+                        [ width fill
+                        , clip
+                        ]
+                      <|
+                        communityCardsUi round
+                    , column
+                        [ paddingXY 15 8
+                        , spacing 5
+                        , Border.width 2
+                        , Border.color <| rgb255 50 50 50
+                        ]
+                        [ el
+                            [ width fill
+                            , Font.size 15
+                            ]
+                          <|
+                            text "pot"
+                        , el
+                            [ Font.size 22
+                            ]
+                          <|
+                            text <|
+                                String.fromInt pot
+                        ]
+                    ]
         ]
 
 
@@ -196,7 +278,7 @@ selfUi isPeeking self =
                         [ spacing 2 ]
                     <|
                         if isPeeking then
-                            [ cardUi 0 card1, cardUi 0 card2 ]
+                            [ cardUi 0 NormalCard card1, cardUi 0 NormalCard card2 ]
 
                         else
                             [ hiddenCardUi, hiddenCardUi ]
@@ -255,8 +337,8 @@ hiddenCardUi =
             [ text "x" ]
 
 
-cardUi : Int -> Card -> Element Msg
-cardUi offsetIndex card =
+cardUi : Int -> CardSize -> Card -> Element Msg
+cardUi offsetIndex cardSize card =
     let
         rank =
             case card.rank of
@@ -324,18 +406,32 @@ cardUi offsetIndex card =
                     , rgb255 150 20 20
                     , rgb255 255 253 253
                     )
+
+        ( radius, fontSize, offset ) =
+            case cardSize of
+                SmallCard ->
+                    ( 40, 14, 5 )
+
+                NormalCard ->
+                    ( 56, 19, 10 )
     in
     Element.el
-        [ height <| px 76
-        , width <| px 76
-        , Border.rounded 38
+        [ height <| px radius
+        , width <| px radius
+        , Border.rounded (radius // 2)
         , Background.color bgColour
-        , Border.width 2
+        , Border.width <|
+            case cardSize of
+                SmallCard ->
+                    1
+
+                NormalCard ->
+                    2
         , Border.color textColour
         , clip
-        , Font.size 25
+        , Font.size fontSize
         , Font.color textColour
-        , moveLeft <| toFloat offsetIndex * 10
+        , moveLeft <| toFloat offsetIndex * offset
 
         --, Background.color <| rgb255 200 200 200
         ]
@@ -347,91 +443,91 @@ cardUi offsetIndex card =
             [ rank, suit ]
 
 
-handUi : String -> Int -> Hand -> Element Msg
-handUi name winnings hand =
+handUi : String -> Int -> Maybe ( Card, Card ) -> Hand -> Element Msg
+handUi name winnings maybeHole hand =
     let
         cardSpacing =
-            2
+            1
 
         ( label, cardEls ) =
             case hand of
                 HighCard c1 c2 c3 c4 c5 ->
                     ( "HIGH CARD"
-                    , [ cardUi 0 c1
-                      , cardUi 0 c2
-                      , cardUi 0 c3
-                      , cardUi 0 c4
-                      , cardUi 0 c5
+                    , [ cardUi 0 NormalCard c1
+                      , cardUi 0 NormalCard c2
+                      , cardUi 0 NormalCard c3
+                      , cardUi 0 NormalCard c4
+                      , cardUi 0 NormalCard c5
                       ]
                     )
 
                 Pair p1 p2 k1 k2 k3 ->
                     ( "PAIR"
-                    , [ cardUi 0 p1
-                      , cardUi 1 p2
-                      , cardUi 0 k1
-                      , cardUi 0 k2
-                      , cardUi 0 k3
+                    , [ cardUi 0 NormalCard p1
+                      , cardUi 1 NormalCard p2
+                      , cardUi 0 NormalCard k1
+                      , cardUi 0 NormalCard k2
+                      , cardUi 0 NormalCard k3
                       ]
                     )
 
                 TwoPair p11 p12 p21 p22 k ->
                     ( "TWO PAIR"
-                    , [ cardUi 0 p11
-                      , cardUi 1 p12
-                      , cardUi 0 p21
-                      , cardUi 1 p22
-                      , cardUi 0 k
+                    , [ cardUi 0 NormalCard p11
+                      , cardUi 1 NormalCard p12
+                      , cardUi 0 NormalCard p21
+                      , cardUi 1 NormalCard p22
+                      , cardUi 0 NormalCard k
                       ]
                     )
 
                 ThreeOfAKind t1 t2 t3 k1 k2 ->
                     ( "THREE OF A KIND"
-                    , [ cardUi 0 t1
-                      , cardUi 1 t2
-                      , cardUi 2 t3
-                      , cardUi 0 k1
-                      , cardUi 0 k2
+                    , [ cardUi 0 NormalCard t1
+                      , cardUi 1 NormalCard t2
+                      , cardUi 2 NormalCard t3
+                      , cardUi 0 NormalCard k1
+                      , cardUi 0 NormalCard k2
                       ]
                     )
 
                 Straight c1 c2 c3 c4 c5 ->
                     ( "STRAIGHT"
-                    , [ cardUi 0 c1
-                      , cardUi 1 c2
-                      , cardUi 2 c3
-                      , cardUi 3 c4
-                      , cardUi 4 c5
+                    , [ cardUi 0 NormalCard c1
+                      , cardUi 1 NormalCard c2
+                      , cardUi 2 NormalCard c3
+                      , cardUi 3 NormalCard c4
+                      , cardUi 4 NormalCard c5
                       ]
                     )
 
                 Flush c1 c2 c3 c4 c5 ->
                     ( "FLUSH"
-                    , [ cardUi 0 c1
-                      , cardUi 1 c2
-                      , cardUi 2 c3
-                      , cardUi 3 c4
-                      , cardUi 4 c5
+                    , [ cardUi 0 NormalCard c1
+                      , cardUi 1 NormalCard c2
+                      , cardUi 2 NormalCard c3
+                      , cardUi 3 NormalCard c4
+                      , cardUi 4 NormalCard c5
                       ]
                     )
 
                 FullHouse t1 t2 t3 p1 p2 ->
                     ( "FULL HOUSE"
-                    , [ cardUi 0 t1
-                      , cardUi 1 t2
-                      , cardUi 2 t3
-                      , cardUi 0 p1
-                      , cardUi 1 p2
+                    , [ cardUi 0 NormalCard t1
+                      , cardUi 1 NormalCard t2
+                      , cardUi 2 NormalCard t3
+                      , cardUi 0 NormalCard p1
+                      , cardUi 1 NormalCard p2
                       ]
                     )
 
                 FourOfAKind q1 q2 q3 q4 k ->
                     ( "FOUR OF A KIND"
-                    , [ cardUi 0 q1
-                      , cardUi 1 q2
-                      , cardUi 2 q3
-                      , cardUi 3 q4
-                      , cardUi 0 k
+                    , [ cardUi 0 NormalCard q1
+                      , cardUi 1 NormalCard q2
+                      , cardUi 2 NormalCard q3
+                      , cardUi 3 NormalCard q4
+                      , cardUi 0 NormalCard k
                       ]
                     )
 
@@ -441,44 +537,62 @@ handUi name winnings hand =
 
                       else
                         "STRAIGHT FLUSH"
-                    , [ cardUi 0 c1
-                      , cardUi 1 c2
-                      , cardUi 2 c3
-                      , cardUi 3 c4
-                      , cardUi 4 c5
+                    , [ cardUi 0 NormalCard c1
+                      , cardUi 1 NormalCard c2
+                      , cardUi 2 NormalCard c3
+                      , cardUi 3 NormalCard c4
+                      , cardUi 4 NormalCard c5
                       ]
                     )
 
         winningsIcon =
             if winnings > 0 then
-                FontAwesome.Solid.angleDoubleUp
+                FontAwesome.Solid.sortUp
 
             else
-                FontAwesome.Solid.angleDown
+                FontAwesome.Solid.sortDown
     in
     column
         [ width fill
         , spacing 5
-        , padding 10
+        , paddingXY 8 10
         , Background.color <| rgb255 50 50 50
         ]
-        [ el
-            [ Font.size 25
-            , Font.color <| rgba255 250 250 250 0.8
-            , Font.shadow
-                { offset = ( 1, 1 )
-                , blur = 0.5
-                , color = rgba255 100 100 100 0.8
-                }
-            , paddingEach
-                { top = 0
-                , bottom = 2
-                , left = 5
-                , right = 10
-                }
+        [ row
+            [ width fill
+            , height <| px 40
             ]
-          <|
-            text name
+            [ case maybeHole of
+                Just ( card1, card2 ) ->
+                    row
+                        []
+                        [ cardUi 0 SmallCard card1
+                        , cardUi 1 SmallCard card2
+                        ]
+
+                Nothing ->
+                    Element.none
+            , el
+                [ width fill
+                , clip
+                , Font.size 20
+                , Font.alignLeft
+                , Font.color <| rgba255 250 250 250 0.8
+                , Font.shadow
+                    { offset = ( 1, 1 )
+                    , blur = 0.5
+                    , color = rgba255 100 100 100 0.8
+                    }
+                , paddingEach
+                    { top = 0
+                    , bottom = 2
+                    , left = 5
+                    , right = 10
+                    }
+                ]
+              <|
+                text name
+            ]
 
         -- TODO: Include player hole display here
         , row
@@ -511,7 +625,6 @@ handUi name winnings hand =
                                 |> FontAwesome.Icon.titled "Winnings"
                                 |> FontAwesome.Icon.view
                             )
-                        , text " "
                         , text <| String.fromInt winnings
                         ]
                 ]
@@ -538,39 +651,41 @@ handUi name winnings hand =
 communityCardsUi : Round -> Element Msg
 communityCardsUi round =
     row
-        [ width fill ]
+        [ width fill
+        , spacing 2
+        ]
     <|
         case round of
             PreFlopRound ->
                 []
 
             FlopRound flop1 flop2 flop3 ->
-                [ cardUi 0 flop1
-                , cardUi 0 flop2
-                , cardUi 0 flop3
+                [ cardUi 0 NormalCard flop1
+                , cardUi 1 NormalCard flop2
+                , cardUi 2 NormalCard flop3
                 ]
 
             TurnRound flop1 flop2 flop3 turn ->
-                [ cardUi 0 flop1
-                , cardUi 0 flop2
-                , cardUi 0 flop3
-                , cardUi 0 turn
+                [ cardUi 0 NormalCard flop1
+                , cardUi 1 NormalCard flop2
+                , cardUi 2 NormalCard flop3
+                , cardUi 3 NormalCard turn
                 ]
 
             RiverRound flop1 flop2 flop3 turn river ->
-                [ cardUi 0 flop1
-                , cardUi 0 flop2
-                , cardUi 0 flop3
-                , cardUi 0 turn
-                , cardUi 0 river
+                [ cardUi 0 NormalCard flop1
+                , cardUi 1 NormalCard flop2
+                , cardUi 2 NormalCard flop3
+                , cardUi 3 NormalCard turn
+                , cardUi 4 NormalCard river
                 ]
 
             ShowdownRound flop1 flop2 flop3 turn river _ ->
-                [ cardUi 0 flop1
-                , cardUi 0 flop2
-                , cardUi 0 flop3
-                , cardUi 0 turn
-                , cardUi 0 river
+                [ cardUi 0 NormalCard flop1
+                , cardUi 1 NormalCard flop2
+                , cardUi 2 NormalCard flop3
+                , cardUi 3 NormalCard turn
+                , cardUi 4 NormalCard river
                 ]
 
 
@@ -581,11 +696,28 @@ communityCardsUi round =
 uiElements : Int -> Element Msg
 uiElements seed =
     let
+        handsCount =
+            11
+
         namesGen =
-            Random.list 11 nameGen
+            Random.list handsCount nameGen
+
+        winningGen =
+            Random.andThen
+                (\b ->
+                    if b then
+                        Random.int 0 150
+
+                    else
+                        Random.constant 0
+                )
+            <|
+                Random.weighted
+                    ( 5.0, True )
+                    [ ( 1.0, False ) ]
 
         winningsGen =
-            Random.list 11 <| Random.int 0 150
+            Random.list handsCount winningGen
 
         handsGen =
             Random.andThen
@@ -627,6 +759,29 @@ uiElements seed =
                     straightHandGen
                     flushHandGen
 
+        holesGen =
+            Random.list handsCount (Random.Extra.maybe Random.Extra.bool <| holeGen)
+
+        playerGen =
+            Random.map4
+                (\name stack pot bet ->
+                    { playerId = Pid "player-id"
+                    , screenName = name
+                    , isAdmin = False
+                    , isHost = False
+                    , stack = stack
+                    , pot = pot
+                    , bet = bet
+                    , folded = False
+                    , busted = False
+                    , hole = Nothing
+                    }
+                )
+                nameGen
+                (Random.int 0 1000)
+                winningGen
+                winningGen
+
         ( { hands, flopRound, turnRound, riverRound, names, winnings }, seed2 ) =
             Random.step
                 (Random.Extra.map6
@@ -649,6 +804,21 @@ uiElements seed =
             <|
                 Random.initialSeed seed
 
+        ( { holes, players, round }, seed3 ) =
+            Random.step
+                (Random.map3
+                    (\h ps r ->
+                        { holes = h
+                        , players = ps
+                        , round = r
+                        }
+                    )
+                    holesGen
+                    (Random.list 5 playerGen)
+                    roundGen
+                )
+                seed2
+
         getName i =
             Maybe.withDefault
                 "abc"
@@ -662,6 +832,26 @@ uiElements seed =
             <|
                 List.head <|
                     List.drop i winnings
+
+        getHole i =
+            Maybe.Extra.join <| List.head <| List.drop i holes
+
+        getPlayer i =
+            Maybe.withDefault
+                { playerId = Pid "player-id"
+                , screenName = "couldn't lookup random player"
+                , isAdmin = False
+                , isHost = False
+                , stack = 0
+                , pot = 0
+                , bet = 0
+                , folded = False
+                , busted = False
+                , hole = Nothing
+                }
+            <|
+                List.head <|
+                    List.drop i players
     in
     column
         [ width fill
@@ -680,7 +870,7 @@ uiElements seed =
                 }
             , Input.slider
                 [ height <| px 30
-                , width <| px 250
+                , width fill
 
                 -- Here is where we're creating/styling the "track"
                 , Element.behindContent
@@ -694,7 +884,7 @@ uiElements seed =
                         Element.none
                     )
                 ]
-                { onChange = round >> NavigateUIElements
+                { onChange = Basics.round >> NavigateUIElements
                 , label =
                     Input.labelAbove []
                         (text "Seed")
@@ -713,17 +903,24 @@ uiElements seed =
                 , label = text "+"
                 }
             ]
-        , handUi (getName 0) (getWinnings 0) hands.highCard
-        , handUi (getName 1) (getWinnings 1) hands.pair
-        , handUi (getName 2) (getWinnings 2) hands.twoPair
-        , handUi (getName 3) (getWinnings 3) hands.threeOfAKind
-        , handUi (getName 4) (getWinnings 4) hands.straight
-        , handUi (getName 5) (getWinnings 5) hands.flush
-        , handUi (getName 6) (getWinnings 6) hands.fullHouse
-        , handUi (getName 7) (getWinnings 7) hands.fourOfAKind
-        , handUi (getName 8) (getWinnings 8) hands.straight
-        , handUi (getName 9) (getWinnings 9) hands.straightFlush
-        , handUi (getName 10) (getWinnings 10) hands.royalFlush
+        , tableUi round
+            [ getPlayer 0
+            , getPlayer 1
+            , getPlayer 2
+            , getPlayer 3
+            , getPlayer 4
+            ]
+        , handUi (getName 0) (getWinnings 0) (getHole 0) hands.highCard
+        , handUi (getName 1) (getWinnings 1) (getHole 1) hands.pair
+        , handUi (getName 2) (getWinnings 2) (getHole 2) hands.twoPair
+        , handUi (getName 3) (getWinnings 3) (getHole 3) hands.threeOfAKind
+        , handUi (getName 4) (getWinnings 4) (getHole 4) hands.straight
+        , handUi (getName 5) (getWinnings 5) (getHole 5) hands.flush
+        , handUi (getName 6) (getWinnings 6) (getHole 6) hands.fullHouse
+        , handUi (getName 7) (getWinnings 7) (getHole 7) hands.fourOfAKind
+        , handUi (getName 8) (getWinnings 8) (getHole 8) hands.straight
+        , handUi (getName 9) (getWinnings 9) (getHole 9) hands.straightFlush
+        , handUi (getName 10) (getWinnings 10) (getHole 10) hands.royalFlush
         , communityCardsUi flopRound
         , communityCardsUi turnRound
         , communityCardsUi riverRound

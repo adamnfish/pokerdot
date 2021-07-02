@@ -1,9 +1,19 @@
-module Views.Generators exposing (cardGen, cardsGen, flopRoundGen, flushHandGen, fourOfAKindHandGen, fullHouseHandGen, highCardHandGen, holeGen, nameGen, pairHandGen, riverRoundGen, royalFlushHandGen, straightFlushHandGen, straightHandGen, threeOfAKindHandGen, turnRoundGen, twoPairHandGen)
+module Views.Generators exposing (cardGen, cardsGen, chooseGenUniform, chooseGenWeighted, flopRoundGen, flushHandGen, fourOfAKindHandGen, fullHouseHandGen, highCardHandGen, holeGen, nameGen, pairHandGen, riverRoundGen, roundGen, royalFlushHandGen, straightFlushHandGen, straightHandGen, threeOfAKindHandGen, turnRoundGen, twoPairHandGen)
 
 import Model exposing (Card, Hand(..), Rank(..), Round(..), Suit(..))
 import Random exposing (Generator)
 import Random.Char
 import Random.String
+
+
+chooseGenWeighted : ( Float, Generator a ) -> List ( Float, Generator a ) -> Generator a
+chooseGenWeighted first others =
+    Random.andThen identity <| Random.weighted first others
+
+
+chooseGenUniform : Generator a -> List (Generator a) -> Generator a
+chooseGenUniform first others =
+    Random.andThen identity <| Random.uniform first others
 
 
 suitGen : Generator Suit
@@ -59,6 +69,11 @@ riverRoundGen =
         cardGen
 
 
+roundGen : Generator Round
+roundGen =
+    chooseGenUniform (Random.constant PreFlopRound) [ flopRoundGen, turnRoundGen, riverRoundGen ]
+
+
 holeGen : Generator ( Card, Card )
 holeGen =
     Random.pair cardGen cardGen
@@ -66,7 +81,7 @@ holeGen =
 
 nameGen : Generator String
 nameGen =
-    Random.int 5 15
+    Random.int 5 35
         |> Random.andThen
             (\length -> Random.String.string length Random.Char.english)
 
