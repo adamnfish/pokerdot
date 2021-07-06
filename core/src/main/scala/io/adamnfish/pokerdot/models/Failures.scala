@@ -31,6 +31,7 @@ object Failures {
   }
 }
 
+// TODO: level (at least error and info)
 case class Failure(
   logMessage: String,
   userMessage: String,

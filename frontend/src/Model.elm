@@ -85,7 +85,7 @@ type UI
     | TimerScreen TimerStatus Game Welcome
     | ChipSummaryScreen Game Welcome
       -- debugging / development
-    | UIElementsScreen Int
+    | UIElementsScreen Int ActSelection
 
 
 type Route
@@ -126,6 +126,7 @@ type alias Error =
 
 
 type alias Failure =
+    -- TODO: include level here (at least error vs info)
     { message : String
     , context : Maybe String
     }
@@ -185,6 +186,7 @@ type alias Self =
     { playerId : PlayerId
     , screenName : String
     , isAdmin : Bool
+    , isHost : Bool
     , stack : Int
     , pot : Int
     , bet : Int
@@ -438,6 +440,7 @@ selfDecoder =
         |> required "playerId" playerIdDecoder
         |> required "screenName" Json.Decode.string
         |> required "isAdmin" Json.Decode.bool
+        |> required "isHost" Json.Decode.bool
         |> required "stack" Json.Decode.int
         |> required "pot" Json.Decode.int
         |> required "bet" Json.Decode.int

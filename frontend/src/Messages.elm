@@ -319,7 +319,7 @@ update msg model =
                             , Cmd.none
                             )
 
-                        UIElementsScreen seed ->
+                        UIElementsScreen _ _ ->
                             ( registerEvent model action
                             , Cmd.none
                             )
@@ -425,7 +425,7 @@ update msg model =
                     , sendPing welcome
                     )
 
-                UIElementsScreen seed ->
+                UIElementsScreen _ _ ->
                     ( newModel, Cmd.none )
 
         SocketDisconnect ->
@@ -636,6 +636,14 @@ update msg model =
                     , Cmd.none
                     )
 
+                -- Allow interaction on the components screen
+                UIElementsScreen seed _ ->
+                    ( { model
+                        | ui = UIElementsScreen seed actSelection
+                      }
+                    , Cmd.none
+                    )
+
                 _ ->
                     ( displayFailure
                         (failureMessage "You are not playing a game")
@@ -648,6 +656,13 @@ update msg model =
                 GameScreen _ self game welcome ->
                     ( { model
                         | ui = GameScreen (ActBet amount) self game welcome
+                      }
+                    , Cmd.none
+                    )
+
+                UIElementsScreen seed _ ->
+                    ( { model
+                        | ui = UIElementsScreen seed <| ActBet amount
                       }
                     , Cmd.none
                     )
@@ -724,7 +739,7 @@ update msg model =
                     )
 
         NavigateUIElements seed ->
-            ( { model | ui = UIElementsScreen seed }
+            ( { model | ui = UIElementsScreen seed NoAct }
             , Cmd.none
             )
 
@@ -846,7 +861,7 @@ welcomeFromUi ui =
         ChipSummaryScreen _ welcome ->
             Just welcome
 
-        UIElementsScreen seed ->
+        UIElementsScreen _ _ ->
             Nothing
 
 
@@ -914,7 +929,7 @@ routeFromUi ui =
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
-        UIElementsScreen seed ->
+        UIElementsScreen _ _ ->
             UiElementsRoute
 
 
@@ -1010,7 +1025,7 @@ uiFromRoute route library =
             WelcomeScreen
 
         UiElementsRoute ->
-            UIElementsScreen 0
+            UIElementsScreen 0 NoAct
 
 
 navigate : Browser.Navigation.Key -> Bool -> Route -> Cmd Msg
