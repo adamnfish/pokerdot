@@ -8,19 +8,20 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (labelLeft)
 import Element.Region as Region
-import FontAwesome.Attributes as Icon
-import FontAwesome.Icon as Icon exposing (Icon)
-import FontAwesome.Solid as Icon
+import FontAwesome.Attributes
+import FontAwesome.Icon
+import FontAwesome.Solid
 import FontAwesome.Styles
 import List.Extra
 import Model exposing (ActSelection(..), Card, ChipsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
-import Views.Elements exposing (cardUi, communityCardsUi, dotContainer, handUi, pdButton, pdButtonSmall, pdTab, pdText, selfUi, tableUi, uiElements, zWidths)
+import Views.Elements exposing (cardUi, communityCardsUi, connectionUi, controlsButton, dotContainer, handUi, pdButton, pdButtonSmall, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Generators exposing (cardsGen)
 
 
 type alias Page =
     { body : Element Msg
     , title : String
+    , header : Maybe (Element Msg)
     }
 
 
@@ -32,31 +33,38 @@ view model =
                 WelcomeScreen ->
                     { body = welcomeScreen model
                     , title = "PokerDot"
+                    , header =
+                        Just welcomeHeader
                     }
 
                 HelpScreen ->
                     { body = helpScreen model
                     , title = "Help"
+                    , header = Nothing
                     }
 
                 CreateGameScreen gameName screenName ->
                     { body = createGameScreen model gameName screenName
                     , title = "New game"
+                    , header = Nothing
                     }
 
                 JoinGameScreen external gameCode screenName ->
                     { body = joinGameScreen model external gameCode screenName
                     , title = "Join game"
+                    , header = Nothing
                     }
 
                 LobbyScreen players chipsSettings self game welcome ->
                     { body = lobbyScreen model players chipsSettings self game welcome
                     , title = welcome.gameName ++ " | Waiting..."
+                    , header = Nothing
                     }
 
                 RejoinScreen welcome ->
                     { body = rejoinScreen model welcome
                     , title = welcome.gameName ++ " | Waiting..."
+                    , header = Nothing
                     }
 
                 GameScreen currentAct self game welcome ->
@@ -86,6 +94,7 @@ view model =
                                     Idle ->
                                         " | TODO"
                                )
+                    , header = Nothing
 
                     -- TODO: what should this say
                     }
@@ -93,31 +102,37 @@ view model =
                 RoundResultScreen potResults playerWinnings self game welcome ->
                     { body = roundResultsScreen model potResults playerWinnings self game welcome
                     , title = welcome.gameName ++ " | Round ended"
+                    , header = Nothing
                     }
 
                 GameResultScreen self game welcome ->
                     { body = gameResultsScreen model self game welcome
                     , title = welcome.gameName ++ " | Round ended"
+                    , header = Nothing
                     }
 
                 CommunityCardsScreen game welcome ->
                     { body = communityCardsUi game.round
                     , title = welcome.gameName
+                    , header = Nothing
                     }
 
                 TimerScreen timerStatus game welcome ->
                     { body = timerScreen model timerStatus game welcome
                     , title = welcome.gameName
+                    , header = Nothing
                     }
 
                 ChipSummaryScreen game welcome ->
                     { body = chipSummaryScreen model game welcome
                     , title = welcome.gameName
+                    , header = Nothing
                     }
 
-                UIElementsScreen seed ->
-                    { body = uiElements seed
+                UIElementsScreen seed act ->
+                    { body = uiElements seed act
                     , title = "Debugging | UI Elements"
+                    , header = Nothing
                     }
     in
     { title = page.title
@@ -129,56 +144,85 @@ view model =
                 , Font.sansSerif
                 ]
             , Background.color <| rgb255 191 189 193
+            , inFront <|
+                if List.isEmpty model.errors then
+                    Element.none
+
+                else
+                    column
+                        [ width fill
+                        , paddingXY 10 20
+                        , spacing 10
+                        , alignBottom
+                        , Background.color <| rgb255 200 150 150
+                        ]
+                    <|
+                        List.map
+                            (\error -> paragraph [] [ text error.failure.message ])
+                        <|
+                            List.reverse model.errors
             ]
           <|
             column
                 [ height fill
                 , width fill
                 ]
-                [ -- header
-                  row
-                    [ width fill
-                    ]
-                    [ case model.ui of
-                        WelcomeScreen ->
-                            Element.none
+                [ case page.header of
+                    Nothing ->
+                        row
+                            [ width fill
+                            , Background.color <| rgb255 50 50 50
+                            ]
+                            [ case model.ui of
+                                WelcomeScreen ->
+                                    Element.none
 
-                        _ ->
-                            pdButtonSmall NavigateHome [ "home" ]
-                    , el
-                        [ alignRight
-                        ]
-                      <|
-                        dotContainer model.viewport 80 <|
-                            el
-                                [ centerY
-                                , centerX
+                                _ ->
+                                    Input.button
+                                        [ paddingXY 10 15
+                                        , Background.color <| rgb255 80 80 80
+                                        , Font.size 25
+                                        , Font.color <| rgb255 200 200 200
+                                        ]
+                                        { onPress = Just NavigateHome
+                                        , label = text "home"
+                                        }
+                            , el
+                                [ alignRight
+                                , padding 15
+                                , Font.color <| rgb255 200 200 200
                                 ]
-                            <|
-                                if model.connected then
-                                    text "1"
+                              <|
+                                connectionUi model.connected
+                            ]
 
-                                else
-                                    text "0"
-                    ]
-                , if List.isEmpty model.errors then
-                    Element.none
-
-                  else
-                    column
-                        [ width fill ]
-                    <|
-                        List.map
-                            (\error ->
-                                Element.text error.failure.message
-                            )
-                            model.errors
+                    Just headerEl ->
+                        headerEl
 
                 -- body
                 , page.body
                 ]
         ]
     }
+
+
+welcomeHeader : Element Msg
+welcomeHeader =
+    column
+        [ width fill
+        , height <| px 200
+        , Background.color <| rgb255 50 50 50
+        ]
+        [ el
+            [ width fill
+            , centerY
+            , Font.center
+            , Font.size 30
+            , Font.color <| rgb255 200 200 200
+            ]
+          <|
+            text "Pokerdot"
+        ]
 
 
 welcomeScreen : Model -> Element Msg
@@ -190,41 +234,72 @@ welcomeScreen model =
                     round model.viewport.viewport.width
                         - 20
     in
-    dotContainer model.viewport radius <|
-        column
-            [ width fill
-            , height fill
-            , centerX
-            , spacing 48
+    column
+        [ width fill
+        , height fill
+        , centerX
+        , spacing 48
+        , paddingXY 0 50
+        ]
+        [ row
+            [ centerX
+            , width fill
             ]
             [ el
-                [ centerX
-                , paddingEach { zWidths | top = 100 }
-                ]
+                [ centerX ]
               <|
-                text "PokerDot"
-            , row
-                [ spacing 24
-                , centerX
-                ]
-                [ pdButton NavigateCreateGame [ "Create", "game" ]
-                , pdButton NavigateJoinGame [ "Join", "game" ]
-                , row [] <|
-                    List.map
-                        (\welcomeMessage ->
-                            row []
-                                [ pdButton
-                                    (NavigateGame welcomeMessage)
-                                    [ welcomeMessage.screenName ++ " in " ++ welcomeMessage.gameName
-                                    ]
-                                , pdButton
-                                    (DeletePersistedGame welcomeMessage)
-                                    [ "x" ]
+                controlsButton NavigateCreateGame <|
+                    column
+                        [ width fill
+                        ]
+                        [ el
+                            [ width fill
+                            , Font.center
+                            ]
+                          <|
+                            text "Create"
+                        , el
+                            [ width fill
+                            , Font.center
+                            ]
+                          <|
+                            text "game"
+                        ]
+            , el [ width <| px 30 ] Element.none
+            , el [ centerX ] <|
+                controlsButton NavigateJoinGame <|
+                    column
+                        [ width fill
+                        ]
+                        [ el
+                            [ width fill
+                            , Font.center
+                            ]
+                          <|
+                            text "Join"
+                        , el
+                            [ width fill
+                            , Font.center
+                            ]
+                          <|
+                            text "game"
+                        ]
+            , row [] <|
+                List.map
+                    (\welcomeMessage ->
+                        row []
+                            [ pdButton
+                                (NavigateGame welcomeMessage)
+                                [ welcomeMessage.screenName ++ " in " ++ welcomeMessage.gameName
                                 ]
-                        )
-                        model.library
-                ]
+                            , pdButton
+                                (DeletePersistedGame welcomeMessage)
+                                [ "x" ]
+                            ]
+                    )
+                    model.library
             ]
+        ]
 
 
 helpScreen : Model -> Element Msg
@@ -396,10 +471,10 @@ gameScreen model playingState currentAct self game welcome =
         , selfUi model.peeking self
         , case playingState of
             Playing ->
-                pokerControlsScreen True currentAct self game
+                pokerControlsUi True currentAct self game.players
 
             Waiting ->
-                pokerControlsScreen False currentAct self game
+                pokerControlsUi False currentAct self game.players
 
             Idle ->
                 if self.isAdmin then
@@ -459,65 +534,6 @@ gameResultsScreen model self game welcome =
         ]
         [ tableUi game.round game.players
         , selfUi model.peeking self
-        ]
-
-
-pokerControlsScreen : Bool -> ActSelection -> Self -> Game -> Element Msg
-pokerControlsScreen isActive actSelection self game =
-    let
-        playerBets =
-            List.map .bet game.players
-
-        maxBet =
-            Maybe.withDefault 0 <| List.maximum playerBets
-
-        -- TODO: this is not yet correct
-        --       make sure it takes into account all in calls and the minimum bet amount
-        callAmount =
-            maxBet - self.bet
-
-        currentSelectedBetAmount =
-            case actSelection of
-                ActBet amount ->
-                    amount
-
-                _ ->
-                    0
-    in
-    column
-        []
-        [ pdButtonSmall (InputActSelection ActCheck) [ "check" ]
-        , pdButtonSmall (InputActSelection ActCall) [ "call" ]
-        , pdButtonSmall (InputActSelection ActFold) [ "fold" ]
-        , row
-            []
-            [ pdText
-                (\str ->
-                    InputActSelection <| ActBet <| Maybe.withDefault 0 <| String.toInt str
-                )
-                (String.fromInt currentSelectedBetAmount)
-                "bet amount"
-            , pdButtonSmall (InputActSelection <| ActBet currentSelectedBetAmount) [ "bet" ]
-            ]
-        , if isActive then
-            case actSelection of
-                ActCheck ->
-                    pdButtonSmall Check [ "Confirm check" ]
-
-                ActCall ->
-                    pdButtonSmall (Bet callAmount) [ "Confirm call" ]
-
-                ActFold ->
-                    pdButtonSmall Fold [ "Confirm fold" ]
-
-                ActBet amount ->
-                    pdButtonSmall (Bet amount) [ "Confirm bet" ]
-
-                NoAct ->
-                    text "Select action"
-
-          else
-            text "It isn't your turn"
         ]
 
 

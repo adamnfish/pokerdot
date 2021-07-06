@@ -1,11 +1,11 @@
-module Views.Elements exposing (cardUi, communityCardsUi, dotContainer, handUi, hiddenCardUi, pdButton, pdButtonSmall, pdTab, pdText, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (cardUi, communityCardsUi, connectionUi, controlsButton, dotContainer, handUi, hiddenCardUi, pdButton, pdButtonSmall, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (labelAbove, labelLeft)
+import Element.Input as Input
 import Element.Region as Region
 import FontAwesome.Attributes
 import FontAwesome.Icon
@@ -13,7 +13,7 @@ import FontAwesome.Regular
 import FontAwesome.Solid
 import List.Extra
 import Maybe.Extra
-import Model exposing (Card, Game, Hand(..), Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
+import Model exposing (ActSelection(..), Card, Game, Hand(..), Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
 import Random
 import Random.Extra
 import Views.Generators exposing (..)
@@ -22,6 +22,32 @@ import Views.Generators exposing (..)
 type CardSize
     = SmallCard
     | NormalCard
+
+
+controlsButton : Msg -> Element Msg -> Element Msg
+controlsButton msg label =
+    Input.button
+        [ width <| minimum 100 shrink
+        , height <| px 90
+        , Border.rounded 1
+        , Border.solid
+        , Border.width 2
+        , Border.color <| rgb255 60 60 60
+        , Border.shadow
+            { offset = ( 1, 1 )
+            , size = 1
+            , blur = 1
+            , color = rgb255 120 120 120
+            }
+        , Font.size 25
+        , focused
+            [ Background.color <| rgb255 220 220 230
+            , Border.color <| rgb255 120 120 240
+            ]
+        ]
+        { onPress = Just msg
+        , label = label
+        }
 
 
 pdButton : Msg -> List String -> Element Msg
@@ -154,6 +180,29 @@ dotContainer viewport radius content =
                 content
 
 
+connectionUi : Bool -> Element Msg
+connectionUi connected =
+    if connected then
+        Element.html <|
+            (FontAwesome.Solid.link
+                |> FontAwesome.Icon.present
+                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                |> FontAwesome.Icon.withId "pokerdot-header-connected_pokerdot"
+                |> FontAwesome.Icon.titled "Connected"
+                |> FontAwesome.Icon.view
+            )
+
+    else
+        Element.html <|
+            (FontAwesome.Solid.unlink
+                |> FontAwesome.Icon.present
+                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                |> FontAwesome.Icon.withId "pokerdot-header-disconnected_pokerdot"
+                |> FontAwesome.Icon.titled "Not connected"
+                |> FontAwesome.Icon.view
+            )
+
+
 tableUi : Round -> List Player -> Element Msg
 tableUi round players =
     let
@@ -162,14 +211,6 @@ tableUi round players =
 
         seat : Player -> Element Msg
         seat player =
-            let
-                betIcon =
-                    if player.bet > 0 then
-                        FontAwesome.Solid.caretRight
-
-                    else
-                        FontAwesome.Regular.circle
-            in
             row
                 [ width fill
                 , spacing 8
@@ -192,14 +233,21 @@ tableUi round players =
                         String.fromInt player.stack
                 , row
                     [ width <| px 60 ]
-                    [ html
-                        (betIcon
-                            |> FontAwesome.Icon.present
-                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                            |> FontAwesome.Icon.withId "self-peeking-toggle_pokerdot"
-                            |> FontAwesome.Icon.titled "Stop looking at hand"
-                            |> FontAwesome.Icon.view
-                        )
+                    [ html <|
+                        if player.bet > 0 then
+                            FontAwesome.Solid.caretRight
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
+                                |> FontAwesome.Icon.view
+
+                        else
+                            FontAwesome.Regular.circle
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
+                                |> FontAwesome.Icon.titled "0"
+                                |> FontAwesome.Icon.view
                     , text " "
                     , if player.bet > 0 then
                         text <|
@@ -235,10 +283,13 @@ tableUi round players =
                       <|
                         communityCardsUi round
                     , column
-                        [ paddingXY 15 8
+                        [ height <| px 74
+                        , width <| px 74
+                        , paddingXY 15 10
                         , spacing 5
                         , Border.width 2
                         , Border.color <| rgb255 50 50 50
+                        , Border.rounded 37
                         ]
                         [ el
                             [ width fill
@@ -248,6 +299,7 @@ tableUi round players =
                             text "pot"
                         , el
                             [ Font.size 22
+                            , alignTop
                             ]
                           <|
                             text <|
@@ -307,6 +359,316 @@ selfUi isPeeking self =
                             )
                 }
             ]
+
+
+pokerControlsUi : Bool -> ActSelection -> Self -> List Player -> Element Msg
+pokerControlsUi isActive actSelection self players =
+    let
+        playerBets =
+            List.map .bet players
+
+        highestBet =
+            Maybe.withDefault 0 <| List.maximum playerBets
+
+        -- TODO: this is not yet correct
+        --       make sure it takes into account all-in calls and the minimum bet amount
+        callAmount =
+            highestBet - self.bet
+
+        currentSelectedBetAmount =
+            case actSelection of
+                ActBet amount ->
+                    amount
+
+                _ ->
+                    0
+
+        -- this is the old ui, it's here for reference as I build the new one
+        tmp =
+            column
+                []
+                [ pdButtonSmall (InputActSelection ActCheck) [ "check" ]
+                , pdButtonSmall (InputActSelection ActCall) [ "call" ]
+                , pdButtonSmall (InputActSelection ActFold) [ "fold" ]
+                , row
+                    []
+                    [ pdText
+                        (\str ->
+                            InputActSelection <| ActBet <| Maybe.withDefault 0 <| String.toInt str
+                        )
+                        (String.fromInt currentSelectedBetAmount)
+                        "bet amount"
+                    , pdButtonSmall (InputActSelection <| ActBet currentSelectedBetAmount) [ "bet" ]
+                    ]
+                , if isActive then
+                    case actSelection of
+                        ActCheck ->
+                            pdButtonSmall Check [ "Confirm check" ]
+
+                        ActCall ->
+                            pdButtonSmall (Bet callAmount) [ "Confirm call" ]
+
+                        ActFold ->
+                            pdButtonSmall Fold [ "Confirm fold" ]
+
+                        ActBet amount ->
+                            pdButtonSmall (Bet amount) [ "Confirm bet" ]
+
+                        NoAct ->
+                            text "Select action"
+
+                  else
+                    text "It isn't your turn"
+                ]
+    in
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ el
+            [ centerX ]
+          <|
+            -- or all-in, when betting
+            case actSelection of
+                ActBet _ ->
+                    controlsButton (Bet self.stack) <|
+                        column
+                            [ width fill
+                            , spacing 5
+                            ]
+                            [ el
+                                [ width fill
+                                , Font.center
+                                ]
+                              <|
+                                text "all-in"
+                            , el
+                                [ width fill
+                                , Font.center
+                                , Font.size 18
+                                ]
+                              <|
+                                text (String.fromInt self.stack)
+                            ]
+
+                _ ->
+                    controlsButton Fold <|
+                        text "fold"
+        , row
+            [ centerX ]
+            [ el
+                (case actSelection of
+                    ActBet betAmount ->
+                        [ inFront
+                            (el
+                                [ moveUp <| 100
+                                ]
+                             <|
+                                Input.slider
+                                    [ width <| px 50
+                                    , height <| px 250
+                                    , Element.behindContent
+                                        (Element.el
+                                            [ width <| px 20
+                                            , height fill
+                                            , centerX
+                                            , Background.color <| rgb255 150 150 150
+                                            , Border.rounded 2
+                                            ]
+                                            Element.none
+                                        )
+                                    ]
+                                    { onChange = Basics.round >> InputBet
+                                    , label =
+                                        Input.labelAbove
+                                            []
+                                        <|
+                                            row
+                                                []
+                                                [ Input.button
+                                                    [ height <| px 40
+                                                    , width <| px 40
+                                                    ]
+                                                    { onPress = Just (InputBet <| betAmount - 1)
+                                                    , label =
+                                                        html
+                                                            (FontAwesome.Solid.minusSquare
+                                                                |> FontAwesome.Icon.present
+                                                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                                                |> FontAwesome.Icon.view
+                                                            )
+                                                    }
+                                                , text <| String.fromInt betAmount
+                                                , Input.button
+                                                    [ height <| px 40
+                                                    , width <| px 40
+                                                    ]
+                                                    { onPress = Just (InputBet <| betAmount + 1)
+                                                    , label =
+                                                        html
+                                                            (FontAwesome.Solid.plusSquare
+                                                                |> FontAwesome.Icon.present
+                                                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                                                |> FontAwesome.Icon.view
+                                                            )
+                                                    }
+                                                ]
+                                    , min = 0
+                                    , max = toFloat self.stack
+                                    , step = Nothing
+                                    , value = toFloat betAmount
+                                    , thumb =
+                                        Input.thumb
+                                            [ width <| px 50
+                                            , height <| px 50
+                                            , Background.color <| rgb255 50 50 50
+                                            ]
+                                    }
+                            )
+                        ]
+
+                    _ ->
+                        []
+                )
+              <|
+                el
+                    (case actSelection of
+                        ActBet _ ->
+                            [ transparent True ]
+
+                        _ ->
+                            []
+                    )
+                <|
+                    -- only show call when required, show a placeholder instead before betting has started
+                    -- or bet amount slider, when betting
+                    -- stack at the bottom, bet at the top (both editable text fields)
+                    -- as slider between moves, they are updated
+                    controlsButton (Bet callAmount)
+                    <|
+                        column
+                            [ spacing 5
+                            , width fill
+                            ]
+                            [ el
+                                [ width fill
+                                , Font.center
+                                ]
+                              <|
+                                text "call"
+                            , el
+                                [ Font.size 18
+                                , width fill
+                                , Font.center
+                                ]
+                              <|
+                                text <|
+                                    String.fromInt callAmount
+                            ]
+            , row
+                [ width <| minimum 130 shrink
+                , Font.size 22
+                ]
+                [ el
+                    [ centerX
+                    ]
+                  <|
+                    text <|
+                        String.fromInt self.stack
+                , text " "
+                , html
+                    -- this middle element becomes cancel when betting
+                    (FontAwesome.Solid.caretRight
+                        |> FontAwesome.Icon.present
+                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                        |> FontAwesome.Icon.withId "self-controls-bet-amount"
+                        |> FontAwesome.Icon.view
+                    )
+                , text " "
+                , el
+                    [ centerX ]
+                  <|
+                    if self.bet > 0 then
+                        text <|
+                            String.fromInt self.bet
+
+                    else
+                        text "0"
+                ]
+            , el
+                []
+              <|
+                case actSelection of
+                    ActBet betAmount ->
+                        controlsButton (Bet betAmount) <|
+                            column
+                                [ width fill
+                                , spacing 5
+                                ]
+                                [ el
+                                    [ width fill
+                                    , Font.center
+                                    ]
+                                  <|
+                                    text <|
+                                        if highestBet > 0 then
+                                            "raise"
+
+                                        else
+                                            "bet"
+                                , el
+                                    [ width fill
+                                    , Font.center
+                                    , Font.size 18
+                                    ]
+                                  <|
+                                    text (String.fromInt betAmount)
+                                ]
+
+                    _ ->
+                        controlsButton (InputActSelection <| ActBet currentSelectedBetAmount) <|
+                            text <|
+                                if highestBet > 0 then
+                                    "raise"
+
+                                else
+                                    "bet"
+            ]
+        , el
+            [ centerX ]
+          <|
+            case actSelection of
+                ActBet _ ->
+                    controlsButton (InputActSelection NoAct) <|
+                        column
+                            [ width fill
+                            , spacing 5
+                            ]
+                            [ el
+                                [ width fill
+                                , Font.center
+                                ]
+                              <|
+                                text "cancel"
+                            , el
+                                [ centerX
+                                , Font.center
+                                ]
+                              <|
+                                html
+                                    (FontAwesome.Solid.times
+                                        |> FontAwesome.Icon.present
+                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                        |> FontAwesome.Icon.withId "cancel-bet_pokerdot"
+                                        |> FontAwesome.Icon.titled "cancel bet"
+                                        |> FontAwesome.Icon.view
+                                    )
+                            ]
+
+                _ ->
+                    controlsButton Check <|
+                        text "check"
+        ]
 
 
 hiddenCardUi : Element Msg
@@ -621,7 +983,7 @@ handUi name winnings maybeHole hand =
                             (winningsIcon
                                 |> FontAwesome.Icon.present
                                 |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                |> FontAwesome.Icon.withId ("self-peeking-toggle_pokerdot_" ++ name)
+                                |> FontAwesome.Icon.withId ("hand-ui-winnings_pokerdot_" ++ name)
                                 |> FontAwesome.Icon.titled "Winnings"
                                 |> FontAwesome.Icon.view
                             )
@@ -693,8 +1055,8 @@ communityCardsUi round =
 -- view for inspecting the design elements
 
 
-uiElements : Int -> Element Msg
-uiElements seed =
+uiElements : Int -> ActSelection -> Element Msg
+uiElements seed act =
     let
         handsCount =
             11
@@ -804,18 +1166,20 @@ uiElements seed =
             <|
                 Random.initialSeed seed
 
-        ( { holes, players, round }, seed3 ) =
+        ( { holes, players, round, inTurn }, seed3 ) =
             Random.step
-                (Random.map3
-                    (\h ps r ->
+                (Random.map4
+                    (\h ps r b ->
                         { holes = h
                         , players = ps
                         , round = r
+                        , inTurn = b
                         }
                     )
                     holesGen
                     (Random.list 5 playerGen)
                     roundGen
+                    Random.Extra.bool
                 )
                 seed2
 
@@ -862,17 +1226,21 @@ uiElements seed =
             , spacing 25
             ]
             [ Input.button
-                [ height <| px 25
-                , width <| px 25
+                [ height <| px 40
+                , width <| px 40
                 ]
                 { onPress = Just (NavigateUIElements <| seed - 1)
-                , label = text "-"
+                , label =
+                    html
+                        (FontAwesome.Solid.minusSquare
+                            |> FontAwesome.Icon.present
+                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.fa2x ]
+                            |> FontAwesome.Icon.view
+                        )
                 }
             , Input.slider
-                [ height <| px 30
+                [ height <| px 40
                 , width fill
-
-                -- Here is where we're creating/styling the "track"
                 , Element.behindContent
                     (Element.el
                         [ width fill
@@ -896,11 +1264,17 @@ uiElements seed =
                     Input.defaultThumb
                 }
             , Input.button
-                [ height <| px 25
-                , width <| px 25
+                [ height <| px 40
+                , width <| px 40
                 ]
                 { onPress = Just (NavigateUIElements <| seed + 1)
-                , label = text "+"
+                , label =
+                    html
+                        (FontAwesome.Solid.plusSquare
+                            |> FontAwesome.Icon.present
+                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.fa2x ]
+                            |> FontAwesome.Icon.view
+                        )
                 }
             ]
         , tableUi round
@@ -910,6 +1284,8 @@ uiElements seed =
             , getPlayer 3
             , getPlayer 4
             ]
+        , pokerControlsUi inTurn act (getPlayer 0) <|
+            List.map getPlayer [ 1, 2, 3, 4 ]
         , handUi (getName 0) (getWinnings 0) (getHole 0) hands.highCard
         , handUi (getName 1) (getWinnings 1) (getHole 1) hands.pair
         , handUi (getName 2) (getWinnings 2) (getHole 2) hands.twoPair
