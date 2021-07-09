@@ -14,5 +14,6 @@
   "license": "",
   "devDependencies": {
     "reconnecting-websocket": "^4.4.0"
-  }
+  },
+  "dependencies": {}
 }

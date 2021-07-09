@@ -652,17 +652,21 @@ update msg model =
                     )
 
         InputBet amount ->
+            let
+                normalisedAmount =
+                    max 0 amount
+            in
             case model.ui of
                 GameScreen _ self game welcome ->
                     ( { model
-                        | ui = GameScreen (ActBet amount) self game welcome
+                        | ui = GameScreen (ActBet normalisedAmount) self game welcome
                       }
                     , Cmd.none
                     )
 
                 UIElementsScreen seed _ ->
                     ( { model
-                        | ui = UIElementsScreen seed <| ActBet amount
+                        | ui = UIElementsScreen seed <| ActBet normalisedAmount
                       }
                     , Cmd.none
                     )

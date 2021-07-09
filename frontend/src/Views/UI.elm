@@ -34,7 +34,7 @@ view model =
                     { body = welcomeScreen model
                     , title = "PokerDot"
                     , header =
-                        Just welcomeHeader
+                        Just <| welcomeHeader model.connected
                     }
 
                 HelpScreen ->
@@ -130,7 +130,7 @@ view model =
                     }
 
                 UIElementsScreen seed act ->
-                    { body = uiElements seed act
+                    { body = uiElements model seed act
                     , title = "Debugging | UI Elements"
                     , header = Nothing
                     }
@@ -206,12 +206,20 @@ view model =
     }
 
 
-welcomeHeader : Element Msg
-welcomeHeader =
+welcomeHeader : Bool -> Element Msg
+welcomeHeader connected =
     column
         [ width fill
         , height <| px 200
         , Background.color <| rgb255 50 50 50
+        , inFront <|
+            el
+                [ alignRight
+                , padding 15
+                , Font.color <| rgb255 200 200 200
+                ]
+            <|
+                connectionUi connected
         ]
         [ el
             [ width fill
@@ -309,33 +317,36 @@ helpScreen model =
 
 createGameScreen : Model -> String -> String -> Element Msg
 createGameScreen model gameName screenName =
-    let
-        radius =
-            max 550 <|
-                min 400 <|
-                    round model.viewport.viewport.width
-                        - 20
-
-        tmp =
-            minimum (round model.viewport.viewport.x - 100) <| px 400
-    in
-    dotContainer model.viewport radius <|
-        column
-            [ width fill
-            , spacing 16
-            , width <| maximum (round model.viewport.viewport.width - 24) <| px 400
-            , paddingEach { zWidths | top = 150 }
-            , centerX
+    column
+        [ width fill
+        , spacing 16
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , paddingEach { zWidths | top = 50 }
+        , centerX
+        ]
+        [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "Game name"
+        , pdText (InputCreateGame gameName) screenName "Your name"
+        , el
+            [ alignRight
             ]
-            [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "Game name"
-            , pdText (InputCreateGame gameName) screenName "Your name"
-            , el
-                [ alignRight
-                , paddingEach { zWidths | top = 24 }
-                ]
-              <|
-                pdButton (SubmitCreateGame gameName screenName) [ "Create", "game" ]
-            ]
+          <|
+            controlsButton (SubmitCreateGame gameName screenName) <|
+                column
+                    [ width fill ]
+                    [ el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "Create"
+                    , el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "game"
+                    ]
+        ]
 
 
 joinGameScreen : Model -> Bool -> String -> String -> Element Msg
@@ -343,6 +354,9 @@ joinGameScreen model isExternal gameCode screenName =
     column
         [ width fill
         , spacing 16
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , centerX
+        , paddingEach { zWidths | top = 50 }
         ]
         [ if isExternal then
             none
@@ -350,7 +364,25 @@ joinGameScreen model isExternal gameCode screenName =
           else
             pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "Game code"
         , pdText (InputJoinGame isExternal gameCode) screenName "Your name"
-        , pdButton (SubmitJoinGame gameCode screenName) [ "Join", "game" ]
+        , el
+            [ alignRight ]
+          <|
+            controlsButton (SubmitJoinGame gameCode screenName) <|
+                column
+                    [ width fill ]
+                    [ el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "Join"
+                    , el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "game"
+                    ]
         ]
 
 
@@ -363,8 +395,65 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
     in
     column
         [ width fill
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , centerX
+        , paddingEach { zWidths | top = 15 }
+        , spacing 15
         ]
-        [ Element.text <| game.gameCode
+        [ row
+            [ width fill
+            , spacing 15
+            ]
+            [ el
+                [ padding 15
+                , alignLeft
+                , Font.size 40
+                , Font.alignLeft
+                , Background.color <| rgb255 255 255 255
+                , Border.solid
+                , Border.color <| rgb255 0 0 0
+                , Border.widthEach
+                    { top = 1
+                    , bottom = 3
+                    , left = 1
+                    , right = 1
+                    }
+                ]
+              <|
+                text <|
+                    game.gameCode
+            , column
+                [ spacing 4 ]
+                [ el
+                    [ width fill
+                    , Font.alignLeft
+                    , Font.size 25
+                    ]
+                  <|
+                    text "Game code"
+                , link
+                    []
+                    { url = "/#join/" ++ game.gameCode
+                    , label =
+                        row
+                            [ spacing 4 ]
+                            [ html <|
+                                (FontAwesome.Solid.shareAlt
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                    |> FontAwesome.Icon.withId "share-join-link_pokerdot"
+                                    |> FontAwesome.Icon.titled "Share join link"
+                                    |> FontAwesome.Icon.view
+                                )
+                            , text " "
+                            , text "Join link"
+                            ]
+                    }
+                ]
+            ]
+        , row
+            [ width fill ]
+            []
         , column [] <|
             List.map formatPlayer playerOrder
         , if self.isAdmin then
@@ -396,9 +485,19 @@ lobbyStartSettings playerOrder chipsSettings =
                     , Input.text
                         []
                         { text = String.fromInt currentStackSize
-                        , label = Input.labelLeft [] <| text "Player stacks"
+                        , label =
+                            Input.labelLeft
+                                [ width <| px 150
+                                , Font.alignLeft
+                                ]
+                            <|
+                                text "Player stacks"
                         , placeholder =
-                            Just <| Input.placeholder [] <| text "Player stacks"
+                            Just <|
+                                Input.placeholder
+                                    []
+                                <|
+                                    text "Player stacks"
                         , onChange =
                             \value ->
                                 let
@@ -413,11 +512,16 @@ lobbyStartSettings playerOrder chipsSettings =
             TrackWithManualBlinds currentStackSize initialSmallBlind ->
                 column
                     [ width fill ]
-                    [ text "Manual blinds"
-                    , Input.text
+                    [ Input.text
                         []
                         { text = String.fromInt currentStackSize
-                        , label = Input.labelLeft [] <| text "Player stacks"
+                        , label =
+                            Input.labelLeft
+                                [ width <| px 150
+                                , Font.alignLeft
+                                ]
+                            <|
+                                text "Player stacks"
                         , placeholder =
                             Just <| Input.placeholder [] <| text "Player stacks"
                         , onChange =
@@ -432,7 +536,13 @@ lobbyStartSettings playerOrder chipsSettings =
                     , Input.text
                         []
                         { text = String.fromInt initialSmallBlind
-                        , label = Input.labelLeft [] <| text "Small blind"
+                        , label =
+                            Input.labelLeft
+                                [ width <| px 150
+                                , Font.alignLeft
+                                ]
+                            <|
+                                text "Small blind"
                         , placeholder =
                             Just <| Input.placeholder [] <| text "Initial small blind"
                         , onChange =
@@ -454,18 +564,30 @@ lobbyStartSettings playerOrder chipsSettings =
 
 rejoinScreen : Model -> Welcome -> Element Msg
 rejoinScreen model welcome =
-    Element.text <|
-        "Hello again, "
-            ++ welcome.screenName
-            ++ ". Rejoining "
-            ++ welcome.gameName
-            ++ "."
+    column
+        [ width fill
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , centerX
+        , paddingEach { zWidths | top = 15 }
+        , spacing 15
+        ]
+        [ Element.text <|
+            "Hello again, "
+                ++ welcome.screenName
+                ++ ". Rejoining "
+                ++ welcome.gameName
+                ++ "."
+        ]
 
 
 gameScreen : Model -> PlayingState -> ActSelection -> Self -> Game -> Welcome -> Element Msg
 gameScreen model playingState currentAct self game welcome =
     column
         [ width fill
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , centerX
+        , paddingEach { zWidths | top = 15 }
+        , spacing 15
         ]
         [ tableUi game.round game.players
         , selfUi model.peeking self
@@ -478,7 +600,25 @@ gameScreen model playingState currentAct self game welcome =
 
             Idle ->
                 if self.isAdmin then
-                    pdButton AdvancePhase [ "Next round" ]
+                    el
+                        [ alignRight ]
+                    <|
+                        controlsButton AdvancePhase <|
+                            column
+                                [ width fill ]
+                                [ el
+                                    [ width fill
+                                    , Font.center
+                                    ]
+                                  <|
+                                    text "Next"
+                                , el
+                                    [ width fill
+                                    , Font.center
+                                    ]
+                                  <|
+                                    text "round"
+                                ]
 
                 else
                     text "Waiting for the next round to start"
@@ -489,6 +629,10 @@ roundResultsScreen : Model -> List PotResult -> List PlayerWinnings -> Self -> G
 roundResultsScreen model potResults playerWinnings self game welcome =
     column
         [ width fill
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , centerX
+        , paddingEach { zWidths | top = 15 }
+        , spacing 15
         ]
         [ tableUi game.round game.players
         , selfUi model.peeking self
@@ -520,7 +664,25 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                 )
                 playerWinnings
         , if self.isAdmin then
-            pdButton AdvancePhase [ "Next round" ]
+            el
+                [ alignRight ]
+            <|
+                controlsButton AdvancePhase <|
+                    column
+                        [ width fill ]
+                        [ el
+                            [ width fill
+                            , Font.center
+                            ]
+                          <|
+                            text "Next"
+                        , el
+                            [ width fill
+                            , Font.center
+                            ]
+                          <|
+                            text "round"
+                        ]
 
           else
             text "Waiting for the next round to start"
@@ -531,6 +693,10 @@ gameResultsScreen : Model -> Self -> Game -> Welcome -> Element Msg
 gameResultsScreen model self game welcome =
     column
         [ width fill
+        , width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+        , centerX
+        , paddingEach { zWidths | top = 15 }
+        , spacing 15
         ]
         [ tableUi game.round game.players
         , selfUi model.peeking self
