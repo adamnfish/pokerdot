@@ -318,7 +318,11 @@ object PlayerActions {
       playerOrder = gameAtRoundEnd.players.map(_.playerId),
       playerHands = playerHands
         .filterNot(_.player.folded)
-        .map(ph => ph.player.playerId -> ph.hand),
+        .flatMap { ph =>
+          ph.player.hole.map { hole =>
+            (ph.player.playerId, ph.hand, hole)
+          }
+        },
     )
     val updatedPlayers = gameAtRoundEnd.players.map(resetPlayerForShowdown(playersWinnings))
     (
@@ -342,7 +346,9 @@ object PlayerActions {
       case singleActivePlayer :: Nil =>
         val potSize = gameAtRoundEnd.players.map(_.pot).sum
         val winnerId = singleActivePlayer.playerId
-        val playerWinnings = PlayerWinnings(winnerId, None, potSize)
+        // TODO: return attempt rather than get the hole
+        //       (we know there will be a hole here though so this is safe)
+        val playerWinnings = PlayerWinnings(winnerId, None, singleActivePlayer.hole.get, potSize)
         (
           gameAtRoundEnd.copy(
             round = gameAtRoundEnd.round.copy(phase = Showdown),

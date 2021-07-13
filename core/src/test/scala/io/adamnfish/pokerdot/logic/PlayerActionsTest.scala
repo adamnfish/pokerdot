@@ -137,14 +137,19 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   "advancePhase" - {
     "for the simple phases" - {
       val game = newGame("Game name", trackStacks = true, TestDates, 1L)
-      val p1 = newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
-        .copy(stack = 1000)
-      val p2 = newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
-        .copy(stack = 1000)
-      val p3 = newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
-        .copy(stack = 1000)
-      val p4 = newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestDates)
-        .copy(stack = 1000)
+      val p1 :: p2 :: p3 :: p4 :: Nil = Play.dealHoles(
+        List(
+          newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
+            .copy(stack = 1000),
+            newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
+            .copy(stack = 1000),
+            newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
+            .copy(stack = 1000),
+            newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestDates)
+            .copy(stack = 1000),
+        ),
+        Play.deckOrder(game.seed),
+      )
 
       "game phase is advanced" in {
         val expected = Map(
@@ -579,9 +584,14 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "advanceFromFoldedFinish" - {
     val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates)
-    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates)
-    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates)
+    val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
+      List(
+        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates),
+        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates),
+        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates),
+      ),
+      Play.deckOrder(rawGame.seed),
+    )
 
     "is correct for an example, heads-up" in {
       forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
@@ -595,7 +605,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         )
         val (_, playerWinnings, potWinnings) = advanceFromFoldedFinish(game)
         val expectedHaul = 25 + 10 + 35 + 10
-        playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, expectedHaul)
+        playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, p2.hole.get, expectedHaul)
         potWinnings shouldEqual PotWinnings(expectedHaul, Set(p2.playerId), Set(p2.playerId))
       }
     }
@@ -613,7 +623,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         )
         val (_, playerWinnings, potWinnings) = advanceFromFoldedFinish(game)
         val expectedHaul = 25 + 10 + 35 + 10 + 10 + 10
-        playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, expectedHaul)
+        playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, p2.hole.get, expectedHaul)
         potWinnings shouldEqual PotWinnings(expectedHaul, Set(p2.playerId), Set(p2.playerId))
       }
     }

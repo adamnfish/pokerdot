@@ -191,8 +191,8 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       roundWinnings.players.toSet shouldEqual Set(
         // folded players do not show up (and are commented out here)
         // PlayerWinnings(hostWelcome.playerId, Pair(Queen of Spades, Queen of Diamonds, Ace of Diamonds, King of Diamonds, Jack of Clubs), 0),
-        PlayerWinnings(p1Welcome.playerId, Some(Straight(Ace of Diamonds, King of Diamonds, Queen of Spades, Jack of Clubs, Ten of Spades)), 160),
-        PlayerWinnings(p2Welcome.playerId, Some(TwoPair(Queen of Spades, Queen of Clubs, Jack of Hearts, Jack of Clubs, Ace of Diamonds)), 0),
+        PlayerWinnings(p1Welcome.playerId, Some(Straight(Ace of Diamonds, King of Diamonds, Queen of Spades, Jack of Clubs, Ten of Spades)), Hole(Ten of Spades, Seven of Diamonds), 160),
+        PlayerWinnings(p2Welcome.playerId, Some(TwoPair(Queen of Spades, Queen of Clubs, Jack of Hearts, Jack of Clubs, Ace of Diamonds)), Hole(Jack of Hearts, Queen of Clubs), 0),
         // PlayerWinnings(p3Welcome.playerId, Pair(Six of Spades, Six of Hearts, Ace of Diamonds, King of Diamonds, Queen of Spades), 0),
       )
       // a single pot between players 1 and 2, with player 1 winning

@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.{TestDates, TestHelpers}
+import io.adamnfish.pokerdot.{PokerGenerators, TestDates, TestHelpers}
 import io.adamnfish.pokerdot.logic.Play.generateRound
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.logic.Games._
@@ -14,7 +14,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.util.Random
 
 
-class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues {
+class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues with PokerGenerators {
   "newGame" - {
     "initialises the basic fields correctly" in {
       forAll { (gameName: String, trackStacks: Boolean, seed: Long) =>
@@ -528,6 +528,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
           PlayerWinnings(
             player.playerId,
             Some(HighCard(Ace of Clubs, King of Spades, Queen of Hearts, Ten of Diamonds, Eight of Clubs)),
+            Hole(Ace of Clubs, King of Spades),
             winnings,
           )
         )

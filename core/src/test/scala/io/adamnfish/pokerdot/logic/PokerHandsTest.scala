@@ -685,7 +685,12 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     val p2Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Two of Hearts)
     val p3Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Three of Hearts)
     val p4Hand = HighCard(Ace of Hearts, King of Spades, Queen of Diamonds, Jack of Clubs, Four of Hearts)
-    val playerHands = List(p1Id -> p1Hand, p2Id -> p2Hand, p3Id -> p3Hand, p4Id -> p4Hand)
+    val playerHands = List(
+      (p1Id, p1Hand, Hole(Ten of Hearts, Eight of Clubs)),
+      (p2Id, p2Hand, Hole(Two of Hearts, Three of Clubs)),
+      (p3Id, p3Hand, Hole(Three of Hearts, Four of Clubs)),
+      (p4Id, p4Hand, Hole(Four of Hearts, Five of Clubs)),
+    )
 
     "uses correct hand for each player" in {
       playerWinnings(
@@ -853,6 +858,18 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
           p3Id -> 0,
         )
       }
+    }
+
+    "includes correct holes for each player" in {
+      playerWinnings(
+        List(PotWinnings(100, Set(p1Id, p2Id, p3Id, p4Id), Set(p1Id))),
+        0, playerOrder, playerHands
+      ).map(pw => pw.playerId -> pw.hole) shouldEqual List(
+        p1Id -> Hole(Ten of Hearts, Eight of Clubs),
+        p2Id -> Hole(Two of Hearts, Three of Clubs),
+        p3Id -> Hole(Three of Hearts, Four of Clubs),
+        p4Id -> Hole(Four of Hearts, Five of Clubs),
+      )
     }
   }
 

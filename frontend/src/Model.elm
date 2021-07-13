@@ -261,9 +261,9 @@ type alias PotResult =
 
 
 type alias PlayerWinnings =
-    -- TODO: include hole here for convenience?
     { playerId : PlayerId
     , hand : Maybe Hand
+    , hole : ( Card, Card )
     , winnings : Int
     }
 
@@ -612,6 +612,7 @@ playerWinningsDecoder =
     Json.Decode.succeed PlayerWinnings
         |> required "playerId" playerIdDecoder
         |> required "hand" (nullable handDecoder)
+        |> required "hole" holeDecoder
         |> required "winnings" Json.Decode.int
 
 

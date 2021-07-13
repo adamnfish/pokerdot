@@ -648,19 +648,12 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                             Maybe.withDefault "player" <|
                                 Maybe.map .screenName <|
                                     List.Extra.find (\p -> p.playerId == pw.playerId) game.players
-
-                        maybeHole =
-                            Maybe.andThen .hole <|
-                                List.Extra.find (\p -> p.playerId == pw.playerId) game.players
                     in
                     column
                         [ width fill
                         , spacing 5
                         ]
-                        [ Maybe.withDefault none <| Maybe.map (handUi name pw.winnings maybeHole) pw.hand
-
-                        -- TODO: the above doesn't work! better to wire it through the PlayerWinnings type
-                        ]
+                        [ Maybe.withDefault none <| Maybe.map (handUi name pw.winnings (Just pw.hole)) pw.hand ]
                 )
                 playerWinnings
         , if self.isAdmin then

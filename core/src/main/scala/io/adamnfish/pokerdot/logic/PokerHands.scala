@@ -191,7 +191,7 @@ object PokerHands {
     potWinnings
   }
 
-  def playerWinnings(potsWinnings: List[PotWinnings], button: Int, playerOrder: List[PlayerId], playerHands: List[(PlayerId, Hand)]): List[PlayerWinnings] = {
+  def playerWinnings(potsWinnings: List[PotWinnings], button: Int, playerOrder: List[PlayerId], playerHands: List[(PlayerId, Hand, Hole)]): List[PlayerWinnings] = {
     val playerWinningsAmounts = potsWinnings.foldRight[Map[PlayerId, Int]](playerOrder.map((_, 0)).toMap) { case (potWinnings, acc) =>
       val splitAmount = potWinnings.potSize / potWinnings.winners.size
       val remainder = potWinnings.potSize % potWinnings.winners.size
@@ -212,9 +212,10 @@ object PokerHands {
         )
       }
     }
-    playerHands.reverse.map { case (playerId, hand) =>
+    playerHands.reverse.map { case (playerId, hand, hole) =>
       PlayerWinnings(playerId, Some(hand),
-        playerWinningsAmounts.getOrElse(playerId, 0)
+        hole,
+        playerWinningsAmounts.getOrElse(playerId, 0),
       )
     }.sortBy(_.winnings).reverse
   }
