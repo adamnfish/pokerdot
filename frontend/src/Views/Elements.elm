@@ -500,9 +500,12 @@ pokerControlsUi isActive actSelection self players =
                     ActBet betAmount ->
                         [ inFront
                             (el
-                                [ width fill
-                                , moveUp 100
-                                ]
+                                (List.append
+                                    [ width fill
+                                    , moveUp 100
+                                    ]
+                                    (buttonHiddenAttrs <| not isActive)
+                                )
                              <|
                                 Input.slider
                                     [ width <| px 50
