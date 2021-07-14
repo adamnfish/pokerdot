@@ -1,3 +1,5 @@
+import scala.concurrent.duration.DurationInt
+
 ThisBuild / scalaVersion     := "2.13.5"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.adamnfish"
@@ -62,9 +64,9 @@ lazy val lambda = (project in file("lambda"))
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps,
     // native-packager
-    topLevelDirectory in Universal := None,
-    packageName in Universal := "pokerdot-lambda",
-    mappings in (Compile, packageDoc) := Seq(),
+    Universal / topLevelDirectory := None,
+    Universal / packageName := "pokerdot-lambda",
+    Compile / packageDoc / mappings := Seq(),
     Universal / mappings := (Universal / mappings).value.filter {
       case (_, path) =>
         // these are only used at compile time to generate code, I think?
@@ -87,10 +89,11 @@ lazy val integration = (project in file("integration"))
     // start DynamoDB for tests
     dynamoDBLocalDownloadDir := file(".dynamodb-local"),
     dynamoDBLocalPort := 8042,
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Test).value,
-    test in Test := (test in Test).dependsOn(startDynamoDBLocal).value,
-    testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).evaluated,
-    testOptions in Test += dynamoDBLocalTestCleanup.value,
+    dynamoDBLocalDownloadIfOlderThan := 14.days,
+    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
+    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
+    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testOptions += dynamoDBLocalTestCleanup.value,
   )
   .dependsOn(core % "compile->compile;test->test")
 
@@ -106,14 +109,15 @@ lazy val devServer = (project in file("devserver"))
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps,
     // console logging and ctrl-c to kill support
-    fork in run := true,
-    connectInput in run := true,
+    run / fork := true,
+    run / connectInput := true,
     outputStrategy := Some(StdoutOutput),
     // start DynamoDB on run
     dynamoDBLocalDownloadDir := file(".dynamodb-local"),
     dynamoDBLocalPort := 8042,
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Compile).value,
-    (run in Compile) := (run in Compile).dependsOn(startDynamoDBLocal).evaluated,
+    dynamoDBLocalDownloadIfOlderThan := 14.days,
+    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Compile / compile).value,
+    Compile / run := (Compile / run).dependsOn(startDynamoDBLocal).evaluated,
     // allows browsing DB from http://localhost:8042/shell/
     dynamoDBLocalSharedDB := true,
   )
