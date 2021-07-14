@@ -10,6 +10,7 @@ import Element.Input as Input exposing (labelLeft)
 import Element.Region as Region
 import FontAwesome.Attributes
 import FontAwesome.Icon
+import FontAwesome.Regular
 import FontAwesome.Solid
 import FontAwesome.Styles
 import List.Extra
@@ -292,21 +293,106 @@ welcomeScreen model =
                           <|
                             text "game"
                         ]
-            , row [] <|
-                List.map
-                    (\welcomeMessage ->
-                        row []
-                            [ pdButton
-                                (NavigateGame welcomeMessage)
-                                [ welcomeMessage.screenName ++ " in " ++ welcomeMessage.gameName
-                                ]
-                            , pdButton
-                                (DeletePersistedGame welcomeMessage)
-                                [ "x" ]
-                            ]
-                    )
-                    model.library
             ]
+        , if List.isEmpty model.library then
+            Element.none
+
+          else
+            paragraph [ centerX ] [ text "Rejoin previous game" ]
+        , column
+            [ width <| maximum (round model.viewport.viewport.width - 24) <| px 500
+            , spacing 15
+            , centerX
+            ]
+          <|
+            List.map
+                (\welcomeMessage ->
+                    row
+                        [ width fill
+                        , spacing 4
+                        ]
+                        [ Input.button
+                            [ width fill
+                            , padding 5
+                            , Border.solid
+                            , Border.width 2
+                            , Border.color <| rgb255 50 50 50
+                            , Background.color <| rgb255 200 180 90
+                            , focused
+                                [ Background.color <| rgb255 240 220 130
+                                , Border.color <| rgb255 120 120 240
+                                ]
+                            ]
+                            { onPress = Just <| NavigateGame welcomeMessage
+                            , label =
+                                column
+                                    [ spacing 5 ]
+                                    [ row
+                                        []
+                                        [ html <|
+                                            (FontAwesome.Solid.user
+                                                |> FontAwesome.Icon.present
+                                                |> FontAwesome.Icon.styled
+                                                    [ FontAwesome.Attributes.sm
+                                                    , FontAwesome.Attributes.fw
+                                                    ]
+                                                |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-player-" ++ welcomeMessage.gameCode)
+                                                |> FontAwesome.Icon.titled "Your name"
+                                                |> FontAwesome.Icon.view
+                                            )
+                                        , text " "
+                                        , text welcomeMessage.screenName
+                                        ]
+                                    , row
+                                        []
+                                        [ html <|
+                                            (FontAwesome.Solid.gamepad
+                                                |> FontAwesome.Icon.present
+                                                |> FontAwesome.Icon.styled
+                                                    [ FontAwesome.Attributes.sm
+                                                    , FontAwesome.Attributes.fw
+                                                    ]
+                                                |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-game-" ++ welcomeMessage.gameCode)
+                                                |> FontAwesome.Icon.titled "Game name"
+                                                |> FontAwesome.Icon.view
+                                            )
+                                        , text " "
+                                        , text welcomeMessage.gameName
+                                        ]
+                                    ]
+                            }
+                        , Input.button
+                            [ height <| px 40
+                            , width <| px 40
+                            , centerY
+                            , alignRight
+                            , Border.solid
+                            , Border.width 2
+                            , Border.color <| rgb255 50 50 50
+                            , Background.color <| rgb255 230 150 150
+                            ]
+                            { onPress = Just <| DeletePersistedGame welcomeMessage
+                            , label =
+                                el
+                                    [ centerX
+                                    , centerY
+                                    ]
+                                <|
+                                    html <|
+                                        (FontAwesome.Regular.timesCircle
+                                            |> FontAwesome.Icon.present
+                                            |> FontAwesome.Icon.styled
+                                                [ FontAwesome.Attributes.sm
+                                                , FontAwesome.Attributes.fw
+                                                ]
+                                            |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-dismiss-" ++ welcomeMessage.gameCode)
+                                            |> FontAwesome.Icon.titled "Remove game"
+                                            |> FontAwesome.Icon.view
+                                        )
+                            }
+                        ]
+                )
+                model.library
         ]
 
 

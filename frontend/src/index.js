@@ -71,7 +71,7 @@ app.ports.requestPersistedGames.subscribe(function () {
     console.log('>> Reloading saved games ');
     const games = getGameLibrary();
 
-    app.ports.socketConnect.send(games);
+    app.ports.receivePersistedGames.send(games);
 });
 
 

@@ -6,7 +6,7 @@ import Browser.Events
 import Browser.Navigation
 import Messages exposing (routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 import Model exposing (..)
-import Ports exposing (receiveMessage, socketConnect, socketDisconnect)
+import Ports exposing (receiveMessage, receivePersistedGames, requestPersistedGames, socketConnect, socketDisconnect)
 import Task
 import Time
 import Url
@@ -71,6 +71,7 @@ init flags url navKey =
         , Task.perform Resized Browser.Dom.getViewport
         , sendWake ()
         , rejoinCmd
+        , requestPersistedGames ()
         ]
     )
 
@@ -83,6 +84,7 @@ subscriptions _ =
         , socketDisconnect <| always SocketDisconnect
         , Time.every 1000 Tick
         , Browser.Events.onResize (\_ _ -> OnResize)
+        , receivePersistedGames UpdateLibrary
         ]
 
 

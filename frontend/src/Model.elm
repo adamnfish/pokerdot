@@ -27,7 +27,7 @@ type Msg
     | NavigateHelp
     | NavigateGame Welcome
       -- library management
-    | UpdateLibrary Json.Decode.Value
+    | UpdateLibrary Json.Encode.Value
     | PersistGame Welcome
     | DeletePersistedGame Welcome
     | RequestPersistedGames
@@ -960,6 +960,7 @@ welcomeEncoder welcome =
         [ ( "playerKey", encodePlayerKey welcome.playerKey )
         , ( "playerId", encodePlayerId welcome.playerId )
         , ( "gameId", encodeGameId welcome.gameId )
+        , ( "gameCode", Json.Encode.string welcome.gameCode )
         , ( "gameName", Json.Encode.string welcome.gameName )
         , ( "screenName", Json.Encode.string welcome.screenName )
         , ( "spectator", Json.Encode.bool welcome.spectator )

@@ -115,6 +115,9 @@ update msg model =
                             else
                                 welcome :: model.library
 
+                        savedGameJson =
+                            welcomeEncoder welcome
+
                         gameRoute =
                             GameRoute welcome.gameCode (getPlayerCode welcome.playerId)
                     in
@@ -125,13 +128,16 @@ update msg model =
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players defaultChipSettings self game welcome
                                   }
-                                , navigate model.navKey False gameRoute
+                                , Cmd.batch
+                                    [ navigate model.navKey False gameRoute
+                                    , persistNewGame savedGameJson
+                                    ]
                                 )
 
                             else
                                 -- different game, background update
                                 ( { model | library = newLibrary }
-                                , Cmd.none
+                                , persistNewGame savedGameJson
                                 )
 
                         JoinGameScreen external gameCode _ ->
@@ -140,19 +146,22 @@ update msg model =
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players defaultChipSettings self game welcome
                                   }
-                                , navigate model.navKey False gameRoute
+                                , Cmd.batch
+                                    [ navigate model.navKey False gameRoute
+                                    , persistNewGame savedGameJson
+                                    ]
                                 )
 
                             else
                                 -- different game, background update
                                 ( { model | library = newLibrary }
-                                , Cmd.none
+                                , persistNewGame savedGameJson
                                 )
 
                         -- TODO: handle the lobby case where status message arrives before welcome
                         _ ->
                             ( { model | library = newLibrary }
-                            , Cmd.none
+                            , persistNewGame savedGameJson
                             )
 
                 Ok (PlayerGameStatusMessage self game action) ->
@@ -438,7 +447,10 @@ update msg model =
                 | ui = WelcomeScreen
                 , errors = []
               }
-            , navigate model.navKey True HomeRoute
+            , Cmd.batch
+                [ navigate model.navKey True HomeRoute
+                , requestPersistedGames ()
+                ]
             )
 
         NavigateHelp ->
