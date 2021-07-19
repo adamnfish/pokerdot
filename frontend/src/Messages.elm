@@ -623,8 +623,11 @@ update msg model =
 
         Check ->
             case model.ui of
-                GameScreen _ _ _ welcome ->
-                    ( { model | loadingStatus = AwaitingMessage }
+                GameScreen _ self game welcome ->
+                    ( { model
+                        | loadingStatus = AwaitingMessage
+                        , ui = GameScreen NoAct self game welcome
+                      }
                     , sendCheckRequest
                         { gameId = welcome.gameId
                         , playerKey = welcome.playerKey
@@ -692,8 +695,11 @@ update msg model =
 
         Bet amount ->
             case model.ui of
-                GameScreen _ _ _ welcome ->
-                    ( { model | loadingStatus = AwaitingMessage }
+                GameScreen _ self game welcome ->
+                    ( { model
+                        | loadingStatus = AwaitingMessage
+                        , ui = GameScreen NoAct self game welcome
+                      }
                     , sendBetRequest
                         { gameId = welcome.gameId
                         , playerKey = welcome.playerKey
@@ -711,8 +717,11 @@ update msg model =
 
         Fold ->
             case model.ui of
-                GameScreen _ _ _ welcome ->
-                    ( { model | loadingStatus = AwaitingMessage }
+                GameScreen _ self game welcome ->
+                    ( { model
+                        | loadingStatus = AwaitingMessage
+                        , ui = GameScreen NoAct self game welcome
+                      }
                     , sendFoldRequest
                         { gameId = welcome.gameId
                         , playerKey = welcome.playerKey

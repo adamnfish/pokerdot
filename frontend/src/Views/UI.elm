@@ -1,13 +1,12 @@
 module Views.UI exposing (view)
 
 import Browser
-import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
+import Element.Events
 import Element.Font as Font
-import Element.Input as Input exposing (labelLeft)
-import Element.Region as Region
+import Element.Input as Input
 import FontAwesome.Attributes
 import FontAwesome.Icon
 import FontAwesome.Regular
@@ -15,14 +14,15 @@ import FontAwesome.Solid
 import FontAwesome.Styles
 import List.Extra
 import Model exposing (ActSelection(..), Card, ChipsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
-import Views.Elements exposing (cardUi, communityCardsUi, connectionUi, controlsButton, dotContainer, handUi, pdButton, pdButtonSmall, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
-import Views.Generators exposing (cardsGen)
+import Views.Elements exposing (communityCardsUi, connectionUi, controlsButton, handUi, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+import Views.Theme as Theme
 
 
 type alias Page =
     { body : Element Msg
     , title : String
     , header : Maybe (Element Msg)
+    , scheme : Maybe Theme.Scheme
     }
 
 
@@ -36,36 +36,42 @@ view model =
                     , title = "PokerDot"
                     , header =
                         Just <| welcomeHeader model.connected
+                    , scheme = Just Theme.scheme1
                     }
 
                 HelpScreen ->
                     { body = helpScreen model
                     , title = "Help"
                     , header = Nothing
+                    , scheme = Just Theme.scheme4
                     }
 
                 CreateGameScreen gameName screenName ->
                     { body = createGameScreen model gameName screenName
                     , title = "New game"
                     , header = Nothing
+                    , scheme = Just Theme.scheme3
                     }
 
                 JoinGameScreen external gameCode screenName ->
                     { body = joinGameScreen model external gameCode screenName
                     , title = "Join game"
                     , header = Nothing
+                    , scheme = Just Theme.scheme3
                     }
 
                 LobbyScreen players chipsSettings self game welcome ->
                     { body = lobbyScreen model players chipsSettings self game welcome
                     , title = welcome.gameName ++ " | Waiting..."
                     , header = Nothing
+                    , scheme = Just Theme.scheme3
                     }
 
                 RejoinScreen welcome ->
                     { body = rejoinScreen model welcome
                     , title = welcome.gameName ++ " | Waiting..."
                     , header = Nothing
+                    , scheme = Just Theme.scheme2
                     }
 
                 GameScreen currentAct self game welcome ->
@@ -87,15 +93,20 @@ view model =
                         welcome.gameName
                             ++ (case playingState of
                                     Playing ->
-                                        " | Your turn"
+                                        " | your turn"
 
                                     Waiting ->
-                                        " | Waiting"
+                                        " | waiting"
 
                                     Idle ->
-                                        " | TODO"
+                                        if self.isAdmin then
+                                            " | end of round"
+
+                                        else
+                                            ""
                                )
                     , header = Nothing
+                    , scheme = Just Theme.scheme2
 
                     -- TODO: what should this say
                     }
@@ -104,36 +115,42 @@ view model =
                     { body = roundResultsScreen model potResults playerWinnings self game welcome
                     , title = welcome.gameName ++ " | Round ended"
                     , header = Nothing
+                    , scheme = Just Theme.scheme2
                     }
 
                 GameResultScreen self game welcome ->
                     { body = gameResultsScreen model self game welcome
                     , title = welcome.gameName ++ " | Round ended"
                     , header = Nothing
+                    , scheme = Just Theme.scheme2
                     }
 
                 CommunityCardsScreen game welcome ->
                     { body = communityCardsUi game.round
                     , title = welcome.gameName
                     , header = Nothing
+                    , scheme = Just Theme.scheme1
                     }
 
                 TimerScreen timerStatus game welcome ->
                     { body = timerScreen model timerStatus game welcome
                     , title = welcome.gameName
                     , header = Nothing
+                    , scheme = Just Theme.scheme1
                     }
 
                 ChipSummaryScreen game welcome ->
                     { body = chipSummaryScreen model game welcome
                     , title = welcome.gameName
                     , header = Nothing
+                    , scheme = Just Theme.scheme1
                     }
 
                 UIElementsScreen seed act ->
                     { body = uiElements model seed act
                     , title = "Debugging | UI Elements"
                     , header = Nothing
+                    , scheme = Just Theme.scheme2
                     }
     in
     { title = page.title
@@ -144,7 +161,9 @@ view model =
                 [ Font.typeface "Nunito"
                 , Font.sansSerif
                 ]
-            , Background.color <| rgb255 191 189 193
+            , Background.color <|
+                Maybe.withDefault Theme.colours.white <|
+                    Maybe.map .main page.scheme
             , inFront <|
                 if List.isEmpty model.errors then
                     Element.none
@@ -155,7 +174,15 @@ view model =
                         , paddingXY 10 20
                         , spacing 10
                         , alignBottom
-                        , Background.color <| rgb255 200 150 150
+                        , Background.color Theme.colours.error
+                        , Border.widthEach
+                            { top = 5
+                            , bottom = 0
+                            , left = 0
+                            , right = 0
+                            }
+                        , Border.color Theme.colours.black
+                        , Font.color Theme.colours.white
                         ]
                     <|
                         List.map
@@ -172,7 +199,7 @@ view model =
                     Nothing ->
                         row
                             [ width fill
-                            , Background.color <| rgb255 50 50 50
+                            , Background.color Theme.colours.black
                             ]
                             [ case model.ui of
                                 WelcomeScreen ->
@@ -180,18 +207,30 @@ view model =
 
                                 _ ->
                                     Input.button
-                                        [ paddingXY 10 15
-                                        , Background.color <| rgb255 80 80 80
-                                        , Font.size 25
-                                        , Font.color <| rgb255 200 200 200
+                                        [ padding 8
+                                        , Background.color Theme.colours.lowlight
+                                        , Font.size 20
+                                        , Font.color <| Theme.textColour Theme.colours.white
                                         ]
                                         { onPress = Just NavigateHome
                                         , label = text "home"
                                         }
+                            , case model.ui of
+                                GameScreen _ _ _ welcome ->
+                                    el
+                                        [ Font.color Theme.colours.primary
+                                        , paddingXY 10 0
+                                        , Font.size 12
+                                        ]
+                                    <|
+                                        text welcome.screenName
+
+                                _ ->
+                                    Element.none
                             , el
                                 [ alignRight
-                                , padding 15
-                                , Font.color <| rgb255 200 200 200
+                                , padding 5
+                                , Font.color <| Theme.textColour Theme.colours.white
                                 ]
                               <|
                                 connectionUi model.connected
@@ -209,15 +248,27 @@ view model =
 
 welcomeHeader : Bool -> Element Msg
 welcomeHeader connected =
+    let
+        scheme =
+            Theme.scheme1
+    in
     column
         [ width fill
         , height <| px 200
-        , Background.color <| rgb255 50 50 50
+        , Background.color scheme.main
+        , Border.color <| Theme.colours.black
+        , Border.widthEach
+            { bottom = 2
+            , left = 0
+            , right = 0
+            , top = 0
+            }
         , inFront <|
             el
                 [ alignRight
                 , padding 15
-                , Font.color <| rgb255 200 200 200
+                , Font.color <| Theme.textColour Theme.colours.black
+                , Element.Events.onClick <| NavigateUIElements 0
                 ]
             <|
                 connectionUi connected
@@ -226,8 +277,9 @@ welcomeHeader connected =
             [ width fill
             , centerY
             , Font.center
-            , Font.size 30
-            , Font.color <| rgb255 200 200 200
+            , Font.bold
+            , Font.size 60
+            , Font.color <| Theme.textColour Theme.colours.black
             ]
           <|
             text "Pokerdot"
@@ -237,11 +289,8 @@ welcomeHeader connected =
 welcomeScreen : Model -> Element Msg
 welcomeScreen model =
     let
-        radius =
-            max 300 <|
-                min 400 <|
-                    round model.viewport.viewport.width
-                        - 20
+        scheme =
+            Theme.scheme1
     in
     column
         [ width fill
@@ -249,6 +298,7 @@ welcomeScreen model =
         , centerX
         , spacing 48
         , paddingXY 0 50
+        , Background.color scheme.main
         ]
         [ row
             [ centerX
@@ -257,7 +307,7 @@ welcomeScreen model =
             [ el
                 [ centerX ]
               <|
-                controlsButton NavigateCreateGame <|
+                controlsButton scheme NavigateCreateGame <|
                     column
                         [ width fill
                         ]
@@ -266,7 +316,7 @@ welcomeScreen model =
                             , Font.center
                             ]
                           <|
-                            text "Create"
+                            text "create"
                         , el
                             [ width fill
                             , Font.center
@@ -276,7 +326,7 @@ welcomeScreen model =
                         ]
             , el [ width <| px 30 ] Element.none
             , el [ centerX ] <|
-                controlsButton NavigateJoinGame <|
+                controlsButton scheme NavigateJoinGame <|
                     column
                         [ width fill
                         ]
@@ -285,7 +335,7 @@ welcomeScreen model =
                             , Font.center
                             ]
                           <|
-                            text "Join"
+                            text "join"
                         , el
                             [ width fill
                             , Font.center
@@ -309,67 +359,28 @@ welcomeScreen model =
                 (\welcomeMessage ->
                     row
                         [ width fill
-                        , spacing 4
+                        , spacing 6
                         ]
                         [ Input.button
-                            [ width fill
-                            , padding 5
-                            , Border.solid
-                            , Border.width 2
-                            , Border.color <| rgb255 50 50 50
-                            , Background.color <| rgb255 200 180 90
-                            , focused
-                                [ Background.color <| rgb255 240 220 130
-                                , Border.color <| rgb255 120 120 240
-                                ]
-                            ]
-                            { onPress = Just <| NavigateGame welcomeMessage
-                            , label =
-                                column
-                                    [ spacing 5 ]
-                                    [ row
-                                        []
-                                        [ html <|
-                                            (FontAwesome.Solid.user
-                                                |> FontAwesome.Icon.present
-                                                |> FontAwesome.Icon.styled
-                                                    [ FontAwesome.Attributes.sm
-                                                    , FontAwesome.Attributes.fw
-                                                    ]
-                                                |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-player-" ++ welcomeMessage.gameCode)
-                                                |> FontAwesome.Icon.titled "Your name"
-                                                |> FontAwesome.Icon.view
-                                            )
-                                        , text " "
-                                        , text welcomeMessage.screenName
-                                        ]
-                                    , row
-                                        []
-                                        [ html <|
-                                            (FontAwesome.Solid.gamepad
-                                                |> FontAwesome.Icon.present
-                                                |> FontAwesome.Icon.styled
-                                                    [ FontAwesome.Attributes.sm
-                                                    , FontAwesome.Attributes.fw
-                                                    ]
-                                                |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-game-" ++ welcomeMessage.gameCode)
-                                                |> FontAwesome.Icon.titled "Game name"
-                                                |> FontAwesome.Icon.view
-                                            )
-                                        , text " "
-                                        , text welcomeMessage.gameName
-                                        ]
-                                    ]
-                            }
-                        , Input.button
                             [ height <| px 40
                             , width <| px 40
                             , centerY
                             , alignRight
                             , Border.solid
                             , Border.width 2
-                            , Border.color <| rgb255 50 50 50
-                            , Background.color <| rgb255 230 150 150
+                            , Border.color Theme.colours.black
+                            , Border.shadow
+                                { offset = ( 2, 2 )
+                                , size = 0.5
+                                , blur = 1
+                                , color = Theme.glow Theme.colours.error
+                                }
+                            , Background.color Theme.colours.error
+                            , focused
+                                [ Background.color <| Theme.focusColour Theme.colours.error
+                                , Border.color Theme.colours.white
+                                , Font.color Theme.colours.white
+                                ]
                             ]
                             { onPress = Just <| DeletePersistedGame welcomeMessage
                             , label =
@@ -379,7 +390,7 @@ welcomeScreen model =
                                     ]
                                 <|
                                     html <|
-                                        (FontAwesome.Regular.timesCircle
+                                        (FontAwesome.Solid.times
                                             |> FontAwesome.Icon.present
                                             |> FontAwesome.Icon.styled
                                                 [ FontAwesome.Attributes.sm
@@ -389,6 +400,69 @@ welcomeScreen model =
                                             |> FontAwesome.Icon.titled "Remove game"
                                             |> FontAwesome.Icon.view
                                         )
+                            }
+                        , Input.button
+                            [ width fill
+                            , padding 5
+                            , Border.solid
+                            , Border.width 2
+                            , Border.color Theme.colours.black
+                            , Border.shadow
+                                { offset = ( 2, 2 )
+                                , size = 0.5
+                                , blur = 1
+                                , color = Theme.glow Theme.scheme2.main
+                                }
+                            , Background.color Theme.scheme2.main
+                            , Font.color Theme.colours.white
+                            , focused
+                                [ Background.color <| Theme.focusColour Theme.scheme2.main
+                                , Border.color Theme.colours.white
+                                ]
+                            ]
+                            { onPress = Just <| NavigateGame welcomeMessage
+                            , label =
+                                column
+                                    [ spacing 5 ]
+                                    [ row
+                                        []
+                                        [ el
+                                            [ Font.color Theme.scheme2.highlight ]
+                                          <|
+                                            html <|
+                                                (FontAwesome.Solid.user
+                                                    |> FontAwesome.Icon.present
+                                                    |> FontAwesome.Icon.styled
+                                                        [ FontAwesome.Attributes.sm
+                                                        , FontAwesome.Attributes.fw
+                                                        ]
+                                                    |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-player-" ++ welcomeMessage.gameCode)
+                                                    |> FontAwesome.Icon.titled "Your name"
+                                                    |> FontAwesome.Icon.view
+                                                )
+                                        , text " "
+                                        , text welcomeMessage.screenName
+                                        ]
+                                    , row
+                                        []
+                                        [ el
+                                            [ Font.color Theme.scheme2.highlight ]
+                                          <|
+                                            html <|
+                                                (FontAwesome.Solid.gamepad
+                                                    |> FontAwesome.Icon.present
+                                                    |> FontAwesome.Icon.styled
+                                                        [ FontAwesome.Attributes.sm
+                                                        , FontAwesome.Attributes.fw
+                                                        ]
+                                                    |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-game-" ++ welcomeMessage.gameCode)
+                                                    |> FontAwesome.Icon.titled "Game name"
+                                                    |> FontAwesome.Icon.view
+                                                )
+                                        , text " "
+                                        , text welcomeMessage.gameName
+                                        ]
+                                    ]
                             }
                         ]
                 )
@@ -410,13 +484,13 @@ createGameScreen model gameName screenName =
         , paddingEach { zWidths | top = 50 }
         , centerX
         ]
-        [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "Game name"
-        , pdText (InputCreateGame gameName) screenName "Your name"
+        [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "game name"
+        , pdText (InputCreateGame gameName) screenName "your name"
         , el
             [ alignRight
             ]
           <|
-            controlsButton (SubmitCreateGame gameName screenName) <|
+            controlsButton Theme.scheme3 (SubmitCreateGame gameName screenName) <|
                 column
                     [ width fill ]
                     [ el
@@ -424,7 +498,7 @@ createGameScreen model gameName screenName =
                         , Font.center
                         ]
                       <|
-                        text "Create"
+                        text "create"
                     , el
                         [ width fill
                         , Font.center
@@ -448,12 +522,12 @@ joinGameScreen model isExternal gameCode screenName =
             none
 
           else
-            pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "Game code"
-        , pdText (InputJoinGame isExternal gameCode) screenName "Your name"
+            pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "game code"
+        , pdText (InputJoinGame isExternal gameCode) screenName "your name"
         , el
             [ alignRight ]
           <|
-            controlsButton (SubmitJoinGame gameCode screenName) <|
+            controlsButton Theme.scheme3 (SubmitJoinGame gameCode screenName) <|
                 column
                     [ width fill ]
                     [ el
@@ -461,7 +535,7 @@ joinGameScreen model isExternal gameCode screenName =
                         , Font.center
                         ]
                       <|
-                        text "Join"
+                        text "join"
                     , el
                         [ width fill
                         , Font.center
@@ -477,7 +551,19 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
     let
         formatPlayer : Player -> Element Msg
         formatPlayer player =
-            text player.screenName
+            row
+                [ width fill
+                , padding 5
+                , Font.color <| Theme.textColour Theme.colours.black
+                , Background.color Theme.colours.primary
+                ]
+                [ text player.screenName
+                , if player.playerId == self.playerId then
+                    text " (you)"
+
+                  else
+                    Element.none
+                ]
     in
     column
         [ width fill
@@ -495,9 +581,9 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
                 , alignLeft
                 , Font.size 40
                 , Font.alignLeft
-                , Background.color <| rgb255 255 255 255
+                , Background.color Theme.colours.highlightPrimary
                 , Border.solid
-                , Border.color <| rgb255 0 0 0
+                , Border.color Theme.colours.black
                 , Border.widthEach
                     { top = 1
                     , bottom = 3
@@ -509,30 +595,35 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
                 text <|
                     game.gameCode
             , column
-                [ spacing 4 ]
+                [ spacing 12
+                , Font.color <| Theme.textColour Theme.colours.white
+                ]
                 [ el
                     [ width fill
                     , Font.alignLeft
                     , Font.size 25
                     ]
                   <|
-                    text "Game code"
+                    text "game code"
                 , link
                     []
                     { url = "/#join/" ++ game.gameCode
                     , label =
                         row
                             [ spacing 4 ]
-                            [ html <|
-                                (FontAwesome.Solid.shareAlt
-                                    |> FontAwesome.Icon.present
-                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                    |> FontAwesome.Icon.withId "share-join-link_pokerdot"
-                                    |> FontAwesome.Icon.titled "Share join link"
-                                    |> FontAwesome.Icon.view
-                                )
+                            [ el
+                                [ Font.color Theme.colours.icon ]
+                              <|
+                                html <|
+                                    (FontAwesome.Solid.shareAlt
+                                        |> FontAwesome.Icon.present
+                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                        |> FontAwesome.Icon.withId "share-join-link_pokerdot"
+                                        |> FontAwesome.Icon.titled "Share join link"
+                                        |> FontAwesome.Icon.view
+                                    )
                             , text " "
-                            , text "Join link"
+                            , text "join link"
                             ]
                     }
                 ]
@@ -540,7 +631,11 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
         , row
             [ width fill ]
             []
-        , column [] <|
+        , column
+            [ width fill
+            , spacing 2
+            ]
+          <|
             List.map formatPlayer playerOrder
         , if self.isAdmin then
             lobbyStartSettings playerOrder chipsSettings
@@ -556,18 +651,25 @@ lobbyStartSettings playerOrder chipsSettings =
         [ width fill ]
         [ row
             [ spacing 8 ]
-            [ pdTab (InputStartGameSettings playerOrder DoNotTrackChips) "No chips"
-            , pdTab (InputStartGameSettings playerOrder <| TrackWithTimer 1000 []) "Timer"
-            , pdTab (InputStartGameSettings playerOrder <| TrackWithManualBlinds 1000 5) "Manual blinds"
+            [ pdTab (InputStartGameSettings playerOrder DoNotTrackChips) "no chips"
+            , pdTab (InputStartGameSettings playerOrder <| TrackWithTimer 1000 []) "timer"
+            , pdTab (InputStartGameSettings playerOrder <| TrackWithManualBlinds 1000 5) "manual blinds"
             ]
         , case chipsSettings of
             DoNotTrackChips ->
-                text "Not tracking chips"
+                el
+                    [ Font.color <| Theme.textColour Theme.colours.white ]
+                <|
+                    text "not tracking chips"
 
             TrackWithTimer currentStackSize timerLevels ->
                 column
                     [ width fill ]
-                    [ text "Timer levels"
+                    [ el
+                        [ Font.color <| Theme.textColour Theme.colours.white
+                        ]
+                      <|
+                        text "timer levels"
                     , Input.text
                         []
                         { text = String.fromInt currentStackSize
@@ -575,15 +677,16 @@ lobbyStartSettings playerOrder chipsSettings =
                             Input.labelLeft
                                 [ width <| px 150
                                 , Font.alignLeft
+                                , Font.color <| Theme.textColour Theme.colours.white
                                 ]
                             <|
-                                text "Player stacks"
+                                text "player stacks"
                         , placeholder =
                             Just <|
                                 Input.placeholder
                                     []
                                 <|
-                                    text "Player stacks"
+                                    text "player stacks"
                         , onChange =
                             \value ->
                                 let
@@ -605,11 +708,12 @@ lobbyStartSettings playerOrder chipsSettings =
                             Input.labelLeft
                                 [ width <| px 150
                                 , Font.alignLeft
+                                , Font.color <| Theme.textColour Theme.colours.white
                                 ]
                             <|
-                                text "Player stacks"
+                                text "player stacks"
                         , placeholder =
-                            Just <| Input.placeholder [] <| text "Player stacks"
+                            Just <| Input.placeholder [] <| text "player stacks"
                         , onChange =
                             \value ->
                                 let
@@ -626,11 +730,12 @@ lobbyStartSettings playerOrder chipsSettings =
                             Input.labelLeft
                                 [ width <| px 150
                                 , Font.alignLeft
+                                , Font.color <| Theme.textColour Theme.colours.white
                                 ]
                             <|
-                                text "Small blind"
+                                text "small blind"
                         , placeholder =
-                            Just <| Input.placeholder [] <| text "Initial small blind"
+                            Just <| Input.placeholder [] <| text "initial small blind"
                         , onChange =
                             \value ->
                                 let
@@ -643,7 +748,7 @@ lobbyStartSettings playerOrder chipsSettings =
                     ]
         , row
             []
-            [ pdButton SubmitStartGame [ "Start" ]
+            [ controlsButton Theme.scheme3 SubmitStartGame (text "start")
             ]
         ]
 
@@ -658,7 +763,7 @@ rejoinScreen model welcome =
         , spacing 15
         ]
         [ Element.text <|
-            "Hello again, "
+            "hello again, "
                 ++ welcome.screenName
                 ++ ". Rejoining "
                 ++ welcome.gameName
@@ -682,32 +787,36 @@ gameScreen model playingState currentAct self game welcome =
                 pokerControlsUi True currentAct self game.players
 
             Waiting ->
-                pokerControlsUi False currentAct self game.players
+                pokerControlsUi False NoAct self game.players
 
             Idle ->
                 if self.isAdmin then
-                    el
-                        [ alignRight ]
-                    <|
-                        controlsButton AdvancePhase <|
-                            column
-                                [ width fill ]
-                                [ el
-                                    [ width fill
-                                    , Font.center
+                    column
+                        [ width fill ]
+                        [ el
+                            [ alignRight ]
+                          <|
+                            controlsButton Theme.scheme1 AdvancePhase <|
+                                column
+                                    [ width fill ]
+                                    [ el
+                                        [ width fill
+                                        , Font.center
+                                        ]
+                                      <|
+                                        text "next"
+                                    , el
+                                        [ width fill
+                                        , Font.center
+                                        ]
+                                      <|
+                                        text "round"
                                     ]
-                                  <|
-                                    text "Next"
-                                , el
-                                    [ width fill
-                                    , Font.center
-                                    ]
-                                  <|
-                                    text "round"
-                                ]
+                        , pokerControlsUi False NoAct self game.players
+                        ]
 
                 else
-                    text "Waiting for the next round to start"
+                    pokerControlsUi False NoAct self game.players
         ]
 
 
@@ -743,28 +852,32 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                 )
                 playerWinnings
         , if self.isAdmin then
-            el
-                [ alignRight ]
-            <|
-                controlsButton AdvancePhase <|
-                    column
-                        [ width fill ]
-                        [ el
-                            [ width fill
-                            , Font.center
+            column
+                [ width fill ]
+                [ el
+                    [ alignRight ]
+                  <|
+                    controlsButton Theme.scheme1 AdvancePhase <|
+                        column
+                            [ width fill ]
+                            [ el
+                                [ width fill
+                                , Font.center
+                                ]
+                              <|
+                                text "next"
+                            , el
+                                [ width fill
+                                , Font.center
+                                ]
+                              <|
+                                text "round"
                             ]
-                          <|
-                            text "Next"
-                        , el
-                            [ width fill
-                            , Font.center
-                            ]
-                          <|
-                            text "round"
-                        ]
+                , pokerControlsUi False NoAct self game.players
+                ]
 
           else
-            text "Waiting for the next round to start"
+            pokerControlsUi False NoAct self game.players
         ]
 
 

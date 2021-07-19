@@ -1,4 +1,4 @@
-module Views.Elements exposing (cardUi, communityCardsUi, connectionUi, controlsButton, dotContainer, handUi, hiddenCardUi, pdButton, pdButtonSmall, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (cardUi, communityCardsUi, connectionUi, controlsButton, handUi, hiddenCardUi, pdButton, pdButtonSmall, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -6,18 +6,17 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Element.Region as Region
 import FontAwesome.Attributes
 import FontAwesome.Icon
 import FontAwesome.Regular
 import FontAwesome.Solid
 import Html.Attributes
-import List.Extra
 import Maybe.Extra
 import Model exposing (ActSelection(..), Card, Game, Hand(..), Model, Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
 import Random
 import Random.Extra
 import Views.Generators exposing (..)
+import Views.Theme as Theme
 
 
 type CardSize
@@ -25,26 +24,27 @@ type CardSize
     | NormalCard
 
 
-controlsButton : Msg -> Element Msg -> Element Msg
-controlsButton msg label =
+controlsButton : Theme.Scheme -> Msg -> Element Msg -> Element Msg
+controlsButton scheme msg label =
     Input.button
         [ width <| minimum 100 shrink
         , height <| px 90
         , Border.rounded 2
         , Border.solid
         , Border.width 2
-        , Border.color <| rgb255 60 60 60
+        , Border.color Theme.colours.black
         , Border.shadow
-            { offset = ( 1, 1 )
-            , size = 1
+            { offset = ( 2, 2 )
+            , size = 0.5
             , blur = 1
-            , color = rgb255 120 120 120
+            , color = Theme.glow scheme.highlight
             }
         , Font.size 25
-        , Background.color <| rgb255 200 180 90
+        , Font.color <| Theme.textColour scheme.text
+        , Background.color scheme.highlight
         , focused
-            [ Background.color <| rgb255 240 220 130
-            , Border.color <| rgb255 120 120 240
+            [ Background.color <| Theme.focusColour scheme.highlight
+            , Border.color Theme.colours.white
             ]
         ]
         { onPress = Just msg
@@ -65,19 +65,23 @@ pdButtonSmall msg lines =
 pdTab : Msg -> String -> Element Msg
 pdTab msg label =
     Input.button
-        [ Border.rounded 1
+        [ paddingXY 8 5
+        , Border.rounded 1
         , Border.solid
         , Border.width 2
-        , Border.color <| rgb255 60 60 60
+        , Border.color Theme.colours.black
         , Border.shadow
             { offset = ( 1, 1 )
             , size = 1
             , blur = 1
-            , color = rgb255 120 120 120
+            , color = Theme.glow Theme.colours.highlightSecondary
             }
+        , Background.color Theme.colours.highlightSecondary
+        , Font.color <| Theme.textColour Theme.colours.black
         , focused
-            [ Background.color <| rgb255 220 220 230
-            , Border.color <| rgb255 120 120 240
+            [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
+            , Border.color Theme.colours.white
+            , Font.color <| Theme.textColour Theme.colours.white
             ]
         ]
         { onPress = Just msg
@@ -128,13 +132,12 @@ pdText msg value labelStr =
         , paddingXY 10 8
         , Border.solid
         , Border.width 2
-        , Border.color <| rgb255 60 60 60
+        , Border.color Theme.colours.black
         , Border.widthEach { zWidths | bottom = 2 }
         , Border.rounded 0
-        , Background.color <| rgb255 200 200 200
+        , Background.color Theme.colours.white
         , focused
-            [ Background.color <| rgb255 220 220 230
-            , Border.color <| rgb255 120 120 240
+            [ Background.color Theme.colours.highlightPrimary
             ]
         ]
         { onChange = msg
@@ -144,7 +147,10 @@ pdText msg value labelStr =
             Input.labelAbove
                 [ alignLeft ]
             <|
-                text labelStr
+                el
+                    [ Font.color Theme.colours.white ]
+                <|
+                    text labelStr
         }
 
 
@@ -155,31 +161,6 @@ zWidths =
     , right = 0
     , top = 0
     }
-
-
-dotContainer : Viewport -> Int -> Element Msg -> Element Msg
-dotContainer viewport radius content =
-    el
-        [ width fill
-        ]
-    <|
-        el
-            [ width <| px radius
-            , height <| px radius
-            , centerX
-            , Background.color <| rgb255 180 180 230
-            , Border.rounded radius
-            ]
-        <|
-            el
-                [ width <|
-                    maximum (radius - 24) <|
-                        px <|
-                            round (viewport.viewport.width - 24)
-                , height <| px radius
-                , centerX
-                ]
-                content
 
 
 connectionUi : Bool -> Element Msg
@@ -211,17 +192,21 @@ tableUi round players =
         pot =
             List.sum <| List.map .pot players
 
+        scheme =
+            Theme.scheme1
+
         seat : Player -> Element Msg
         seat player =
             row
                 [ width fill
                 , spacing 8
                 , padding 8
-                , Background.color <| rgb255 200 200 200
+                , Background.color scheme.main
                 ]
                 [ el
                     [ width fill
                     , Font.alignLeft
+                    , Font.color <| Theme.textColour scheme.highlight
                     , clip
                     ]
                   <|
@@ -229,27 +214,26 @@ tableUi round players =
                 , el
                     [ width <| px 50
                     , Font.alignRight
+                    , Font.color <| Theme.textColour Theme.colours.black
                     ]
                   <|
                     text <|
                         String.fromInt player.stack
                 , row
-                    [ width <| px 60 ]
-                    [ html <|
-                        if player.bet > 0 then
-                            FontAwesome.Solid.caretRight
+                    [ width <| px 60
+                    , Font.color <| Theme.textColour Theme.colours.black
+                    ]
+                    [ if player.bet > 0 then
+                        html <|
+                            (FontAwesome.Solid.caretRight
                                 |> FontAwesome.Icon.present
                                 |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
                                 |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
                                 |> FontAwesome.Icon.view
+                            )
 
-                        else
-                            FontAwesome.Regular.circle
-                                |> FontAwesome.Icon.present
-                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
-                                |> FontAwesome.Icon.titled "0"
-                                |> FontAwesome.Icon.view
+                      else
+                        text "0"
                     , text " "
                     , if player.bet > 0 then
                         text <|
@@ -386,44 +370,6 @@ pokerControlsUi isActive actSelection self players =
                 _ ->
                     0
 
-        -- this is the old ui, it's here for reference as I build the new one
-        oldUi__ =
-            column
-                []
-                [ pdButtonSmall (InputActSelection ActCheck) [ "check" ]
-                , pdButtonSmall (InputActSelection ActCall) [ "call" ]
-                , pdButtonSmall (InputActSelection ActFold) [ "fold" ]
-                , row
-                    []
-                    [ pdText
-                        (\str ->
-                            InputActSelection <| ActBet <| Maybe.withDefault 0 <| String.toInt str
-                        )
-                        (String.fromInt currentSelectedBetAmount)
-                        "bet amount"
-                    , pdButtonSmall (InputActSelection <| ActBet currentSelectedBetAmount) [ "bet" ]
-                    ]
-                , if isActive then
-                    case actSelection of
-                        ActCheck ->
-                            pdButtonSmall Check [ "Confirm check" ]
-
-                        ActCall ->
-                            pdButtonSmall (Bet callAmount) [ "Confirm call" ]
-
-                        ActFold ->
-                            pdButtonSmall Fold [ "Confirm fold" ]
-
-                        ActBet amount ->
-                            pdButtonSmall (Bet amount) [ "Confirm bet" ]
-
-                        NoAct ->
-                            text "Select action"
-
-                  else
-                    text "It isn't your turn"
-                ]
-
         buttonHiddenAttrs hidden =
             if hidden then
                 [ transparent True
@@ -442,7 +388,7 @@ pokerControlsUi isActive actSelection self players =
                 , height <| px 260
                 , centerX
                 , centerY
-                , Background.color <| rgb 220 220 220
+                , Background.color Theme.scheme1.main
                 , Border.rounded 130
                 , clip
                 ]
@@ -455,7 +401,7 @@ pokerControlsUi isActive actSelection self players =
                         [ width fill
                         , alignBottom
                         , paddingXY 0 50
-                        , Font.color <| rgba255 20 20 20 0.8
+                        , Font.color <| Theme.textColour Theme.colours.black
                         , Font.size 18
                         ]
                     <|
@@ -468,7 +414,7 @@ pokerControlsUi isActive actSelection self players =
             case actSelection of
                 ActBet _ ->
                     el (buttonHiddenAttrs <| not isActive) <|
-                        controlsButton (Bet self.stack) <|
+                        controlsButton Theme.scheme1 (Bet self.stack) <|
                             column
                                 [ width fill
                                 , spacing 5
@@ -490,7 +436,7 @@ pokerControlsUi isActive actSelection self players =
 
                 _ ->
                     el (buttonHiddenAttrs <| not isActive) <|
-                        controlsButton Fold <|
+                        controlsButton Theme.scheme1 Fold <|
                             text "fold"
         , row
             [ centerX
@@ -515,11 +461,11 @@ pokerControlsUi isActive actSelection self players =
                                             [ width <| px 20
                                             , height fill
                                             , centerX
-                                            , Background.color <| rgb255 150 120 50
+                                            , Background.color Theme.scheme1.highlight
                                             , Border.rounded 2
                                             , Border.solid
-                                            , Border.width 2
-                                            , Border.color <| rgb255 60 60 60
+                                            , Border.width 3
+                                            , Border.color Theme.colours.black
                                             ]
                                             Element.none
                                         )
@@ -536,9 +482,11 @@ pokerControlsUi isActive actSelection self players =
                                                 [ Input.button
                                                     [ height <| px 27
                                                     , width <| px 27
-                                                    , Font.color <| rgb255 200 180 90
-                                                    , Background.color <| rgb255 50 50 50
+                                                    , Font.color <| Theme.textColour Theme.colours.black
+                                                    , Background.color Theme.scheme1.highlight
                                                     , Border.rounded 5
+                                                    , Border.width 2
+                                                    , Border.color Theme.colours.black
                                                     ]
                                                     { onPress = Just (InputBet <| betAmount - 1)
                                                     , label =
@@ -546,9 +494,9 @@ pokerControlsUi isActive actSelection self players =
                                                             [ centerX, centerY ]
                                                         <|
                                                             html
-                                                                (FontAwesome.Solid.minusSquare
+                                                                (FontAwesome.Solid.minus
                                                                     |> FontAwesome.Icon.present
-                                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
                                                                     |> FontAwesome.Icon.view
                                                                 )
                                                     }
@@ -560,9 +508,11 @@ pokerControlsUi isActive actSelection self players =
                                                 , Input.button
                                                     [ height <| px 27
                                                     , width <| px 27
-                                                    , Font.color <| rgb255 200 180 90
-                                                    , Background.color <| rgb255 50 50 50
+                                                    , Font.color <| Theme.textColour Theme.colours.black
+                                                    , Background.color Theme.scheme1.highlight
                                                     , Border.rounded 5
+                                                    , Border.width 2
+                                                    , Border.color Theme.colours.black
                                                     ]
                                                     { onPress = Just (InputBet <| betAmount + 1)
                                                     , label =
@@ -570,9 +520,9 @@ pokerControlsUi isActive actSelection self players =
                                                             [ centerX, centerY ]
                                                         <|
                                                             html
-                                                                (FontAwesome.Solid.plusSquare
+                                                                (FontAwesome.Solid.plus
                                                                     |> FontAwesome.Icon.present
-                                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
                                                                     |> FontAwesome.Icon.view
                                                                 )
                                                     }
@@ -585,15 +535,14 @@ pokerControlsUi isActive actSelection self players =
                                         Input.thumb
                                             [ width <| px 50
                                             , height <| px 50
-                                            , Background.color <| rgb255 200 180 90
+                                            , Background.color Theme.scheme1.highlight
                                             , focused
-                                                [ Background.color <| rgb255 240 220 130
-                                                , Border.color <| rgb255 120 120 240
+                                                [ Background.color <| Theme.focusColour Theme.scheme1.highlight
                                                 ]
                                             , Border.solid
                                             , Border.rounded 2
                                             , Border.width 2
-                                            , Border.color <| rgb255 60 60 60
+                                            , Border.color Theme.colours.black
                                             ]
                                     }
                             )
@@ -618,7 +567,7 @@ pokerControlsUi isActive actSelection self players =
                     -- as slider between moves, they are updated
                     el (buttonHiddenAttrs <| (not isActive || callAmount <= 0))
                     <|
-                        controlsButton (Bet callAmount) <|
+                        controlsButton Theme.scheme1 (Bet callAmount) <|
                             column
                                 [ spacing 5
                                 , width fill
@@ -674,7 +623,7 @@ pokerControlsUi isActive actSelection self players =
                 case actSelection of
                     ActBet betAmount ->
                         el (buttonHiddenAttrs <| not isActive) <|
-                            controlsButton (Bet betAmount) <|
+                            controlsButton Theme.scheme1 (Bet betAmount) <|
                                 column
                                     [ width fill
                                     , spacing 5
@@ -701,7 +650,7 @@ pokerControlsUi isActive actSelection self players =
 
                     _ ->
                         el (buttonHiddenAttrs <| not isActive) <|
-                            controlsButton (InputActSelection <| ActBet currentSelectedBetAmount) <|
+                            controlsButton Theme.scheme1 (InputActSelection <| ActBet currentSelectedBetAmount) <|
                                 text <|
                                     if highestBet > 0 then
                                         "raise"
@@ -715,7 +664,7 @@ pokerControlsUi isActive actSelection self players =
             case actSelection of
                 ActBet _ ->
                     el (buttonHiddenAttrs <| not isActive) <|
-                        controlsButton (InputActSelection NoAct) <|
+                        controlsButton Theme.scheme1 (InputActSelection NoAct) <|
                             column
                                 [ width fill
                                 , spacing 5
@@ -743,7 +692,7 @@ pokerControlsUi isActive actSelection self players =
 
                 _ ->
                     el (buttonHiddenAttrs <| not isActive) <|
-                        controlsButton Check <|
+                        controlsButton Theme.scheme1 Check <|
                             text "check"
         ]
 
@@ -990,12 +939,15 @@ handUi name winnings maybeHole hand =
 
             else
                 FontAwesome.Solid.sortDown
+
+        scheme =
+            Theme.scheme3
     in
     column
         [ width fill
         , spacing 5
         , paddingXY 8 10
-        , Background.color <| rgb255 50 50 50
+        , Background.color scheme.main
         ]
         [ row
             [ width fill
@@ -1016,11 +968,11 @@ handUi name winnings maybeHole hand =
                 , clip
                 , Font.size 20
                 , Font.alignLeft
-                , Font.color <| rgba255 250 250 250 0.8
+                , Font.color <| Theme.textColour scheme.highlight
                 , Font.shadow
                     { offset = ( 1, 1 )
                     , blur = 0.5
-                    , color = rgba255 100 100 100 0.8
+                    , color = Theme.glow scheme.highlight
                     }
                 , paddingEach
                     { top = 0
@@ -1032,19 +984,18 @@ handUi name winnings maybeHole hand =
               <|
                 text name
             ]
-
-        -- TODO: Include player hole display here
         , row
             [ spacing cardSpacing ]
           <|
             List.append cardEls
                 [ el
-                    [ Font.size 25
-                    , Font.color <| rgba255 250 250 250 0.8
+                    [ alignRight
+                    , Font.size 25
+                    , Font.color <| Theme.textColour scheme.highlight
                     , Font.shadow
                         { offset = ( 1, 1 )
                         , blur = 0.5
-                        , color = rgba255 100 100 100 0.8
+                        , color = Theme.glow scheme.highlight
                         }
                     , paddingEach
                         { top = 0
@@ -1055,7 +1006,7 @@ handUi name winnings maybeHole hand =
                     ]
                   <|
                     row
-                        []
+                        [ alignRight ]
                         [ Element.html <|
                             (winningsIcon
                                 |> FontAwesome.Icon.present
@@ -1069,11 +1020,11 @@ handUi name winnings maybeHole hand =
                 ]
         , el
             [ Font.size 15
-            , Font.color <| rgba255 250 250 250 0.8
+            , Font.color <| Theme.textColour Theme.colours.white
             , Font.shadow
                 { offset = ( 1, 1 )
                 , blur = 0.5
-                , color = rgba255 100 100 100 0.8
+                , color = Theme.glow scheme.highlight
                 }
             , paddingEach
                 { top = 0
