@@ -77,7 +77,11 @@ init flags url navKey =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
+    let
+        noTickRequired =
+            List.isEmpty model.errors && List.isEmpty model.events
+    in
     Sub.batch
         [ receiveMessage ServerMessage
         , socketConnect <| always SocketConnect

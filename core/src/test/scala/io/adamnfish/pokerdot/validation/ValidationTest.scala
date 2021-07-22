@@ -279,22 +279,43 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       validate(rawRequest.copy(playerOrder = Nil)).isLeft shouldEqual true
     }
 
-    "if the game is tracking stacks, fails if there is neither a timer config nor an initial stack amount" in {
-      val request = rawRequest.copy(
-        startingStack = Some(1000),
-        timerConfig = None,
-        initialSmallBlind = None,
-      )
-      validate(request).isLeft shouldEqual true
-    }
+    "if the game is tracking stacks" - {
+      "if the game is tracking stacks, fails if there is neither a timer config nor an initial stack amount" in {
+        val request = rawRequest.copy(
+          startingStack = Some(1000),
+          timerConfig = None,
+          initialSmallBlind = None,
+        )
+        validate(request).isLeft shouldEqual true
+      }
 
-    "if the game is tracking stacks, fails if both timer config and initial stack amount are provided" in {
-      val request = rawRequest.copy(
-        startingStack = Some(1000),
-        timerConfig = Some(timerExample),
-        initialSmallBlind = Some(1),
-      )
-      validate(request).isLeft shouldEqual true
+      "if the game is tracking stacks, fails if both timer config and initial stack amount are provided" in {
+        val request = rawRequest.copy(
+          startingStack = Some(1000),
+          timerConfig = Some(timerExample),
+          initialSmallBlind = Some(1),
+        )
+        validate(request).isLeft shouldEqual true
+      }
+
+      "fails if stacks are 0" in {
+        val request = rawRequest.copy(
+          startingStack = Some(0),
+          timerConfig = None,
+          initialSmallBlind = Some(10),
+        )
+        validate(request).isLeft shouldEqual true
+      }
+
+      "fails if initial blind is 0" in {
+        val request = rawRequest.copy(
+          startingStack = Some(1000),
+          timerConfig = None,
+          initialSmallBlind = Some(0),
+        )
+        validate(request).isLeft shouldEqual true
+      }
+
     }
   }
 

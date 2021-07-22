@@ -86,7 +86,7 @@ object Representations {
   }
 
   def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): Either[Failures, List[PlayerDb]] = {
-    if(players.map(_.playerId).toSet.intersect(allowlist) == allowlist) {
+    if (players.map(_.playerId).toSet.intersect(allowlist) == allowlist) { // TODO: are these necessarily equal, surely a subset is fine?
       Right(allPlayerDbs(players.filter(p => allowlist.contains(p.playerId))))
     } else {
       Left {

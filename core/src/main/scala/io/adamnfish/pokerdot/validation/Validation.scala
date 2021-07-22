@@ -53,6 +53,18 @@ object Validation {
         validate(startGame.playerKey.key, "playerId", isUUID) ++
         validate(startGame.playerOrder, "playerOrder", nonEmptyList[PlayerId]) ++
         startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", isUUID)) ++
+        startGame.startingStack.toList.flatMap { s =>
+          if (s <= 0) List(Failure(
+            "Empty starting stack provided for game start",
+            "Players have to start with something to spend, the initial stack must be more than 0"
+          )) else Nil
+        } ++
+        startGame.initialSmallBlind.toList.flatMap { s =>
+          if (s <= 0) List(Failure(
+            "Empty initial small blind provided for game start",
+            "The blinds have to start at a number larger than 0"
+          )) else Nil
+        } ++
         startGame.timerConfig
           .map(tls => validate(tls, "timerConfig", nonEmptyList[TimerLevel]))
           .getOrElse(Nil) ++ {

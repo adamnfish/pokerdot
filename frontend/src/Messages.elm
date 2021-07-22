@@ -127,6 +127,7 @@ update msg model =
                                 ( { model
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players defaultChipSettings self game welcome
+                                    , loadingStatus = NotLoading
                                   }
                                 , Cmd.batch
                                     [ navigate model.navKey False gameRoute
@@ -145,6 +146,7 @@ update msg model =
                                 ( { model
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players defaultChipSettings self game welcome
+                                    , loadingStatus = NotLoading
                                   }
                                 , Cmd.batch
                                     [ navigate model.navKey False gameRoute
@@ -158,7 +160,6 @@ update msg model =
                                 , persistNewGame savedGameJson
                                 )
 
-                        -- TODO: handle the lobby case where status message arrives before welcome
                         _ ->
                             ( { model | library = newLibrary }
                             , persistNewGame savedGameJson
@@ -197,6 +198,7 @@ update msg model =
                                         ( { model
                                             | ui = GameScreen NoAct self game welcome
                                             , events = addAction model action
+                                            , loadingStatus = NotLoading
                                           }
                                         , Cmd.none
                                         )
@@ -234,10 +236,11 @@ update msg model =
                                         GameScreen NoAct self game welcome
 
                                     else
-                                        LobbyScreen game.players DoNotTrackChips self game welcome
+                                        LobbyScreen game.players defaultChipSettings self game welcome
                             in
                             ( { modelWithEvent
                                 | ui = ui
+                                , loadingStatus = NotLoading
                               }
                             , Cmd.none
                             )
@@ -247,7 +250,10 @@ update msg model =
                                 -- Ignore message if it isn't for the current game
                                 updatedModel =
                                     if oldGame.gameId == game.gameId then
-                                        { model | ui = GameScreen actSelection self game welcome }
+                                        { model
+                                            | ui = GameScreen actSelection self game welcome
+                                            , loadingStatus = NotLoading
+                                        }
 
                                     else
                                         model
@@ -268,7 +274,10 @@ update msg model =
                                             RoundResultScreen potResults playerWinnings self game welcome
 
                                 updatedModel =
-                                    { model | ui = newUi }
+                                    { model
+                                        | ui = newUi
+                                        , loadingStatus = NotLoading
+                                    }
                             in
                             ( registerEvent updatedModel action
                             , Cmd.none
@@ -286,7 +295,10 @@ update msg model =
                                             GameResultScreen self game welcome
 
                                 updatedModel =
-                                    { model | ui = newUi }
+                                    { model
+                                        | ui = newUi
+                                        , loadingStatus = NotLoading
+                                    }
                             in
                             ( registerEvent updatedModel action
                             , Cmd.none
@@ -348,7 +360,12 @@ update msg model =
                                 Just welcome ->
                                     RoundResultScreen pots playerWinnings self game welcome
                     in
-                    ( registerEvent { model | ui = newUi } AdvancePhaseAction
+                    ( registerEvent
+                        { model
+                            | ui = newUi
+                            , loadingStatus = NotLoading
+                        }
+                        AdvancePhaseAction
                     , Cmd.none
                     )
 
