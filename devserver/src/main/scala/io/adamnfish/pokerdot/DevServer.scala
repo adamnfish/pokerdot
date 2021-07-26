@@ -8,6 +8,8 @@ import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
 import zio.IO
 
+import java.security.SecureRandom
+
 
 object DevServer {
   val client = LocalDynamoDB.syncClient()
@@ -18,11 +20,15 @@ object DevServer {
   def main(args: Array[String]): Unit = {
     val runtime = zio.Runtime.default
 
-    val app = Javalin.create()
-    app.start(7000)
-
     // initials seed defaults to 0, but can be changed at server start time
-    val initialSeed = args.filterNot(_ == "--debug").headOption.map(_.toLong).getOrElse(0L)
+    val initialSeed = args.filterNot(_ == "--debug").headOption
+      .map { seed =>
+        if (seed.toLowerCase == "rng")
+          new SecureRandom().nextLong()
+        else
+          seed.toLong
+      }
+      .getOrElse(0L)
     println(s"[INFO] initial seed: $initialSeed")
     val rng = new DevRng(initialSeed)
 
@@ -42,6 +48,8 @@ object DevServer {
 
     val messaging = new DevMessaging(messagePrinter(Outbound))
 
+    val app = Javalin.create()
+    app.start(7000)
     app.ws("/api", { ws =>
       ws.onConnect { wctx =>
         val id = messaging.connect(wctx)
