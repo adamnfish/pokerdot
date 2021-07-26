@@ -237,7 +237,7 @@ type Action
     = GameStartedAction
     | PlayerJoinedAction PlayerId
     | CallAction PlayerId
-    | BetAction PlayerId
+    | BetAction PlayerId Int
     | CheckAction PlayerId
     | FoldAction PlayerId
     | AdvancePhaseAction
@@ -499,8 +499,9 @@ actionDecoder =
                         |> Json.Decode.map CallAction
 
                 "bet" ->
-                    playerIdFieldDecoder
-                        |> Json.Decode.map BetAction
+                    Json.Decode.map2 BetAction
+                        playerIdFieldDecoder
+                        (Json.Decode.field "bet" Json.Decode.int)
 
                 "check" ->
                     playerIdFieldDecoder

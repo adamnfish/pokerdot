@@ -1004,7 +1004,7 @@ handUi viewport name winnings maybeHole hand =
             column
                 [ width fill
                 , spacing 5
-                , paddingXY 8 10
+                , paddingXY 0 10
                 ]
                 [ row
                     [ width fill
@@ -1049,7 +1049,7 @@ handUi viewport name winnings maybeHole hand =
                     List.append cardEls
                         [ el
                             [ alignRight
-                            , Font.size 25
+                            , Font.size 20
                             , Font.color <| Theme.textColour Theme.colours.white
                             , Font.shadow
                                 { offset = ( 1, 1 )

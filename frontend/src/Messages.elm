@@ -1,4 +1,4 @@
-module Messages exposing (routeFromUi, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
+module Messages exposing (lookupPlayer, routeFromUi, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 
 import Browser exposing (UrlRequest(..))
 import Browser.Dom
@@ -814,9 +814,13 @@ registerEvent model action =
             , time = model.now
             }
     in
-    { model
-        | events = event :: model.events
-    }
+    if action == NoAction then
+        model
+
+    else
+        { model
+            | events = event :: model.events
+        }
 
 
 addAction : Model -> Action -> List Event
@@ -827,7 +831,11 @@ addAction model action =
             , time = model.now
             }
     in
-    event :: model.events
+    if action == NoAction then
+        model.events
+
+    else
+        event :: model.events
 
 
 displayFailures : Model -> List Failure -> Model
@@ -862,6 +870,11 @@ includeAllPlayers p1s p2s =
         )
     <|
         List.append p1s p2s
+
+
+lookupPlayer : List Player -> PlayerId -> Maybe Player
+lookupPlayer players playerId =
+    List.Extra.find (\p -> p.playerId == playerId) players
 
 
 welcomeFromUi : UI -> Maybe Welcome

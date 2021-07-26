@@ -12,7 +12,8 @@ import FontAwesome.Icon
 import FontAwesome.Solid
 import FontAwesome.Styles
 import List.Extra
-import Model exposing (ActSelection(..), Card, ChipsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import Messages exposing (lookupPlayer)
+import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
 import Views.Elements exposing (communityCardsUi, connectionUi, container, controlsButton, handUi, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Theme as Theme
 
@@ -164,30 +165,201 @@ view model =
                 Maybe.withDefault Theme.colours.white <|
                     Maybe.map .main page.scheme
             , inFront <|
-                if List.isEmpty model.errors then
-                    Element.none
+                let
+                    errorsEl =
+                        if List.isEmpty model.errors then
+                            Element.none
 
-                else
-                    column
-                        [ width fill
-                        , paddingXY 10 20
-                        , spacing 10
-                        , alignBottom
-                        , Background.color Theme.colours.error
-                        , Border.widthEach
-                            { top = 5
-                            , bottom = 0
-                            , left = 0
-                            , right = 0
-                            }
-                        , Border.color Theme.colours.black
-                        , Font.color Theme.colours.white
-                        ]
-                    <|
-                        List.map
-                            (\error -> paragraph [] [ text error.failure.message ])
-                        <|
-                            List.reverse model.errors
+                        else
+                            column
+                                [ width fill
+                                , paddingXY 10 20
+                                , spacing 10
+                                , alignBottom
+                                , Background.color Theme.colours.error
+                                , Border.widthEach
+                                    { top = 5
+                                    , bottom = 0
+                                    , left = 0
+                                    , right = 0
+                                    }
+                                , Border.color Theme.colours.black
+                                , Font.color Theme.colours.white
+                                ]
+                            <|
+                                List.map
+                                    (\error -> paragraph [] [ text error.failure.message ])
+                                <|
+                                    List.reverse model.errors
+
+                    eventTemplate message =
+                        column
+                            [ width fill
+                            , alignBottom
+                            , paddingEach
+                                { bottom = 100
+                                , top = 0
+                                , left = 0
+                                , right = 0
+                                }
+                            ]
+                            [ column
+                                [ width fill
+                                , centerY
+                                , padding 16
+                                , Background.color Theme.colours.icon
+                                ]
+                                [ paragraph
+                                    [ width shrink
+                                    , centerX
+                                    , paddingXY 8 2
+                                    , Background.color Theme.colours.lowlight
+                                    , Font.color <| Theme.textColour Theme.colours.white
+                                    ]
+                                    [ message
+                                    ]
+                                ]
+                            , errorsEl
+                            ]
+
+                    lookupPlayerName : PlayerId -> Maybe Player
+                    lookupPlayerName pid =
+                        case model.ui of
+                            GameScreen _ _ game _ ->
+                                lookupPlayer game.players pid
+
+                            RoundResultScreen _ _ _ game _ ->
+                                lookupPlayer game.players pid
+
+                            GameResultScreen _ game _ ->
+                                lookupPlayer game.players pid
+
+                            CommunityCardsScreen game _ ->
+                                lookupPlayer game.players pid
+
+                            TimerScreen _ game _ ->
+                                lookupPlayer game.players pid
+
+                            ChipSummaryScreen game _ ->
+                                lookupPlayer game.players pid
+
+                            _ ->
+                                Nothing
+                in
+                case List.Extra.last model.events of
+                    Just event ->
+                        case event.action of
+                            GameStartedAction ->
+                                eventTemplate <| text "game started"
+
+                            PlayerJoinedAction pid ->
+                                eventTemplate <|
+                                    case lookupPlayerName pid of
+                                        Just player ->
+                                            row
+                                                []
+                                                [ el
+                                                    [ Font.color Theme.colours.primary ]
+                                                  <|
+                                                    text player.screenName
+                                                , text " joined"
+                                                ]
+
+                                        Nothing ->
+                                            text "player joined"
+
+                            CallAction pid ->
+                                eventTemplate <|
+                                    case lookupPlayerName pid of
+                                        Just player ->
+                                            row
+                                                []
+                                                [ el
+                                                    [ Font.color Theme.colours.primary ]
+                                                  <|
+                                                    text player.screenName
+                                                , text " called"
+                                                ]
+
+                                        Nothing ->
+                                            text "call"
+
+                            BetAction pid betAmount ->
+                                eventTemplate <|
+                                    case lookupPlayerName pid of
+                                        Just player ->
+                                            row
+                                                []
+                                                [ el
+                                                    [ Font.color Theme.colours.primary ]
+                                                  <|
+                                                    text player.screenName
+                                                , text " bet "
+                                                , el
+                                                    [ Font.color Theme.colours.highlightPrimary ]
+                                                  <|
+                                                    text <|
+                                                        String.fromInt betAmount
+                                                ]
+
+                                        Nothing ->
+                                            text <| "bet " ++ String.fromInt betAmount
+
+                            CheckAction pid ->
+                                eventTemplate <|
+                                    case lookupPlayerName pid of
+                                        Just player ->
+                                            row
+                                                []
+                                                [ el
+                                                    [ Font.color Theme.colours.primary ]
+                                                  <|
+                                                    text player.screenName
+                                                , text " checked"
+                                                ]
+
+                                        Nothing ->
+                                            text "check"
+
+                            FoldAction pid ->
+                                eventTemplate <|
+                                    case lookupPlayerName pid of
+                                        Just player ->
+                                            row
+                                                []
+                                                [ el
+                                                    [ Font.color Theme.colours.primary ]
+                                                  <|
+                                                    text player.screenName
+                                                , text " folded"
+                                                ]
+
+                                        Nothing ->
+                                            text "fold"
+
+                            AdvancePhaseAction ->
+                                -- No need to display anything for this
+                                errorsEl
+
+                            TimerStatusAction playing ->
+                                eventTemplate <|
+                                    if playing then
+                                        text "timer started"
+
+                                    else
+                                        text "timer paused"
+
+                            EditTimerAction ->
+                                eventTemplate <| text "timer updated"
+
+                            EditBlindAction ->
+                                eventTemplate <| text "blind updated"
+
+                            NoAction ->
+                                errorsEl
+
+                    Nothing ->
+                        errorsEl
             ]
           <|
             column
@@ -503,7 +675,8 @@ welcomeScreen model =
                                 }
                             ]
                     )
-                    model.library
+                <|
+                    List.reverse model.library
         ]
 
 
