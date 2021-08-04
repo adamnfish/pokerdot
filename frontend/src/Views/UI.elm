@@ -192,33 +192,36 @@ view model =
                                 <|
                                     List.reverse model.errors
 
-                    eventTemplate message =
+                    overlayTemplate eventMessage =
                         column
                             [ width fill
                             , alignBottom
-                            , paddingEach
-                                { bottom = 100
-                                , top = 0
-                                , left = 0
-                                , right = 0
-                                }
                             ]
-                            [ column
+                            [ el
                                 [ width fill
-                                , centerY
-                                , padding 16
-                                , Background.color Theme.colours.icon
+                                , paddingEach
+                                    { top = 0
+                                    , bottom = 50
+                                    , left = 0
+                                    , right = 0
+                                    }
                                 ]
-                                [ paragraph
-                                    [ width shrink
-                                    , centerX
-                                    , paddingXY 8 2
-                                    , Background.color Theme.colours.lowlight
-                                    , Font.color <| Theme.textColour Theme.colours.white
+                              <|
+                                column
+                                    [ width fill
+                                    , padding 16
+                                    , Background.color Theme.colours.icon
                                     ]
-                                    [ message
+                                    [ paragraph
+                                        [ width shrink
+                                        , centerX
+                                        , paddingXY 8 2
+                                        , Background.color Theme.colours.lowlight
+                                        , Font.color <| Theme.textColour Theme.colours.white
+                                        ]
+                                        [ eventMessage
+                                        ]
                                     ]
-                                ]
                             , errorsEl
                             ]
 
@@ -245,104 +248,138 @@ view model =
 
                             _ ->
                                 Nothing
+
+                    wasSelf pid =
+                        case model.ui of
+                            GameScreen _ self _ _ ->
+                                pid == self.playerId
+
+                            RoundResultScreen _ _ self _ _ ->
+                                pid == self.playerId
+
+                            GameResultScreen self _ _ ->
+                                pid == self.playerId
+
+                            _ ->
+                                False
                 in
                 case List.Extra.last model.events of
                     Just event ->
                         case event.action of
                             GameStartedAction ->
-                                eventTemplate <| text "game started"
+                                overlayTemplate <| text "game started"
 
                             PlayerJoinedAction pid ->
-                                eventTemplate <|
-                                    case lookupPlayerName pid of
-                                        Just player ->
-                                            row
-                                                []
-                                                [ el
-                                                    [ Font.color Theme.colours.primary ]
-                                                  <|
-                                                    text player.screenName
-                                                , text " joined"
-                                                ]
+                                if wasSelf pid then
+                                    errorsEl
 
-                                        Nothing ->
-                                            text "player joined"
+                                else
+                                    overlayTemplate <|
+                                        case lookupPlayerName pid of
+                                            Just player ->
+                                                row
+                                                    []
+                                                    [ el
+                                                        [ Font.color Theme.colours.primary ]
+                                                      <|
+                                                        text player.screenName
+                                                    , text " joined"
+                                                    ]
+
+                                            Nothing ->
+                                                text "player joined"
 
                             CallAction pid ->
-                                eventTemplate <|
-                                    case lookupPlayerName pid of
-                                        Just player ->
-                                            row
-                                                []
-                                                [ el
-                                                    [ Font.color Theme.colours.primary ]
-                                                  <|
-                                                    text player.screenName
-                                                , text " called"
-                                                ]
+                                if wasSelf pid then
+                                    errorsEl
 
-                                        Nothing ->
-                                            text "call"
+                                else
+                                    overlayTemplate <|
+                                        case lookupPlayerName pid of
+                                            Just player ->
+                                                row
+                                                    []
+                                                    [ el
+                                                        [ Font.color Theme.colours.primary ]
+                                                      <|
+                                                        text player.screenName
+                                                    , text " called"
+                                                    ]
+
+                                            Nothing ->
+                                                text "call"
 
                             BetAction pid betAmount ->
-                                eventTemplate <|
-                                    case lookupPlayerName pid of
-                                        Just player ->
-                                            row
-                                                []
-                                                [ el
-                                                    [ Font.color Theme.colours.primary ]
-                                                  <|
-                                                    text player.screenName
-                                                , text " bet "
-                                                , el
-                                                    [ Font.color Theme.colours.highlightPrimary ]
-                                                  <|
-                                                    text <|
-                                                        String.fromInt betAmount
-                                                ]
+                                if wasSelf pid then
+                                    errorsEl
 
-                                        Nothing ->
-                                            text <| "bet " ++ String.fromInt betAmount
+                                else
+                                    overlayTemplate <|
+                                        case lookupPlayerName pid of
+                                            Just player ->
+                                                row
+                                                    []
+                                                    [ el
+                                                        [ Font.color Theme.colours.primary ]
+                                                      <|
+                                                        text player.screenName
+                                                    , text " bet "
+                                                    , el
+                                                        [ Font.color Theme.colours.highlightPrimary ]
+                                                      <|
+                                                        text <|
+                                                            String.fromInt betAmount
+                                                    ]
+
+                                            Nothing ->
+                                                text <| "bet " ++ String.fromInt betAmount
 
                             CheckAction pid ->
-                                eventTemplate <|
-                                    case lookupPlayerName pid of
-                                        Just player ->
-                                            row
-                                                []
-                                                [ el
-                                                    [ Font.color Theme.colours.primary ]
-                                                  <|
-                                                    text player.screenName
-                                                , text " checked"
-                                                ]
+                                if wasSelf pid then
+                                    errorsEl
 
-                                        Nothing ->
-                                            text "check"
+                                else
+                                    overlayTemplate <|
+                                        case lookupPlayerName pid of
+                                            Just player ->
+                                                row
+                                                    []
+                                                    [ el
+                                                        [ Font.color Theme.colours.primary ]
+                                                      <|
+                                                        text player.screenName
+                                                    , text " checked"
+                                                    ]
+
+                                            Nothing ->
+                                                text "check"
 
                             FoldAction pid ->
-                                eventTemplate <|
-                                    case lookupPlayerName pid of
-                                        Just player ->
-                                            row
-                                                []
-                                                [ el
-                                                    [ Font.color Theme.colours.primary ]
-                                                  <|
-                                                    text player.screenName
-                                                , text " folded"
-                                                ]
+                                if wasSelf pid then
+                                    errorsEl
 
-                                        Nothing ->
-                                            text "fold"
+                                else
+                                    overlayTemplate <|
+                                        case lookupPlayerName pid of
+                                            Just player ->
+                                                row
+                                                    []
+                                                    [ el
+                                                        [ Font.color Theme.colours.primary ]
+                                                      <|
+                                                        text player.screenName
+                                                    , text " folded"
+                                                    ]
+
+                                            Nothing ->
+                                                text "fold"
 
                             AdvancePhaseAction ->
                                 -- No need to display anything for this
                                 errorsEl
 
                             TimerStatusAction playing ->
-                                eventTemplate <|
+                                overlayTemplate <|
                                     if playing then
                                         text "timer started"
 
@@ -350,10 +387,10 @@ view model =
                                         text "timer paused"
 
                             EditTimerAction ->
-                                eventTemplate <| text "timer updated"
+                                overlayTemplate <| text "timer updated"
 
                             EditBlindAction ->
-                                eventTemplate <| text "blind updated"
+                                overlayTemplate <| text "blind updated"
 
                             NoAction ->
                                 errorsEl
@@ -370,7 +407,7 @@ view model =
                     Nothing ->
                         row
                             [ width fill
-                            , Background.color Theme.colours.black
+                            , padding 2
                             ]
                             [ case model.ui of
                                 WelcomeScreen ->
@@ -382,6 +419,22 @@ view model =
                                         , Background.color Theme.colours.lowlight
                                         , Font.size 20
                                         , Font.color <| Theme.textColour Theme.colours.white
+                                        , Border.shadow
+                                            { offset = ( 5, 5 )
+                                            , size = 0
+                                            , blur = 0
+                                            , color = Theme.glow Theme.colours.lowlight
+                                            }
+                                        , focused
+                                            [ Background.color <| Theme.focusColour Theme.colours.lowlight
+                                            , Border.color Theme.colours.white
+                                            , Border.shadow
+                                                { offset = ( 5, 5 )
+                                                , size = 0
+                                                , blur = 0
+                                                , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
+                                                }
+                                            ]
                                         ]
                                         { onPress = Just NavigateHome
                                         , label = text "home"

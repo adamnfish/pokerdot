@@ -55,6 +55,12 @@ controlsButton scheme msg label =
         , focused
             [ Background.color <| Theme.focusColour scheme.highlight
             , Border.color Theme.colours.white
+            , Border.shadow
+                { offset = ( 5, 5 )
+                , size = 0
+                , blur = 0
+                , color = Theme.glow <| Theme.focusColour scheme.highlight
+                }
             ]
         ]
         { onPress = Just msg
@@ -371,13 +377,18 @@ pokerControlsUi isActive smallBlind actSelection self players =
         callAmount =
             highestBet - self.bet
 
+        -- TODO: this is not yet correct
+        --       the minimum raise might instead be the size of the most recent raise
+        minimumRaise =
+            callAmount + (2 * smallBlind)
+
         currentSelectedBetAmount =
             case actSelection of
                 ActBet amount ->
                     amount
 
                 _ ->
-                    0
+                    minimumRaise
 
         buttonHiddenAttrs hidden =
             if hidden then
@@ -536,10 +547,10 @@ pokerControlsUi isActive smallBlind actSelection self players =
                                                                 )
                                                     }
                                                 ]
-                                    , min = 0
+                                    , min = toFloat minimumRaise
                                     , max = toFloat self.stack
                                     , step = Just <| toFloat (smallBlind * 2)
-                                    , value = toFloat betAmount
+                                    , value = toFloat <| max betAmount minimumRaise
                                     , thumb =
                                         Input.thumb
                                             [ width <| px 50
@@ -691,7 +702,12 @@ pokerControlsUi isActive smallBlind actSelection self players =
                                         , Font.size 18
                                         ]
                                       <|
-                                        text (String.fromInt betAmount)
+                                        text <|
+                                            if highestBet > 0 then
+                                                "to " ++ String.fromInt (betAmount + self.bet)
+
+                                            else
+                                                String.fromInt (betAmount + self.bet)
                                     ]
 
                     _ ->
