@@ -450,7 +450,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       }
 
       "if there is only one active player left" - {
-        "returns None if the current player is the only player still in the game" in {
+        "returns None if the current player is the only player still in the round" in {
           nextPlayer(List(
             p1,
             p2.copy(folded = true),
@@ -459,7 +459,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           ), Some(p2.playerId), 0) shouldEqual None
         }
 
-        "returns None if the current player is the only player still in the game - even if they have bet less" in {
+        "returns None if the current player is the only player still in the round - even if they have bet less" in {
           nextPlayer(List(
             p1.copy(bet = 5),
             p2.copy(bet = 10, folded = true),
@@ -472,6 +472,51 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           nextPlayer(List(
             p1.copy(bet = 10, folded = true),
             p2.copy(bet = 5),
+          ), Some(p1.playerId), 0) shouldEqual None
+        }
+
+        "returns the only active player if they need the chance to react to an all-in call" - {
+          "with a single all-in player" in {
+            nextPlayer(List(
+              p1.copy(bet = 100),
+              p2.copy(
+                stack = 0,
+                bet = p2.stack,
+              ), // all-in
+            ), Some(p1.playerId), 0) shouldEqual Some(p1.playerId)
+          }
+
+          "with multiple all-in players" in {
+            nextPlayer(List(
+              p1.copy(bet = 100),
+              p2.copy(
+                stack = 0,
+                bet = p2.stack,
+              ), // all-in
+              p3.copy(
+                stack = 0,
+                bet = p3.stack,
+              ), // all-in
+            ), Some(p2.playerId), 0) shouldEqual Some(p1.playerId)
+          }
+        }
+
+        "returns None if the only active player has already exceeded an all-in bet" in {
+          nextPlayer(List(
+            p1.copy(bet = 500), // already outbid the all-in player
+            p2.copy(
+              stack = 0,
+              bet = 400,
+            ), // all-in with small stack
+          ), Some(p1.playerId), 0) shouldEqual None
+        }
+
+        "returns None if there is only one player still left in the game (everyone else is busted)" in {
+          nextPlayer(List(
+            p1.copy(bet = 5),
+            p2.copy(busted = true),
+            p3.copy(busted = true),
+            p4.copy(busted = true),
           ), Some(p1.playerId), 0) shouldEqual None
         }
       }

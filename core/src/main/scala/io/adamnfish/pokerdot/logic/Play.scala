@@ -129,7 +129,9 @@ object Play {
 
   def nextPlayer(players: List[Player], currentActive: Option[PlayerId], button: Int): Option[PlayerId] = {
     val activePlayers = players.filter(playerIsActive)
-    if (activePlayers.length <= 1) {
+    val involvedPlayers = players.filter(playerIsInvolved)
+
+    if (involvedPlayers.length <= 1) {
       None
     } else {
       // if a player is currently active, advance to next
