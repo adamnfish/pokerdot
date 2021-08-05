@@ -90,8 +90,18 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   }
 
   "filteredPlayerDbs" - {
-    "includes players in the provided set" in {
+    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestDates)
+    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestDates)
+    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestDates)
 
+    "includes players in the provided set" in {
+      val result = filteredPlayerDbs(List(p1, p2, p3), Set(p2.playerId, p3.playerId)).value.map(_.playerId)
+      result shouldEqual List(p2.playerId.pid, p3.playerId.pid)
+    }
+
+    "works if allow list contains entries that are not in the provided list" in {
+      val result = filteredPlayerDbs(List(p1, p2), Set(p2.playerId, p3.playerId)).value.map(_.playerId)
+      result shouldEqual List(p2.playerId.pid)
     }
   }
 

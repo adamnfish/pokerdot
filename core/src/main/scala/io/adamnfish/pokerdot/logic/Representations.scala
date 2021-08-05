@@ -86,15 +86,16 @@ object Representations {
   }
 
   def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): Either[Failures, List[PlayerDb]] = {
-    if (players.map(_.playerId).toSet.intersect(allowlist) == allowlist) { // TODO: are these necessarily equal, surely a subset is fine?
-      Right(allPlayerDbs(players.filter(p => allowlist.contains(p.playerId))))
-    } else {
+    val filtered = allPlayerDbs(players.filter(p => allowlist.contains(p.playerId)))
+    if (filtered.isEmpty) {
       Left {
         Failures(
           "Trying to get playerDb for player ID that does not exist",
           "There was a problem trying to save a user that could not be found.",
         )
       }
+    } else {
+      Right(filtered)
     }
   }
 
