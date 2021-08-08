@@ -147,33 +147,33 @@ object PlayerActions {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
       involvedPlayers = game.players.filter(playerIsInvolved)
-    } yield {
-      val foldedFinish = involvedPlayers.length == 1
-      (foldedFinish, game.round.phase) match {
+      foldedFinish = involvedPlayers.length == 1
+      result <- (foldedFinish, game.round.phase) match {
         // only progress through standard phases while players are still playing
         case (false, PreFlop) =>
           val newGame = advanceFromPreFlop(game)
-          (newGame, nonBustedPlayerIds, None)
+          Right((newGame, nonBustedPlayerIds, None))
         case (false, Flop) =>
           val newGame = advanceFromFlop(game)
-          (newGame, nonBustedPlayerIds, None)
+          Right((newGame, nonBustedPlayerIds, None))
         case (false, Turn) =>
           val newGame = advanceFromTurn(game)
-          (newGame, nonBustedPlayerIds, None)
+          Right((newGame, nonBustedPlayerIds, None))
         case (false, River) =>
           val (newGame, playerWinnings, potWinnings) = advanceFromRiver(game)
-          (newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings))
+          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings)))
         case (_, Showdown) =>
-          // we can proceed from showdown however many players are left
-          val newGame = startNewRound(game, rng)
-          val allPlayerIds = game.players.map(_.playerId).toSet
-          (newGame, allPlayerIds, None)
+          // we can proceed from showdown whenever 2 or more players are still in the game
+          startNewRound(game, rng).map { newGame =>
+            val allPlayerIds = game.players.map(_.playerId).toSet
+            (newGame, allPlayerIds, None)
+          }
         case (true, _) =>
-          // skip straight to showdown if everyone else has folded
+          // skip straight to showdown from any phase if everyone else has folded
           val (newGame, playerWinning, potWinning) = advanceFromFoldedFinish(game)
-          (newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning)))
+          Right((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning))))
       }
-    }
+    } yield result
   }
 
   def updateBlind(game: Game, updateBlind: UpdateBlind, now: Long): Either[Failures, Game] = {
@@ -366,21 +366,30 @@ object PlayerActions {
   /**
    * Advancing from the showdown will setup and start the next round.
    * This means resetting the game and player states for a new round of Poker.
+   *
+   * If fewer than 2 players remain, the game is finished and we should not proceed.
    */
-  private def startNewRound(game: Game, rng: Rng): Game = {
+  private[logic] def startNewRound(game: Game, rng: Rng): Either[Failures, Game] = {
     // finalise player payments, reset (and bust) players
     // shuffle, deal new cards, set up new round
     val nextState = rng.nextState(game.seed)
     val nextDeck = Play.deckOrder(nextState)
     val updatedPlayers = game.players.map(resetPlayerForNextRound)
-    // TODO: check whether blind amounts should change based on timer
-    val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, game.round.smallBlind)
-    game.copy(
-      round = game.round.copy(phase = PreFlop),
-      button = newButton, // dealer advances
-      inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
-      players = dealHoles(blindUpdatedPlayers, nextDeck),
-      seed = nextState
-    )
+    if (updatedPlayers.count(!_.busted) < 2) {
+      Left(Failures(
+        "Cannot advance from finished game showdown",
+        "You can't start a new round because the game has finished",
+      ))
+    } else {
+      // TODO: check whether blind amounts should change based on timer
+      val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, game.round.smallBlind)
+      Right(game.copy(
+        round = game.round.copy(phase = PreFlop),
+        button = newButton, // dealer advances
+        inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
+        players = dealHoles(blindUpdatedPlayers, nextDeck),
+        seed = nextState
+      ))
+    }
   }
 }

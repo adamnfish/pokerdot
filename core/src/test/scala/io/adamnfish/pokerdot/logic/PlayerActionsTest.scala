@@ -512,41 +512,6 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           }
         }
       }
-
-      "advances even if there is only one player left in the round" in {
-        val game = newGame("Game name", trackStacks = true, TestDates, 1L)
-        val p1 = newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
-          .copy(stack = 1000)
-        val p2 = newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
-          .copy(stack = 1000)
-        val p3 = newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
-          .copy(stack = 1000)
-
-        val round = Play.generateRound(Showdown, 5, game.seed)
-        val testGame = game.copy(
-          round = round,
-          players = List(
-            p1.copy(
-              folded = true,
-              bet = 25,
-              pot = 10,
-              blind = BigBlind,
-            ),
-            p2.copy(
-              bet = 35,
-              pot = 10,
-            ),
-            p3.copy(
-              folded = true,
-              bet = 10,
-              pot = 10,
-              blind = BigBlind,
-            ),
-          )
-        )
-        val (updatedGame, _, _) = advancePhase(testGame, TestRng).value
-        updatedGame.round.phase shouldEqual PreFlop
-      }
     }
   }
 
@@ -626,6 +591,63 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         playerWinnings shouldEqual PlayerWinnings(p2.playerId, None, p2.hole.get, expectedHaul)
         potWinnings shouldEqual PotWinnings(expectedHaul, Set(p2.playerId), Set(p2.playerId))
       }
+    }
+  }
+
+  "startNewRound" - {
+    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
+      List(
+        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates),
+        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates),
+        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates),
+      ),
+      Play.deckOrder(rawGame.seed),
+    )
+
+    "advances to a new PreFlop round" - {
+      val round = Play.generateRound(Showdown, 5, rawGame.seed)
+      val game = rawGame.copy(
+        round = round,
+        players = List(
+          p1.copy(pot = 200, stack = 800),
+          p2.copy(pot = 200, stack = 20, blind = BigBlind),
+          p3.copy(stack = 0, busted = true)
+        )
+      )
+
+      "round is now PreFlop" in {
+        val resultingGame = startNewRound(game, TestRng).value
+        resultingGame.round.phase shouldEqual PreFlop
+      }
+
+      "deals new holes to all players non-busted" in {
+        val resultingGame = startNewRound(game, TestRng).value
+        resultingGame.players.map(_.hole.isDefined) shouldEqual List(true, true, false)
+      }
+
+      "new cards are dealt" in {
+        val resultingGame = startNewRound(game, TestRng).value
+        resultingGame.seed should not equal game.seed
+      }
+
+      "all players have empty pots after new round starts" in {
+        val resultingGame = startNewRound(game, TestRng).value
+        resultingGame.players.map(_.pot) shouldEqual List(0, 0, 0)
+      }
+    }
+
+    "fails if the game is over (fewer than two players are not busted after resolving the round)" in {
+      val round = Play.generateRound(Showdown, 5, rawGame.seed)
+      val game = rawGame.copy(
+        round = round,
+        players = List(
+          p1.copy(pot = 200, stack = 0),  // this player is about to bust because their stack is empty
+          p2.copy(pot = 200, stack = 20, blind = BigBlind),
+          p3.copy(stack = 0, busted = true)
+        )
+      )
+      startNewRound(game, TestRng).isLeft shouldEqual true
     }
   }
 
