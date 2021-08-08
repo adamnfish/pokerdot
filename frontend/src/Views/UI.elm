@@ -13,7 +13,7 @@ import FontAwesome.Solid
 import FontAwesome.Styles
 import List.Extra
 import Messages exposing (lookupPlayer)
-import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
 import Views.Elements exposing (communityCardsUi, connectionUi, container, controlsButton, handUi, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Theme as Theme
 
@@ -111,8 +111,8 @@ view model =
                     -- TODO: what should this say
                     }
 
-                RoundResultScreen potResults playerWinnings self game welcome ->
-                    { body = roundResultsScreen model potResults playerWinnings self game welcome
+                RoundResultScreen potResults playerWinnings self game welcome blindsSettings ->
+                    { body = roundResultsScreen model potResults playerWinnings self game welcome blindsSettings
                     , title = welcome.gameName ++ " | Round ended"
                     , header = Nothing
                     , scheme = Just Theme.scheme2
@@ -231,7 +231,7 @@ view model =
                             GameScreen _ _ game _ ->
                                 lookupPlayer game.players pid
 
-                            RoundResultScreen _ _ _ game _ ->
+                            RoundResultScreen _ _ _ game _ _ ->
                                 lookupPlayer game.players pid
 
                             GameResultScreen _ game _ ->
@@ -254,7 +254,7 @@ view model =
                             GameScreen _ self _ _ ->
                                 pid == self.playerId
 
-                            RoundResultScreen _ _ self _ _ ->
+                            RoundResultScreen _ _ self _ _ _ ->
                                 pid == self.playerId
 
                             GameResultScreen self _ _ ->
@@ -1290,8 +1290,8 @@ gameScreen model playingState currentAct self game welcome =
             ]
 
 
-roundResultsScreen : Model -> List PotResult -> List PlayerWinnings -> Self -> Game -> Welcome -> Element Msg
-roundResultsScreen model potResults playerWinnings self game welcome =
+roundResultsScreen : Model -> List PotResult -> List PlayerWinnings -> Self -> Game -> Welcome -> EditBlindsSettings -> Element Msg
+roundResultsScreen model potResults playerWinnings self game welcome blindsSettings =
     column
         [ width fill
         , spacing 16
@@ -1330,55 +1330,272 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                 playerWinnings
         , container model.viewport <|
             if self.isAdmin then
-                let
-                    nextBlind =
-                        game.smallBlind * 2
-                in
-                row
-                    [ width fill ]
-                    [ el
-                        [ alignLeft ]
-                      <|
-                        controlsButton Theme.scheme1
-                            (UpdateBlind nextBlind)
-                        <|
-                            column
-                                [ width fill
-                                , spacing 5
+                column
+                    [ width fill
+                    , spacing 18
+                    ]
+                    [ row
+                        [ width fill ]
+                        [ case blindsSettings of
+                            DoNotEditBlinds ->
+                                controlsButton Theme.scheme1
+                                    (InputUpdateBlind <| ManualBlinds game.smallBlind)
+                                    (column
+                                        [ width fill ]
+                                        [ el
+                                            [ width fill
+                                            , Font.center
+                                            ]
+                                          <|
+                                            text "edit"
+                                        , el
+                                            [ width fill
+                                            , Font.center
+                                            ]
+                                          <|
+                                            text "blinds"
+                                        ]
+                                    )
+
+                            _ ->
+                                controlsButton Theme.scheme1
+                                    (InputUpdateBlind DoNotEditBlinds)
+                                <|
+                                    column
+                                        [ width fill
+                                        , spacing 5
+                                        ]
+                                        [ el
+                                            [ width fill
+                                            , Font.center
+                                            ]
+                                          <|
+                                            text "cancel"
+                                        , el
+                                            [ centerX
+                                            , Font.center
+                                            ]
+                                          <|
+                                            html
+                                                (FontAwesome.Solid.times
+                                                    |> FontAwesome.Icon.present
+                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                    |> FontAwesome.Icon.withId "cancel-edit-blinds_pokerdot"
+                                                    |> FontAwesome.Icon.titled "cancel edit blinds"
+                                                    |> FontAwesome.Icon.view
+                                                )
+                                        ]
+                        , el
+                            [ alignRight ]
+                          <|
+                            controlsButton Theme.scheme1 AdvancePhase <|
+                                column
+                                    [ width fill ]
+                                    [ el
+                                        [ width fill
+                                        , Font.center
+                                        ]
+                                      <|
+                                        text "next"
+                                    , el
+                                        [ width fill
+                                        , Font.center
+                                        ]
+                                      <|
+                                        text "round"
+                                    ]
+                        ]
+                    , if blindsSettings == DoNotEditBlinds then
+                        Element.none
+
+                      else
+                        column
+                            [ width fill
+                            , spacing 6
+                            , padding 8
+                            , Background.color Theme.colours.lowlight
+                            ]
+                            [ row
+                                [ spacing 8
+                                , moveUp 11
+                                , moveLeft 4
                                 ]
-                                [ el
-                                    [ width fill
-                                    , Font.center
-                                    ]
-                                  <|
-                                    text "blinds"
-                                , el
-                                    [ width fill
-                                    , Font.center
-                                    , Font.size 18
-                                    ]
-                                  <|
-                                    text (String.fromInt nextBlind ++ " / " ++ String.fromInt (nextBlind * 2))
+                                [ pdTab
+                                    (case blindsSettings of
+                                        ManualBlinds _ ->
+                                            True
+
+                                        _ ->
+                                            False
+                                    )
+                                    (InputUpdateBlind <| ManualBlinds game.smallBlind)
+                                    "manual blinds"
+                                , pdTab
+                                    (case blindsSettings of
+                                        TimerBlinds _ ->
+                                            True
+
+                                        _ ->
+                                            False
+                                    )
+                                    (InputUpdateBlind <| TimerBlinds [])
+                                    "timer"
+                                , pdTab
+                                    (case blindsSettings of
+                                        DoNotTrackBlinds ->
+                                            True
+
+                                        _ ->
+                                            False
+                                    )
+                                    (InputUpdateBlind DoNotTrackBlinds)
+                                    "no chips"
                                 ]
-                    , el
-                        [ alignRight ]
-                      <|
-                        controlsButton Theme.scheme1 AdvancePhase <|
-                            column
-                                [ width fill ]
-                                [ el
-                                    [ width fill
-                                    , Font.center
-                                    ]
-                                  <|
-                                    text "next"
-                                , el
-                                    [ width fill
-                                    , Font.center
-                                    ]
-                                  <|
-                                    text "round"
-                                ]
+                            , case blindsSettings of
+                                DoNotEditBlinds ->
+                                    Element.none
+
+                                DoNotTrackBlinds ->
+                                    el
+                                        [ Font.color <| Theme.textColour Theme.colours.white
+                                        , Font.size 18
+                                        ]
+                                    <|
+                                        text "games without chips do not work yet"
+
+                                TimerBlinds timerLevels ->
+                                    column
+                                        [ width fill
+                                        , spacing 8
+                                        ]
+                                        [ paragraph
+                                            [ width fill
+                                            , Font.size 18
+                                            , Font.alignLeft
+                                            , Font.color <| Theme.textColour Theme.colours.white
+                                            ]
+                                            [ text "using a game timer to track blinds does not yet work" ]
+                                        ]
+
+                                ManualBlinds currentSmallBlind ->
+                                    let
+                                        recommended =
+                                            [ el
+                                                [ alignLeft
+                                                ]
+                                              <|
+                                                controlsButton Theme.scheme1
+                                                    (UpdateBlind <| ManualBlinds (game.smallBlind * 2))
+                                                <|
+                                                    column
+                                                        [ width fill
+                                                        , spacing 5
+                                                        ]
+                                                        [ el
+                                                            [ centerX ]
+                                                          <|
+                                                            text "save"
+                                                        , row
+                                                            [ centerX
+                                                            , Font.size 18
+                                                            ]
+                                                            [ text <| String.fromInt (game.smallBlind * 2)
+                                                            , text " / "
+                                                            , text <| String.fromInt (game.smallBlind * 4)
+                                                            ]
+                                                        ]
+
+                                            -- TODO: add a conditional second recommendation that rounds the blinds
+                                            ]
+                                    in
+                                    column
+                                        [ width fill
+                                        , spacing 4
+                                        ]
+                                        [ row
+                                            []
+                                            [ Input.text
+                                                [ width <| px 100
+                                                , paddingXY 10 8
+                                                , Border.solid
+                                                , Border.width 2
+                                                , Border.color Theme.colours.black
+                                                , Border.widthEach { zWidths | bottom = 2 }
+                                                , Border.rounded 0
+                                                , Background.color Theme.colours.white
+                                                , focused
+                                                    [ Background.color Theme.colours.highlightPrimary
+                                                    , Border.color Theme.colours.white
+                                                    ]
+                                                , Font.alignRight
+                                                ]
+                                                { text = String.fromInt currentSmallBlind
+                                                , label =
+                                                    Input.labelLeft
+                                                        [ width <| px 150
+                                                        , paddingXY 8 0
+                                                        , Font.alignRight
+                                                        , Font.color <| Theme.textColour Theme.colours.white
+                                                        ]
+                                                    <|
+                                                        text "blind amount"
+                                                , placeholder =
+                                                    Just <| Input.placeholder [] <| text "initial small blind"
+                                                , onChange =
+                                                    \value ->
+                                                        let
+                                                            smallBlind =
+                                                                Maybe.withDefault 0 <| String.toInt value
+                                                        in
+                                                        InputUpdateBlind <|
+                                                            ManualBlinds smallBlind
+                                                }
+                                            , row
+                                                [ Font.color <| Theme.textColour Theme.colours.white ]
+                                                [ text " / "
+                                                , text <| String.fromInt (currentSmallBlind * 2)
+                                                ]
+                                            ]
+                                        , row
+                                            [ width fill
+                                            , padding 8
+                                            , spacing 8
+                                            ]
+                                            (List.append
+                                                recommended
+                                                (if game.smallBlind /= currentSmallBlind then
+                                                    [ el
+                                                        [ alignRight
+                                                        ]
+                                                      <|
+                                                        controlsButton Theme.scheme1
+                                                            (UpdateBlind <| ManualBlinds currentSmallBlind)
+                                                        <|
+                                                            column
+                                                                [ width fill
+                                                                , spacing 5
+                                                                ]
+                                                                [ el
+                                                                    [ centerX ]
+                                                                  <|
+                                                                    text "save"
+                                                                , row
+                                                                    [ centerX
+                                                                    , Font.size 18
+                                                                    ]
+                                                                    [ text <| String.fromInt currentSmallBlind
+                                                                    , text " / "
+                                                                    , text <| String.fromInt (currentSmallBlind * 2)
+                                                                    ]
+                                                                ]
+                                                    ]
+
+                                                 else
+                                                    []
+                                                )
+                                            )
+                                        ]
+                            ]
                     ]
 
             else

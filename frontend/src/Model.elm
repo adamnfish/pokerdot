@@ -52,7 +52,8 @@ type Msg
     | Fold
     | AdvancePhase
       -- blind management
-    | UpdateBlind Int
+    | InputUpdateBlind EditBlindsSettings
+    | UpdateBlind EditBlindsSettings
       -- debugging / development
     | NavigateUIElements Int
 
@@ -79,7 +80,7 @@ type UI
     | LobbyScreen (List Player) ChipsSettings Self Game Welcome
     | RejoinScreen Welcome
     | GameScreen ActSelection Self Game Welcome
-    | RoundResultScreen (List PotResult) (List PlayerWinnings) Self Game Welcome
+    | RoundResultScreen (List PotResult) (List PlayerWinnings) Self Game Welcome EditBlindsSettings
     | GameResultScreen Self Game Welcome
       -- TODO: admin screen to fix things
       -- spectating
@@ -115,6 +116,13 @@ type ChipsSettings
     = DoNotTrackChips
     | TrackWithTimer Int (List TimerLevel)
     | TrackWithManualBlinds Int Int
+
+
+type EditBlindsSettings
+    = DoNotEditBlinds
+    | DoNotTrackBlinds
+    | ManualBlinds Int
+    | TimerBlinds (List TimerLevel)
 
 
 defaultChipSettings =

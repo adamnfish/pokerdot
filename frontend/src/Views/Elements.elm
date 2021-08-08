@@ -12,7 +12,7 @@ import FontAwesome.Regular
 import FontAwesome.Solid
 import Html.Attributes
 import Maybe.Extra
-import Model exposing (ActSelection(..), Card, Game, Hand(..), Model, Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
 import Random
 import Random.Extra
 import Views.Generators exposing (..)

@@ -5,7 +5,7 @@ import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
@@ -262,7 +262,7 @@ update msg model =
                             , Cmd.none
                             )
 
-                        RoundResultScreen potResults playerWinnings _ _ welcome ->
+                        RoundResultScreen potResults playerWinnings _ _ welcome blindsSettings ->
                             let
                                 newUi =
                                     case game.inTurn of
@@ -271,7 +271,19 @@ update msg model =
 
                                         -- stay on results if a status message happens to come in while the round results are being displayed
                                         Nothing ->
-                                            RoundResultScreen potResults playerWinnings self game welcome
+                                            -- if we've successfully updated the blinds, then we can close the blinds editor
+                                            case action of
+                                                TimerStatusAction _ ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+
+                                                EditTimerAction ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+
+                                                EditBlindAction ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+
+                                                _ ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome blindsSettings
 
                                 updatedModel =
                                     { model
@@ -358,7 +370,7 @@ update msg model =
                                     model.ui
 
                                 Just welcome ->
-                                    RoundResultScreen pots playerWinnings self game welcome
+                                    RoundResultScreen pots playerWinnings self game welcome DoNotEditBlinds
                     in
                     ( registerEvent
                         { model
@@ -426,7 +438,7 @@ update msg model =
                     , sendPing welcome
                     )
 
-                RoundResultScreen potResults playerWinnings self game welcome ->
+                RoundResultScreen potResults playerWinnings self game welcome _ ->
                     ( newModel
                     , sendPing welcome
                     )
@@ -764,7 +776,7 @@ update msg model =
                         }
                     )
 
-                RoundResultScreen _ _ _ _ welcome ->
+                RoundResultScreen _ _ _ _ welcome _ ->
                     ( { model | loadingStatus = AwaitingMessage }
                     , sendAdvancePhaseRequest
                         { gameId = welcome.gameId
@@ -780,38 +792,82 @@ update msg model =
                     , Cmd.none
                     )
 
-        UpdateBlind smallBlind ->
+        InputUpdateBlind blindsSettings ->
             case model.ui of
-                GameScreen _ _ _ welcome ->
-                    ( { model | loadingStatus = AwaitingMessage }
-                    , sendUpdateBlind
-                        { gameId = welcome.gameId
-                        , playerKey = welcome.playerKey
-                        , playerId = welcome.playerId
-                        , timerLevels = Nothing
-                        , smallBlind = Just smallBlind
-                        , playing = False
-                        }
-                    )
-
-                RoundResultScreen _ _ _ _ welcome ->
-                    ( { model | loadingStatus = AwaitingMessage }
-                    , sendUpdateBlind
-                        { gameId = welcome.gameId
-                        , playerKey = welcome.playerKey
-                        , playerId = welcome.playerId
-                        , timerLevels = Nothing
-                        , smallBlind = Just smallBlind
-                        , playing = False
-                        }
+                RoundResultScreen potResults playerWinnings self game welcome _ ->
+                    ( { model | ui = RoundResultScreen potResults playerWinnings self game welcome blindsSettings }
+                    , Cmd.none
                     )
 
                 _ ->
-                    ( displayFailure
-                        (failureMessage "You have to be in a game to update the blinds")
-                        model
-                    , Cmd.none
-                    )
+                    ( model, Cmd.none )
+
+        UpdateBlind blindsSettings ->
+            case blindsSettings of
+                DoNotEditBlinds ->
+                    ( model, Cmd.none )
+
+                DoNotTrackBlinds ->
+                    case model.ui of
+                        GameScreen _ _ _ welcome ->
+                            ( { model | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , smallBlind = Nothing
+                                , playing = False
+                                }
+                            )
+
+                        RoundResultScreen _ _ _ _ welcome _ ->
+                            ( { model | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , smallBlind = Nothing
+                                , playing = False
+                                }
+                            )
+
+                        _ ->
+                            ( model, Cmd.none )
+
+                ManualBlinds blindAmount ->
+                    case model.ui of
+                        GameScreen _ _ _ welcome ->
+                            ( { model | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , smallBlind = Just blindAmount
+                                , playing = False
+                                }
+                            )
+
+                        RoundResultScreen _ _ _ _ welcome _ ->
+                            ( { model | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , smallBlind = Just blindAmount
+                                , playing = False
+                                }
+                            )
+
+                        _ ->
+                            ( model, Cmd.none )
+
+                TimerBlinds timerLevels ->
+                    -- TODO: support timers
+                    ( model, Cmd.none )
 
         NavigateUIElements seed ->
             ( { model | ui = UIElementsScreen seed NoAct }
@@ -934,7 +990,7 @@ welcomeFromUi ui =
         GameScreen _ _ _ welcome ->
             Just welcome
 
-        RoundResultScreen _ _ _ _ welcome ->
+        RoundResultScreen _ _ _ _ welcome _ ->
             Just welcome
 
         GameResultScreen _ _ welcome ->
@@ -1007,7 +1063,7 @@ routeFromUi ui =
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)
 
-        RoundResultScreen _ _ _ _ welcome ->
+        RoundResultScreen _ _ _ _ welcome _ ->
             GameRoute
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)
