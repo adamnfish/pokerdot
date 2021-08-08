@@ -47,14 +47,17 @@ object Play {
    *          also deal from the top of the deck instead of after the community cards
    */
   def dealHoles(players: List[Player], deck: List[Card]): List[Player] = {
-    players.filterNot(_.busted).zipWithIndex.map { case (player, i) =>
-      player.copy(
-        hole =
-          for {
-            c1 <- deck.lift((2 * i) + 8)
-            c2 <- deck.lift((2 * i) + 9)
-          } yield Hole(c1, c2)
-      )
+    players.zipWithIndex.map {
+      case (player, _) if player.busted =>
+        player.copy(hole = None)
+      case (player, i) =>
+        player.copy(
+          hole =
+            for {
+              c1 <- deck.lift((2 * i) + 8)
+              c2 <- deck.lift((2 * i) + 9)
+            } yield Hole(c1, c2)
+        )
     }
   }
 

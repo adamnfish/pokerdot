@@ -101,8 +101,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     "the round's cards are not dealt to players" in {
       forAll { seed: Long =>
         val round = generateRound(PreFlop, 0, seed)
-        val deck = deckOrder(seed)
-        val allPlayerCards = dealHoles(players, deck)
+        val allPlayerCards = dealHoles(players, deckOrder(seed))
           .flatMap { player =>
             player.hole.toList
               .flatMap(h => List(h.card1, h.card2))
@@ -117,13 +116,26 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "players are never dealt the same cards as each other" in {
       forAll { seed: Long =>
-        val deck = deckOrder(seed)
-        val allPlayerCards = dealHoles(players, deck)
+        val allPlayerCards = dealHoles(players, deckOrder(seed))
           .flatMap { player =>
             player.hole.toList
               .flatMap(h => List(h.card1, h.card2))
           }
         allPlayerCards shouldEqual allPlayerCards.distinct
+      }
+    }
+
+    "deals empty holes to busted players (rather than excluding them from the result)" in {
+      forAll { (bustedIndex: Int, seed: Long) =>
+        val index = math.abs(bustedIndex % (players.size - 1))
+        val playersWithBustedEntry = players.zipWithIndex.map {
+          case (p, i) if i == index =>
+            p.copy(busted = true)
+          case (p, _) => p
+        }
+        val result = dealHoles(playersWithBustedEntry, deckOrder(seed))
+        result.length shouldEqual players.length
+        result(index).hole shouldEqual None
       }
     }
   }
