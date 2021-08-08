@@ -1330,9 +1330,37 @@ roundResultsScreen model potResults playerWinnings self game welcome =
                 playerWinnings
         , container model.viewport <|
             if self.isAdmin then
-                column
+                let
+                    nextBlind =
+                        game.smallBlind * 2
+                in
+                row
                     [ width fill ]
                     [ el
+                        [ alignLeft ]
+                      <|
+                        controlsButton Theme.scheme1
+                            (UpdateBlind nextBlind)
+                        <|
+                            column
+                                [ width fill
+                                , spacing 5
+                                ]
+                                [ el
+                                    [ width fill
+                                    , Font.center
+                                    ]
+                                  <|
+                                    text "blinds"
+                                , el
+                                    [ width fill
+                                    , Font.center
+                                    , Font.size 18
+                                    ]
+                                  <|
+                                    text (String.fromInt nextBlind ++ " / " ++ String.fromInt (nextBlind * 2))
+                                ]
+                    , el
                         [ alignRight ]
                       <|
                         controlsButton Theme.scheme1 AdvancePhase <|

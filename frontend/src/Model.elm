@@ -51,6 +51,8 @@ type Msg
     | Bet Int
     | Fold
     | AdvancePhase
+      -- blind management
+    | UpdateBlind Int
       -- debugging / development
     | NavigateUIElements Int
 
@@ -1003,7 +1005,7 @@ startGameRequestEncoder startGameRequest =
 updateBlindRequestEncoder : UpdateBlindRequest -> Json.Encode.Value
 updateBlindRequestEncoder updateBlindRequest =
     Json.Encode.object <|
-        [ ( "operation", Json.Encode.string "update-timer" )
+        [ ( "operation", Json.Encode.string "update-blind" )
         , ( "gameId", encodeGameId updateBlindRequest.gameId )
         , ( "playerId", encodePlayerId updateBlindRequest.playerId )
         , ( "playerKey", encodePlayerKey updateBlindRequest.playerKey )

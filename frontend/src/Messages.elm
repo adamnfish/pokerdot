@@ -5,7 +5,7 @@ import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
@@ -780,6 +780,39 @@ update msg model =
                     , Cmd.none
                     )
 
+        UpdateBlind smallBlind ->
+            case model.ui of
+                GameScreen _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendUpdateBlind
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        , timerLevels = Nothing
+                        , smallBlind = Just smallBlind
+                        , playing = False
+                        }
+                    )
+
+                RoundResultScreen _ _ _ _ welcome ->
+                    ( { model | loadingStatus = AwaitingMessage }
+                    , sendUpdateBlind
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        , timerLevels = Nothing
+                        , smallBlind = Just smallBlind
+                        , playing = False
+                        }
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "You have to be in a game to update the blinds")
+                        model
+                    , Cmd.none
+                    )
+
         NavigateUIElements seed ->
             ( { model | ui = UIElementsScreen seed NoAct }
             , Cmd.none
@@ -1152,6 +1185,11 @@ sendJoinGame joinGameRequest =
 sendStartGame : StartGameRequest -> Cmd Msg
 sendStartGame startGameRequest =
     sendMessage <| startGameRequestEncoder startGameRequest
+
+
+sendUpdateBlind : UpdateBlindRequest -> Cmd Msg
+sendUpdateBlind updateBlindRequest =
+    sendMessage <| updateBlindRequestEncoder updateBlindRequest
 
 
 sendBetRequest : BetRequest -> Cmd Msg
