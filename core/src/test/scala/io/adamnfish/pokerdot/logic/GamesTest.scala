@@ -419,8 +419,11 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         }
 
         "set to the specified amount, if present" in {
-          forAll { startingStack: Int =>
-            start(game.copy(players = players), 1000L, None, None, Some(startingStack), game.players.map(_.playerId)).players.map(_.stack) should contain only startingStack
+          forAll(Gen.choose(0, 1000)) { startingStack =>
+            val result =
+              start(game.copy(players = players), 1000L, None, None, Some(startingStack), game.players.map(_.playerId))
+                .players.map(_.stack)
+            result should contain only startingStack
           }
         }
       }
@@ -435,6 +438,30 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
           val testPlayers = players.take(2)
           val result = start(game.copy(players = testPlayers), 1000L, Some(5), None, Some(1000), game.players.map(_.playerId))
           result.players.map(_.bet).take(3) shouldEqual List(5, 10)
+        }
+
+        "if big blind amount exceeds player stack the big blind player is put all-in" - {
+          "their bet is limited to their entire stack" in {
+            val result = start(game.copy(players = players), 1000L, Some(700), None, Some(1000), game.players.map(_.playerId))
+            result.players.map(_.bet).take(3) shouldEqual List(0, 700, 1000)  // BB is 1000 stack size instead of expected 1400
+          }
+
+          "their stack is empty (and certainly not negative)" in {
+            val result = start(game.copy(players = players), 1000L, Some(700), None, Some(1000), game.players.map(_.playerId))
+            result.players.map(_.stack).apply(2) shouldEqual 0
+          }
+        }
+
+        "if small blind amount exceeds player stack the small-blind player is put all-in" - {
+          "their bet is limited to their entire stack" in {
+            val result = start(game.copy(players = players), 1000L, Some(1200), None, Some(1000), game.players.map(_.playerId))
+            result.players.map(_.bet).take(2) shouldEqual List(0, 1000)  // SB is 1000 stack size instead of expected 1200
+          }
+
+          "their stack is empty (and certainly not negative)" in {
+            val result = start(game.copy(players = players), 1000L, Some(1200), None, Some(1000), game.players.map(_.playerId))
+            result.players.map(_.stack)(1) shouldEqual 0
+          }
         }
       }
 

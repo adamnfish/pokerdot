@@ -233,14 +233,14 @@ object Play {
           if (p.playerId == newBigBlindId)
             p.copy(
               blind = BigBlind,
-              bet = 2 * smallBlindAmount,
-              stack = p.stack - (2 * smallBlindAmount),
+              bet = math.min(p.stack, 2 * smallBlindAmount),
+              stack = math.max(0, p.stack - (2 * smallBlindAmount)),
             )
           else if (newSmallBlindIdOpt.contains(p.playerId))
             p.copy(
               blind = SmallBlind,
-              bet = smallBlindAmount,
-              stack = p.stack - smallBlindAmount,
+              bet = math.min(p.stack, smallBlindAmount),
+              stack = math.max(0, p.stack - smallBlindAmount),
             )
           else p.copy(
             blind = NoBlind

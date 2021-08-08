@@ -1037,6 +1037,36 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           players.find(_.blind == SmallBlind).value.stack shouldEqual (1000 - blind)
         }
       }
+
+      "if small blind exceeds player's stack" - {
+        "bet is limited to stack size" in {
+          forAll(Gen.choose(5, 500)) { blind =>
+            val smallBlindStack = math.max(0, blind - 5)
+            val (_, players) = nextDealerAndBlinds(
+              List(
+                player1.copy(stack = 1000),
+                player2.copy(stack = 1000, blind = SmallBlind),
+                player3.copy(stack = smallBlindStack, blind = BigBlind), // next small blind
+                player4.copy(stack = 1000),
+              ), 0, blind)
+            players.find(_.blind == SmallBlind).value.bet shouldEqual smallBlindStack
+          }
+        }
+
+        "player's stack is empty (i.e. not negative)" in {
+          forAll(Gen.choose(5, 500)) { blind =>
+            val smallBlindStack = math.max(0, blind - 5)
+            val (_, players) = nextDealerAndBlinds(
+              List(
+                player1.copy(stack = 1000),
+                player2.copy(stack = 1000, blind = SmallBlind),
+                player3.copy(stack = smallBlindStack, blind = BigBlind), // next small blind
+                player4.copy(stack = 1000),
+              ), 0, blind)
+            players.find(_.blind == SmallBlind).value.stack shouldEqual 0
+          }
+        }
+      }
     }
 
     "big blind amount is paid out" - {
@@ -1063,6 +1093,36 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
               player4.copy(stack = 1000),
             ), 0, blind)
           players.find(_.blind == BigBlind).value.stack shouldEqual (1000 - (2 * blind))
+        }
+      }
+
+      "if small blind exceeds player's stack" - {
+        "bet is limited to stack size" in {
+          forAll(Gen.choose(5, 500)) { blind =>
+            val bigBlindStack = math.max(0, (2 * blind) - 5)
+            val (_, players) = nextDealerAndBlinds(
+              List(
+                player1.copy(stack = 1000),
+                player2.copy(stack = 1000, blind = SmallBlind),
+                player3.copy(stack = 1000, blind = BigBlind),
+                player4.copy(stack = bigBlindStack), // next big blind
+              ), 0, blind)
+            players.find(_.blind == BigBlind).value.bet shouldEqual bigBlindStack
+          }
+        }
+
+        "player's stack is empty (i.e. not negative)" in {
+          forAll(Gen.choose(5, 500)) { blind =>
+            val bigBlindStack = math.max(0, (2 * blind) - 5)
+            val (_, players) = nextDealerAndBlinds(
+              List(
+                player1.copy(stack = 1000),
+                player2.copy(stack = 1000, blind = SmallBlind),
+                player3.copy(stack = 1000, blind = BigBlind),
+                player4.copy(stack = bigBlindStack), // next big blind
+              ), 0, blind)
+            players.find(_.blind == BigBlind).value.stack shouldEqual 0
+          }
         }
       }
     }

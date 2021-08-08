@@ -137,14 +137,15 @@ object Games {
 
   def start(game: Game, now: Long, initialSmallBlind: Option[Int], timerConfig: Option[List[TimerLevel]], startingStack: Option[Int], playerOrder: List[PlayerId]): Game = {
     val deck = Play.deckOrder(game.seed)
-    val orderedPlayers = orderFromList(game.players, playerOrder)(_.playerId)
-    val dealtPlayers = dealHoles(orderedPlayers, deck)
     val smallBlind = initialSmallBlind.orElse {
       timerConfig.collect {
         case RoundLevel(_, roundBlind) :: _ =>
           roundBlind
       }
     }.getOrElse(0)
+
+    val orderedPlayers = orderFromList(game.players, playerOrder)(_.playerId)
+    val dealtPlayers = dealHoles(orderedPlayers, deck)
     val dealtPlayersWithInitialStacks = dealtPlayers.zipWithIndex.map { case (p, i) =>
       val (blind, blindAmount) =
         if (dealtPlayers.length == 2) {
@@ -160,11 +161,14 @@ object Games {
             case _ => (NoBlind, 0)
           }
         }
+      // players can't pay more than they have into the blinds
       p.copy(
         stack = startingStack.fold(0) { initialStackAmount =>
-          p.stack + initialStackAmount - blindAmount
+          math.max(0, p.stack + initialStackAmount - blindAmount)
         },
-        bet = blindAmount,
+        bet = startingStack.fold(0) { initialStackAmount =>
+          math.min(initialStackAmount, blindAmount)
+        },
         blind = blind,
       )
     }
