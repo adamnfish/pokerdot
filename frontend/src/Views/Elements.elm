@@ -1,4 +1,4 @@
-module Views.Elements exposing (cardUi, communityCardsUi, connectionUi, container, controlsButton, handUi, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -104,6 +104,28 @@ logo dimensions =
                 ]
                 []
             ]
+
+
+helpText : List String -> Element Msg
+helpText helpStrs =
+    let
+        helpFragment str =
+            el
+                [ padding 2
+                , Background.color Theme.colours.highlightPrimary
+                , Font.color Theme.colours.lowlight
+                ]
+            <|
+                text str
+    in
+    paragraph
+        [ paddingXY 0 25
+        , spacing 12
+        , Font.alignLeft
+        , Font.size 18
+        ]
+    <|
+        List.map helpFragment helpStrs
 
 
 pdTab : Bool -> Msg -> String -> Element Msg
@@ -452,15 +474,6 @@ pokerControlsUi isActive smallBlind actSelection self players =
 
                 _ ->
                     minimumRaise
-
-        buttonHiddenAttrs hidden =
-            if hidden then
-                [ transparent True
-                , htmlAttribute <| Html.Attributes.style "visibility" "hidden"
-                ]
-
-            else
-                []
     in
     column
         [ width fill
@@ -1250,6 +1263,16 @@ communityCardsUi round =
                 , cardUi 3 NormalCard turn
                 , cardUi 4 NormalCard river
                 ]
+
+
+buttonHiddenAttrs hidden =
+    if hidden then
+        [ transparent True
+        , htmlAttribute <| Html.Attributes.style "visibility" "hidden"
+        ]
+
+    else
+        []
 
 
 

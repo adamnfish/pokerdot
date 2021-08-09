@@ -14,7 +14,8 @@ import FontAwesome.Styles
 import List.Extra
 import Messages exposing (lookupPlayer)
 import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
-import Views.Elements exposing (communityCardsUi, connectionUi, container, controlsButton, handUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+import Utils exposing (swapDown, swapUp)
+import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Theme as Theme
 
 
@@ -792,6 +793,10 @@ createGameScreen model gameName screenName =
                           <|
                             text "game"
                         ]
+            , helpText
+                [ "creates a new game that others can join. "
+                , "you will be able to start the game when players have joined"
+                ]
             ]
 
 
@@ -828,6 +833,10 @@ joinGameScreen model isExternal gameCode screenName =
                           <|
                             text "game"
                         ]
+            , helpText
+                [ "join an existing game. "
+                , "the game's creator can tell you the game code"
+                ]
             ]
 
 
@@ -873,6 +882,21 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
 
         formatPlayer : Player -> Element Msg
         formatPlayer player =
+            let
+                last =
+                    Maybe.withDefault False <|
+                        Maybe.map
+                            (\p -> p == player)
+                        <|
+                            List.Extra.last playerOrder
+
+                first =
+                    Maybe.withDefault False <|
+                        Maybe.map
+                            (\p -> p == player)
+                        <|
+                            List.head playerOrder
+            in
             row
                 [ width fill
                 , padding 8
@@ -889,12 +913,112 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
                             |> FontAwesome.Icon.view
                         )
                 , text " "
-                , text player.screenName
-                , if player.playerId == self.playerId then
-                    text " (you)"
+                , el
+                    [ width fill
+                    , clip
+                    , Font.alignLeft
+                    ]
+                  <|
+                    if player.playerId == self.playerId then
+                        text (player.screenName ++ " (you)")
 
-                  else
-                    Element.none
+                    else
+                        text player.screenName
+                , row
+                    [ alignRight
+                    , spacing 8
+                    ]
+                    [ if self.isAdmin then
+                        Input.button
+                            ([ width <| px 30
+                             , height <| px 30
+                             , alignRight
+                             , Border.rounded 2
+                             , Border.solid
+                             , Border.width 2
+                             , Border.color Theme.colours.black
+                             , Border.shadow
+                                { offset = ( 3, 3 )
+                                , size = 0
+                                , blur = 0
+                                , color = Theme.glow Theme.colours.lowlight
+                                }
+                             , Font.size 25
+                             , Font.color <| Theme.textColour Theme.colours.white
+                             , Background.color Theme.colours.lowlight
+                             , focused
+                                [ Background.color <| Theme.focusColour Theme.colours.lowlight
+                                , Border.color Theme.colours.white
+                                , Border.shadow
+                                    { offset = ( 3, 3 )
+                                    , size = 0
+                                    , blur = 0
+                                    , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
+                                    }
+                                ]
+                             ]
+                                ++ buttonHiddenAttrs first
+                            )
+                            { onPress = Just <| InputStartGameSettings (swapUp player playerOrder) chipsSettings
+                            , label =
+                                html <|
+                                    (FontAwesome.Solid.caretUp
+                                        |> FontAwesome.Icon.present
+                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                        |> FontAwesome.Icon.withId ("pokerdot-reorder-players-up_pokerdot_" ++ player.screenName)
+                                        |> FontAwesome.Icon.titled "Move up"
+                                        |> FontAwesome.Icon.view
+                                    )
+                            }
+
+                      else
+                        Element.none
+                    , if self.isAdmin then
+                        Input.button
+                            ([ width <| px 30
+                             , height <| px 30
+                             , alignRight
+                             , Border.rounded 2
+                             , Border.solid
+                             , Border.width 2
+                             , Border.color Theme.colours.black
+                             , Border.shadow
+                                { offset = ( 3, 3 )
+                                , size = 0
+                                , blur = 0
+                                , color = Theme.glow Theme.colours.lowlight
+                                }
+                             , Font.size 25
+                             , Font.color <| Theme.textColour Theme.colours.white
+                             , Background.color Theme.colours.lowlight
+                             , focused
+                                [ Background.color <| Theme.focusColour Theme.colours.lowlight
+                                , Border.color Theme.colours.white
+                                , Border.shadow
+                                    { offset = ( 3, 3 )
+                                    , size = 0
+                                    , blur = 0
+                                    , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
+                                    }
+                                ]
+                             ]
+                                ++ buttonHiddenAttrs last
+                            )
+                            { onPress = Just <| InputStartGameSettings (swapDown player playerOrder) chipsSettings
+                            , label =
+                                html <|
+                                    (FontAwesome.Solid.caretDown
+                                        |> FontAwesome.Icon.present
+                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                        |> FontAwesome.Icon.withId ("pokerdot-reorder-players-down_pokerdot_" ++ player.screenName)
+                                        |> FontAwesome.Icon.titled "Move down"
+                                        |> FontAwesome.Icon.view
+                                    )
+                            }
+
+                      else
+                        Element.none
+                    ]
                 ]
     in
     container model.viewport <|
