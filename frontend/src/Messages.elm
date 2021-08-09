@@ -475,6 +475,7 @@ update msg model =
             ( { model
                 | ui = WelcomeScreen
                 , errors = []
+                , loadingStatus = NotLoading
               }
             , Cmd.batch
                 [ navigate model.navKey True HomeRoute

@@ -14,7 +14,7 @@ import FontAwesome.Styles
 import List.Extra
 import Messages exposing (lookupPlayer)
 import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
-import Views.Elements exposing (communityCardsUi, connectionUi, container, controlsButton, handUi, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+import Views.Elements exposing (communityCardsUi, connectionUi, container, controlsButton, handUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Theme as Theme
 
 
@@ -33,7 +33,7 @@ view model =
             case model.ui of
                 WelcomeScreen ->
                     { body = welcomeScreen model
-                    , title = "PokerDot"
+                    , title = "pokerdot"
                     , header =
                         Just <| welcomeHeader model.connected
                     , scheme = Just Theme.scheme1
@@ -41,35 +41,35 @@ view model =
 
                 HelpScreen ->
                     { body = helpScreen model
-                    , title = "Help"
+                    , title = "help"
                     , header = Nothing
                     , scheme = Just Theme.scheme4
                     }
 
                 CreateGameScreen gameName screenName ->
                     { body = createGameScreen model gameName screenName
-                    , title = "New game"
+                    , title = "new game"
                     , header = Nothing
                     , scheme = Just Theme.scheme3
                     }
 
                 JoinGameScreen external gameCode screenName ->
                     { body = joinGameScreen model external gameCode screenName
-                    , title = "Join game"
+                    , title = "join game"
                     , header = Nothing
                     , scheme = Just Theme.scheme3
                     }
 
                 LobbyScreen players chipsSettings self game welcome ->
                     { body = lobbyScreen model players chipsSettings self game welcome
-                    , title = welcome.gameName ++ " | Waiting..."
+                    , title = welcome.gameName ++ " | waiting..."
                     , header = Nothing
                     , scheme = Just Theme.scheme3
                     }
 
                 RejoinScreen welcome ->
                     { body = rejoinScreen model welcome
-                    , title = welcome.gameName ++ " | Waiting..."
+                    , title = welcome.gameName ++ " | waiting..."
                     , header = Nothing
                     , scheme = Just Theme.scheme2
                     }
@@ -113,14 +113,14 @@ view model =
 
                 RoundResultScreen potResults playerWinnings self game welcome blindsSettings ->
                     { body = roundResultsScreen model potResults playerWinnings self game welcome blindsSettings
-                    , title = welcome.gameName ++ " | Round ended"
+                    , title = welcome.gameName ++ " | round ended"
                     , header = Nothing
                     , scheme = Just Theme.scheme2
                     }
 
                 GameResultScreen self game welcome ->
                     { body = gameResultsScreen model self game welcome
-                    , title = welcome.gameName ++ " | Round ended"
+                    , title = welcome.gameName ++ " | game ended"
                     , header = Nothing
                     , scheme = Just Theme.scheme2
                     }
@@ -148,7 +148,7 @@ view model =
 
                 UIElementsScreen seed act ->
                     { body = uiElements model seed act
-                    , title = "Debugging | UI Elements"
+                    , title = "debugging | UI elements"
                     , header = Nothing
                     , scheme = Just Theme.scheme2
                     }
@@ -201,7 +201,7 @@ view model =
                                 [ width fill
                                 , paddingEach
                                     { top = 0
-                                    , bottom = 50
+                                    , bottom = 10
                                     , left = 0
                                     , right = 0
                                     }
@@ -469,7 +469,7 @@ view model =
                             , el
                                 [ alignRight
                                 , padding 8
-                                , Font.color <| Theme.textColour Theme.colours.white
+                                , Font.color <| Theme.textColour Theme.colours.highlightPrimary
                                 ]
                               <|
                                 case model.loadingStatus of
@@ -489,10 +489,11 @@ view model =
 
                                     NotLoading ->
                                         Element.none
+                            , el [ alignRight ] <| logo 25
                             , el
                                 [ alignRight
                                 , padding 8
-                                , Font.color <| Theme.textColour Theme.colours.white
+                                , Font.color <| Theme.textColour Theme.colours.lowlight
                                 ]
                               <|
                                 connectionUi model.connected
@@ -514,38 +515,68 @@ welcomeHeader connected =
         scheme =
             Theme.scheme1
     in
-    column
+    el
         [ width fill
-        , height <| px 200
-        , Background.color scheme.main
-        , Border.color <| Theme.colours.black
+        , Border.color <| Theme.colours.lowlight
         , Border.widthEach
             { bottom = 2
             , left = 0
             , right = 0
             , top = 0
             }
-        , inFront <|
-            el
-                [ alignRight
-                , padding 15
-                , Font.color <| Theme.textColour Theme.colours.black
-                , Element.Events.onClick <| NavigateUIElements 0
-                ]
-            <|
-                connectionUi connected
         ]
-        [ el
+    <|
+        column
             [ width fill
-            , centerY
-            , Font.center
-            , Font.bold
-            , Font.size 60
-            , Font.color <| Theme.textColour Theme.colours.black
+            , spacing 25
+            , paddingXY 0 25
+            , Background.color scheme.main
+            , Border.color <| Theme.colours.highlightPrimary
+            , Border.widthEach
+                { bottom = 2
+                , left = 0
+                , right = 0
+                , top = 0
+                }
+            , inFront <|
+                el
+                    [ alignRight
+                    , padding 15
+                    , Font.color <| Theme.textColour Theme.colours.black
+                    , Element.Events.onClick <| NavigateUIElements 0
+                    ]
+                <|
+                    connectionUi connected
             ]
-          <|
-            text "pokerdot"
-        ]
+            [ row
+                [ centerY
+                , centerX
+                , spacing 4
+                ]
+                [ el
+                    []
+                  <|
+                    logo 100
+                , el
+                    [ centerY
+                    , Font.center
+                    , Font.bold
+                    , Font.size 40
+                    , Font.color <| Theme.textColour Theme.colours.black
+                    ]
+                  <|
+                    text "pokerdot"
+                ]
+            , row
+                [ centerX
+                , Font.size 18
+                ]
+                [ paragraph
+                    []
+                    [ text "free online poker"
+                    ]
+                ]
+            ]
 
 
 welcomeScreen : Model -> Element Msg
@@ -630,6 +661,7 @@ welcomeScreen model =
                                 , alignRight
                                 , Border.solid
                                 , Border.width 2
+                                , Border.rounded 2
                                 , Border.color Theme.colours.black
                                 , Border.shadow
                                     { offset = ( 5, 5 )
@@ -668,6 +700,7 @@ welcomeScreen model =
                                 , padding 5
                                 , Border.solid
                                 , Border.width 2
+                                , Border.rounded 2
                                 , Border.color Theme.colours.black
                                 , Border.shadow
                                     { offset = ( 5, 5 )
@@ -1338,7 +1371,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                         [ width fill ]
                         [ case blindsSettings of
                             DoNotEditBlinds ->
-                                controlsButton Theme.scheme1
+                                controlsButton Theme.scheme3
                                     (InputUpdateBlind <| ManualBlinds game.smallBlind)
                                     (column
                                         [ width fill ]
@@ -1358,7 +1391,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                                     )
 
                             _ ->
-                                controlsButton Theme.scheme1
+                                controlsButton Theme.scheme3
                                     (InputUpdateBlind DoNotEditBlinds)
                                 <|
                                     column

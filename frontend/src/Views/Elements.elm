@@ -1,4 +1,4 @@
-module Views.Elements exposing (cardUi, communityCardsUi, connectionUi, container, controlsButton, handUi, hiddenCardUi, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (cardUi, communityCardsUi, connectionUi, container, controlsButton, handUi, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -15,6 +15,8 @@ import Maybe.Extra
 import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
 import Random
 import Random.Extra
+import Svg
+import Svg.Attributes
 import Views.Generators exposing (..)
 import Views.Theme as Theme
 
@@ -66,6 +68,42 @@ controlsButton scheme msg label =
         { onPress = Just msg
         , label = label
         }
+
+
+logo : Int -> Element Msg
+logo dimensions =
+    let
+        to255 f =
+            round <| f * 255
+
+        toRgbStr rgb =
+            "rgb("
+                ++ String.fromInt (to255 rgb.red)
+                ++ ","
+                ++ String.fromInt (to255 rgb.green)
+                ++ ","
+                ++ String.fromInt (to255 rgb.blue)
+                ++ ")"
+    in
+    html <|
+        Svg.svg
+            [ Svg.Attributes.width <| String.fromInt dimensions
+            , Svg.Attributes.height <| String.fromInt dimensions
+            , Svg.Attributes.viewBox "0 0 800 800"
+            ]
+            [ Svg.path
+                [ Svg.Attributes.fill <| toRgbStr <| Element.toRgb Theme.colours.highlightPrimary
+                , Svg.Attributes.opacity "0.8"
+                , Svg.Attributes.d "M 350 75 A 275 275 0 0 0 75 350 L 75 800 L 175 800 L 175 561.97461 A 275 275 0 0 0 350 625 A 275 275 0 0 0 625 350 A 275 275 0 0 0 350 75 z "
+                ]
+                []
+            , Svg.path
+                [ Svg.Attributes.fill <| toRgbStr <| Element.toRgb Theme.colours.lowlight
+                , Svg.Attributes.opacity "0.8"
+                , Svg.Attributes.d "M 625 0 L 625 238.02539 A 275 275 0 0 0 450 175 A 275 275 0 0 0 175 450 A 275 275 0 0 0 450 725 A 275 275 0 0 0 725 450 L 725 0 L 625 0 z "
+                ]
+                []
+            ]
 
 
 pdTab : Bool -> Msg -> String -> Element Msg
@@ -312,7 +350,9 @@ selfUi isPeeking self =
 
                 Just ( card1, card2 ) ->
                     row
-                        [ spacing 2 ]
+                        [ centerX
+                        , spacing 2
+                        ]
                     <|
                         if isPeeking then
                             [ cardUi 0 LargeCard card1, cardUi 0 LargeCard card2 ]
@@ -768,23 +808,34 @@ hiddenCardUi =
         textColour =
             rgb255 40 40 40
     in
-    Element.el
+    el
         [ height <| px 88
         , width <| px 88
         , Border.rounded (88 // 2)
         , Background.color bgColour
-        , Border.width 2
-        , Border.color textColour
+        , Border.width 1
+        , Border.color <| Theme.colours.lowlight
         , clip
-        , Font.size 25
-        , Font.color textColour
         ]
     <|
-        row
-            [ centerX
-            , centerY
+        el
+            [ height <| px 86
+            , width <| px 86
+            , Border.rounded (86 // 2)
+            , Background.color bgColour
+            , Border.width 1
+            , Border.color <| Theme.colours.highlightPrimary
+            , clip
+            , Font.size 25
+            , Font.color textColour
             ]
-            [ text "x" ]
+        <|
+            row
+                [ centerX
+                , centerY
+                ]
+                [ logo 50
+                ]
 
 
 cardUi : Int -> CardSize -> Card -> Element Msg
@@ -879,10 +930,10 @@ cardUi offsetIndex cardSize card =
                     1
 
                 NormalCard ->
-                    2
+                    1
 
                 LargeCard ->
-                    2
+                    1
         , Border.color textColour
         , clip
         , Font.size fontSize
@@ -1041,7 +1092,7 @@ handUi viewport name winnings maybeHole hand =
                         , clip
                         , Font.size 20
                         , Font.alignLeft
-                        , Font.color <| Theme.textColour scheme.highlight
+                        , Font.color <| Theme.textColour Theme.colours.white
                         , Font.shadow
                             { offset = ( 1, 1 )
                             , blur = 0.5
@@ -1064,13 +1115,14 @@ handUi viewport name winnings maybeHole hand =
                   <|
                     List.append cardEls
                         [ el
-                            [ alignRight
+                            [ width fill
+                            , alignRight
                             , Font.size 20
-                            , Font.color <| Theme.textColour Theme.colours.white
+                            , Font.color <| Theme.textColour Theme.colours.primary
                             , Font.shadow
                                 { offset = ( 1, 1 )
                                 , blur = 0.5
-                                , color = Theme.glow scheme.highlight
+                                , color = Theme.glow Theme.colours.lowlight
                                 }
                             , paddingEach
                                 { top = 0
@@ -1080,18 +1132,41 @@ handUi viewport name winnings maybeHole hand =
                                 }
                             ]
                           <|
-                            row
-                                [ alignRight ]
-                                [ Element.html <|
-                                    (winningsIcon
-                                        |> FontAwesome.Icon.present
-                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                        |> FontAwesome.Icon.withId ("hand-ui-winnings_pokerdot_" ++ name)
-                                        |> FontAwesome.Icon.titled "Winnings"
-                                        |> FontAwesome.Icon.view
-                                    )
-                                , text <| String.fromInt winnings
-                                ]
+                            if winnings > 0 then
+                                column
+                                    [ width <| px 66
+                                    , alignRight
+                                    , spacing 2
+                                    ]
+                                    [ el
+                                        [ centerX ]
+                                      <|
+                                        Element.html <|
+                                            (FontAwesome.Solid.crown
+                                                |> FontAwesome.Icon.present
+                                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                |> FontAwesome.Icon.withId ("hand-ui-winnings_pokerdot_" ++ name)
+                                                |> FontAwesome.Icon.titled "winnings"
+                                                |> FontAwesome.Icon.view
+                                            )
+                                    , el [ centerX ] <| text <| String.fromInt winnings
+                                    ]
+
+                            else
+                                el
+                                    [ width <| px 66
+                                    , alignRight
+                                    ]
+                                <|
+                                    el [ centerX ] <|
+                                        Element.html <|
+                                            (FontAwesome.Regular.timesCircle
+                                                |> FontAwesome.Icon.present
+                                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                |> FontAwesome.Icon.withId ("hand-ui-lost_pokerdot_" ++ name)
+                                                |> FontAwesome.Icon.titled "lost this hand"
+                                                |> FontAwesome.Icon.view
+                                            )
                         ]
                 , el
                     [ Font.size 15
