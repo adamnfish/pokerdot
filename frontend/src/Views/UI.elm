@@ -567,15 +567,6 @@ welcomeHeader connected =
                   <|
                     text "pokerdot"
                 ]
-            , row
-                [ centerX
-                , Font.size 18
-                ]
-                [ paragraph
-                    []
-                    [ text "free online poker"
-                    ]
-                ]
             ]
 
 

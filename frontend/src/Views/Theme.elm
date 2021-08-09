@@ -27,6 +27,8 @@ colours =
         rgb255 233 79 55
     , icon =
         rgb255 67 250 0
+    , disabled =
+        rgb255 244 243 240
     }
 
 

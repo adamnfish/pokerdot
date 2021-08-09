@@ -233,24 +233,47 @@ tableUi round players =
                 [ width fill
                 , spacing 8
                 , padding 8
-                , Background.color scheme.main
+                , if player.busted || player.folded then
+                    Background.color Theme.colours.disabled
+
+                  else
+                    Background.color scheme.main
                 ]
                 [ el
-                    [ width fill
-                    , Font.alignLeft
-                    , Font.color <| Theme.textColour Theme.colours.black
-                    , clip
-                    ]
+                    (if player.busted || player.folded then
+                        [ width fill
+                        , Font.alignLeft
+                        , Font.strike
+                        , Font.color <| Theme.textColour Theme.colours.black
+                        , clip
+                        ]
+
+                     else
+                        [ width fill
+                        , Font.alignLeft
+                        , Font.color <| Theme.textColour Theme.colours.black
+                        , clip
+                        ]
+                    )
                   <|
                     text player.screenName
-                , el
-                    [ width <| px 50
-                    , Font.alignRight
-                    , Font.color <| Theme.textColour Theme.colours.black
-                    ]
-                  <|
-                    text <|
-                        String.fromInt player.stack
+                , if player.stack == 0 then
+                    el
+                        [ Font.alignRight
+                        , Font.color <| Theme.glow <| Theme.textColour Theme.colours.black
+                        ]
+                    <|
+                        text "busted"
+
+                  else
+                    el
+                        [ width <| px 50
+                        , Font.alignRight
+                        , Font.color <| Theme.textColour Theme.colours.black
+                        ]
+                    <|
+                        text <|
+                            String.fromInt player.stack
                 , row
                     [ width <| px 60
                     , Font.color <| Theme.textColour Theme.colours.black
@@ -265,7 +288,7 @@ tableUi round players =
                             )
 
                       else
-                        text "0"
+                        Element.none
                     , text " "
                     , if player.bet > 0 then
                         text <|
