@@ -240,6 +240,10 @@ connectionUi connected =
             )
 
 
+
+-- TODO: show empty stack as busted on round results screen
+
+
 tableUi : Round -> List Player -> Element Msg
 tableUi round players =
     let
@@ -279,7 +283,7 @@ tableUi round players =
                     )
                   <|
                     text player.screenName
-                , if player.stack == 0 then
+                , if player.busted then
                     el
                         [ Font.alignRight
                         , Font.color <| Theme.glow <| Theme.textColour Theme.colours.black
