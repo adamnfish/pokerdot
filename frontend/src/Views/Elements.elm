@@ -93,7 +93,6 @@ logo dimensions =
             ]
             [ Svg.path
                 [ Svg.Attributes.fill <| toRgbStr <| Element.toRgb Theme.colours.highlightPrimary
-                , Svg.Attributes.opacity "0.8"
                 , Svg.Attributes.d "M 350 75 A 275 275 0 0 0 75 350 L 75 800 L 175 800 L 175 561.97461 A 275 275 0 0 0 350 625 A 275 275 0 0 0 625 350 A 275 275 0 0 0 350 75 z "
                 ]
                 []
@@ -242,6 +241,7 @@ connectionUi connected =
 
 
 -- TODO: show empty stack as busted on round results screen
+-- TODO: also show pot winnings for player separately here for round results
 
 
 tableUi : Round -> List Player -> Element Msg
@@ -545,138 +545,142 @@ pokerControlsUi isActive smallBlind actSelection self players =
                 (case actSelection of
                     ActBet betAmount ->
                         [ inFront
-                            (el
+                            (column
                                 (List.append
                                     [ width fill
-                                    , moveUp 100
+                                    , spacing 8
+                                    , moveUp 105
+                                    , moveLeft 5
                                     ]
                                     (buttonHiddenAttrs <| not isActive)
                                 )
-                             <|
-                                Input.slider
-                                    [ width <| px 50
-                                    , height <| px 250
-                                    , Element.behindContent
-                                        (Element.el
-                                            [ width <| px 20
-                                            , height fill
-                                            , centerX
-                                            , Background.color Theme.colours.highlightSecondary
-                                            , Border.rounded 2
-                                            , Border.solid
-                                            , Border.width 2
-                                            , Border.color Theme.colours.black
-                                            ]
-                                            Element.none
-                                        )
+                                [ row
+                                    [ width fill
+                                    , centerX
+                                    , spacing 4
                                     ]
-                                    { onChange = Basics.round >> InputBet
-                                    , label =
-                                        Input.labelAbove
-                                            [ width fill ]
-                                        <|
-                                            row
-                                                [ width fill
+                                    [ Input.button
+                                        [ height <| px 45
+                                        , width <| px 45
+                                        , Font.color <| Theme.textColour Theme.colours.white
+                                        , Background.color Theme.scheme3.highlight
+                                        , Border.rounded 2
+                                        , Border.width 2
+                                        , Border.color Theme.colours.black
+                                        ]
+                                        { onPress = Just (InputBet <| max 1 (betAmount - 1))
+                                        , label =
+                                            el
+                                                [ centerX, centerY ]
+                                            <|
+                                                html
+                                                    (FontAwesome.Solid.minus
+                                                        |> FontAwesome.Icon.present
+                                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                        |> FontAwesome.Icon.view
+                                                    )
+                                        }
+                                    , Input.button
+                                        [ height <| px 45
+                                        , width <| px 45
+                                        , Font.color <| Theme.textColour Theme.colours.white
+                                        , Background.color Theme.scheme3.highlight
+                                        , Border.rounded 2
+                                        , Border.width 2
+                                        , Border.color Theme.colours.black
+                                        ]
+                                        { onPress = Just (InputBet <| min self.stack (betAmount + 1))
+                                        , label =
+                                            el
+                                                [ centerX, centerY ]
+                                            <|
+                                                html
+                                                    (FontAwesome.Solid.plus
+                                                        |> FontAwesome.Icon.present
+                                                        |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                        |> FontAwesome.Icon.view
+                                                    )
+                                        }
+                                    ]
+                                , el
+                                    [ moveRight 22
+                                    ]
+                                  <|
+                                    Input.slider
+                                        [ width <| px 50
+                                        , height <| px 250
+                                        , Element.behindContent
+                                            (Element.el
+                                                [ width <| px 20
+                                                , height fill
                                                 , centerX
+                                                , Background.color <| Theme.glow Theme.colours.lowlight
+                                                , Border.rounded 2
+                                                , Border.solid
+                                                , Border.width 2
+                                                , Border.color Theme.colours.black
                                                 ]
-                                                [ Input.button
-                                                    [ height <| px 27
-                                                    , width <| px 27
-                                                    , Font.color <| Theme.textColour Theme.colours.black
-                                                    , Background.color Theme.scheme1.highlight
-                                                    , Border.rounded 5
-                                                    , Border.width 2
-                                                    , Border.color Theme.colours.black
+                                                Element.none
+                                            )
+                                        ]
+                                        { onChange = Basics.round >> InputBet
+                                        , label =
+                                            if highestBet > 0 then
+                                                Input.labelHidden "edit raise amount"
+
+                                            else
+                                                Input.labelHidden "edit bet amount"
+                                        , min = toFloat minimumRaise
+                                        , max = toFloat self.stack
+                                        , step = Just <| toFloat (smallBlind * 2)
+                                        , value = toFloat <| max betAmount minimumRaise
+                                        , thumb =
+                                            Input.thumb
+                                                [ width <| px 50
+                                                , height <| px 50
+                                                , Background.color Theme.scheme3.highlight
+                                                , focused
+                                                    [ Background.color <| Theme.focusColour Theme.scheme3.highlight
+                                                    , Border.color Theme.colours.white
+                                                    , Border.shadow
+                                                        { offset = ( 3, 3 )
+                                                        , size = 0
+                                                        , blur = 0
+                                                        , color = Theme.glow Theme.scheme3.highlight
+                                                        }
                                                     ]
-                                                    { onPress = Just (InputBet <| betAmount - 1)
-                                                    , label =
-                                                        el
-                                                            [ centerX, centerY ]
-                                                        <|
-                                                            html
-                                                                (FontAwesome.Solid.minus
-                                                                    |> FontAwesome.Icon.present
-                                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                                                    |> FontAwesome.Icon.view
-                                                                )
-                                                    }
-                                                , el
-                                                    [ width <| px 50 ]
-                                                  <|
-                                                    text <|
-                                                        String.fromInt betAmount
-                                                , Input.button
-                                                    [ height <| px 27
-                                                    , width <| px 27
-                                                    , Font.color <| Theme.textColour Theme.colours.black
-                                                    , Background.color Theme.scheme1.highlight
-                                                    , Border.rounded 2
-                                                    , Border.width 2
-                                                    , Border.color Theme.colours.black
-                                                    ]
-                                                    { onPress = Just (InputBet <| betAmount + 1)
-                                                    , label =
-                                                        el
-                                                            [ centerX, centerY ]
-                                                        <|
-                                                            html
-                                                                (FontAwesome.Solid.plus
-                                                                    |> FontAwesome.Icon.present
-                                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                                                    |> FontAwesome.Icon.view
-                                                                )
-                                                    }
-                                                ]
-                                    , min = toFloat minimumRaise
-                                    , max = toFloat self.stack
-                                    , step = Just <| toFloat (smallBlind * 2)
-                                    , value = toFloat <| max betAmount minimumRaise
-                                    , thumb =
-                                        Input.thumb
-                                            [ width <| px 50
-                                            , height <| px 50
-                                            , Background.color Theme.scheme1.highlight
-                                            , focused
-                                                [ Background.color <| Theme.focusColour Theme.scheme1.highlight
-                                                , Border.color Theme.colours.white
+                                                , Border.solid
+                                                , Border.rounded 2
+                                                , Border.width 2
+                                                , Border.color Theme.colours.black
                                                 , Border.shadow
                                                     { offset = ( 3, 3 )
                                                     , size = 0
                                                     , blur = 0
-                                                    , color = Theme.glow Theme.scheme1.highlight
+                                                    , color = Theme.glow Theme.scheme3.highlight
                                                     }
+                                                , inFront <|
+                                                    column
+                                                        [ moveRight 15
+                                                        , moveDown 6
+                                                        , Font.color Theme.colours.white
+                                                        ]
+                                                        [ html <|
+                                                            (FontAwesome.Solid.chevronUp
+                                                                |> FontAwesome.Icon.present
+                                                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                                |> FontAwesome.Icon.view
+                                                            )
+                                                        , html <|
+                                                            (FontAwesome.Solid.chevronDown
+                                                                |> FontAwesome.Icon.present
+                                                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                                                |> FontAwesome.Icon.view
+                                                            )
+                                                        ]
                                                 ]
-                                            , Border.solid
-                                            , Border.rounded 2
-                                            , Border.width 2
-                                            , Border.color Theme.colours.black
-                                            , Border.shadow
-                                                { offset = ( 3, 3 )
-                                                , size = 0
-                                                , blur = 0
-                                                , color = Theme.glow Theme.scheme1.highlight
-                                                }
-                                            , inFront <|
-                                                column
-                                                    [ moveRight 15
-                                                    , moveDown 6
-                                                    , Font.color Theme.colours.white
-                                                    ]
-                                                    [ html <|
-                                                        (FontAwesome.Solid.chevronUp
-                                                            |> FontAwesome.Icon.present
-                                                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                                            |> FontAwesome.Icon.view
-                                                        )
-                                                    , html <|
-                                                        (FontAwesome.Solid.chevronDown
-                                                            |> FontAwesome.Icon.present
-                                                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                                            |> FontAwesome.Icon.view
-                                                        )
-                                                    ]
-                                            ]
-                                    }
+                                        }
+                                ]
                             )
                         ]
 
@@ -792,7 +796,7 @@ pokerControlsUi isActive smallBlind actSelection self players =
 
                     _ ->
                         el (buttonHiddenAttrs <| not isActive) <|
-                            controlsButton Theme.scheme1 (InputActSelection <| ActBet currentSelectedBetAmount) <|
+                            controlsButton Theme.scheme3 (InputActSelection <| ActBet currentSelectedBetAmount) <|
                                 text <|
                                     if highestBet > 0 then
                                         "raise"
@@ -806,7 +810,7 @@ pokerControlsUi isActive smallBlind actSelection self players =
             case actSelection of
                 ActBet _ ->
                     el (buttonHiddenAttrs <| not isActive) <|
-                        controlsButton Theme.scheme1 (InputActSelection NoAct) <|
+                        controlsButton Theme.scheme3 (InputActSelection NoAct) <|
                             column
                                 [ width fill
                                 , spacing 5
