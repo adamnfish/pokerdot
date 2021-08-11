@@ -21,6 +21,7 @@ case class Game(
   trackStacks: Boolean,
   // autoAdvance: Boolean,
   timer: Option[TimerStatus],
+  victor: Option[PlayerId],
 )
 
 case class Player(

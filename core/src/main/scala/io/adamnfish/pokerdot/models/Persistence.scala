@@ -17,6 +17,7 @@ case class GameDb(
   startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus],
+  victor: Option[String],
 )
 
 case class PlayerDb(

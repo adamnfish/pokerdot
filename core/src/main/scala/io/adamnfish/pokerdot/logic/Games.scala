@@ -31,6 +31,7 @@ object Games {
       startTime = dates.now(),
       trackStacks = trackStacks,
       timer = None,
+      victor = None,
     )
   }
 

@@ -220,6 +220,7 @@ type alias Game =
     , startTime : Time.Posix
     , trackStacks : Bool
     , timer : Maybe TimerStatus
+    , victor : Maybe PlayerId
     }
 
 
@@ -483,7 +484,8 @@ gameDecoder =
         |> required "started" Json.Decode.bool
         |> required "startTime" posixDecoder
         |> required "trackStacks" Json.Decode.bool
-        |> required "timer" (Json.Decode.nullable timerStatusDecoder)
+        |> optional "timer" (Json.Decode.nullable timerStatusDecoder) Nothing
+        |> optional "victor" (Json.Decode.nullable playerIdDecoder) Nothing
 
 
 actionDecoder : Json.Decode.Decoder Action
@@ -556,7 +558,7 @@ playerDecoder =
         |> required "bet" Json.Decode.int
         |> required "folded" Json.Decode.bool
         |> required "busted" Json.Decode.bool
-        |> required "hole" (Json.Decode.nullable holeDecoder)
+        |> optional "hole" (Json.Decode.nullable holeDecoder) Nothing
 
 
 roundDecoder : Json.Decode.Decoder Round

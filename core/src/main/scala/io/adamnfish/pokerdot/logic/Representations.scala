@@ -21,7 +21,8 @@ object Representations {
       started = game.started,
       startTime = game.startTime,
       trackStacks = game.trackStacks,
-      timer = game.timer
+      timer = game.timer,
+      victor = game.victor.map(_.pid),
     )
   }
 
@@ -125,7 +126,8 @@ object Representations {
         startTime = gameDb.startTime,
         expiry = gameDb.expiry,
         trackStacks = gameDb.trackStacks,
-        timer = gameDb.timer
+        timer = gameDb.timer,
+        victor = gameDb.victor.map(PlayerId),
       )
     }
   }
@@ -257,6 +259,7 @@ object Representations {
       startTime = game.startTime,
       trackStacks = game.trackStacks,
       timer = game.timer,
+      victor = game.victor,
     )
   }
 

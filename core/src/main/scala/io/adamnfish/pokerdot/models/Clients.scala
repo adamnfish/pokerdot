@@ -15,6 +15,7 @@ case class GameSummary(
   startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus],
+  victor: Option[PlayerId],
 )
 
 case class PlayerSummary(
