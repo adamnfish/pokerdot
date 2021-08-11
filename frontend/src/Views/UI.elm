@@ -1398,7 +1398,7 @@ gameScreen model playingState currentAct self game welcome =
                 , Font.bold
                 ]
                 [ text game.gameName ]
-            , tableUi game.round game.players
+            , tableUi game.round game.button game.players
             , selfUi model.peeking self
             , case playingState of
                 Playing ->
@@ -1415,21 +1415,73 @@ gameScreen model playingState currentAct self game welcome =
                                 [ alignRight ]
                               <|
                                 controlsButton Theme.scheme1 AdvancePhase <|
-                                    column
-                                        [ width fill ]
-                                        [ el
-                                            [ width fill
-                                            , Font.center
-                                            ]
-                                          <|
-                                            text "next"
-                                        , el
-                                            [ width fill
-                                            , Font.center
-                                            ]
-                                          <|
-                                            text "round"
-                                        ]
+                                    case game.round of
+                                        PreFlopRound ->
+                                            column
+                                                [ width fill ]
+                                                [ el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "deal"
+                                                ]
+
+                                        FlopRound _ _ _ ->
+                                            column
+                                                [ width fill ]
+                                                [ el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "deal"
+                                                ]
+
+                                        TurnRound _ _ _ _ ->
+                                            column
+                                                [ width fill ]
+                                                [ el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "deal"
+                                                ]
+
+                                        RiverRound _ _ _ _ _ ->
+                                            column
+                                                [ width fill ]
+                                                [ el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "see"
+                                                , el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "results"
+                                                ]
+
+                                        ShowdownRound _ _ _ _ _ _ ->
+                                            column
+                                                [ width fill ]
+                                                [ el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "next"
+                                                , el
+                                                    [ width fill
+                                                    , Font.center
+                                                    ]
+                                                  <|
+                                                    text "round"
+                                                ]
                             , pokerControlsUi False game.smallBlind NoAct self game.players
                             ]
 
@@ -1454,7 +1506,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                 , Font.bold
                 ]
                 [ text game.gameName ]
-        , container model.viewport <| tableUi game.round game.players
+        , container model.viewport <| tableUi game.round game.button game.players
         , container model.viewport <| selfUi model.peeking self
         , column
             [ width fill
@@ -1768,7 +1820,7 @@ gameResultsScreen model self game welcome =
                     , Font.bold
                     ]
                     [ text game.gameName ]
-            , tableUi game.round game.players
+            , tableUi game.round game.button game.players
             , selfUi model.peeking self
             ]
 

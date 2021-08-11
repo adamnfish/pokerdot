@@ -15,6 +15,8 @@ colours =
         rgb255 255 255 255
     , black =
         rgb255 0 0 0
+    , night =
+        rgb255 44 45 49
     , primary =
         rgb255 253 235 23
     , highlightPrimary =

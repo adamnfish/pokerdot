@@ -11,6 +11,7 @@ import FontAwesome.Icon
 import FontAwesome.Regular
 import FontAwesome.Solid
 import Html.Attributes
+import List.Extra
 import Maybe.Extra
 import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
 import Random
@@ -244,8 +245,8 @@ connectionUi connected =
 -- TODO: also show pot winnings for player separately here for round results
 
 
-tableUi : Round -> List Player -> Element Msg
-tableUi round players =
+tableUi : Round -> Int -> List Player -> Element Msg
+tableUi round button players =
     let
         pot =
             List.sum <| List.map .pot players
@@ -253,33 +254,71 @@ tableUi round players =
         scheme =
             Theme.scheme1
 
+        dealer =
+            List.Extra.getAt button players
+
+        isDealer player =
+            Maybe.withDefault False <|
+                Maybe.map
+                    (\p ->
+                        p.playerId == player.playerId
+                    )
+                    dealer
+
         seat : Player -> Element Msg
         seat player =
             row
-                [ width fill
-                , spacing 8
-                , padding 8
-                , if player.busted || player.folded then
+                ([ width fill
+                 , spacing 8
+                 , padding 8
+                 , if player.busted || player.folded then
                     Background.color Theme.colours.disabled
 
-                  else
+                   else
                     Background.color scheme.main
-                ]
-                [ el
-                    (if player.busted || player.folded then
-                        [ width fill
-                        , Font.alignLeft
-                        , Font.strike
-                        , Font.color <| Theme.textColour Theme.colours.black
-                        , clip
-                        ]
+                 ]
+                    ++ (if isDealer player then
+                            [ inFront <|
+                                el
+                                    [ width <| px 18
+                                    , height <| px 18
+                                    , moveRight 3
+                                    , moveDown 9
+                                    , Background.color Theme.colours.night
+                                    , Border.rounded 9
+                                    , Font.size 12
+                                    , Font.color <| Theme.textColour Theme.colours.white
+                                    , Font.bold
+                                    ]
+                                <|
+                                    el [ centerX, centerY ] <|
+                                        text "d"
+                            ]
 
-                     else
-                        [ width fill
-                        , Font.alignLeft
-                        , Font.color <| Theme.textColour Theme.colours.black
-                        , clip
-                        ]
+                        else
+                            []
+                       )
+                )
+                [ el
+                    ([ width fill
+                     , Font.alignLeft
+                     , Font.color <| Theme.textColour Theme.colours.black
+                     , Font.size 18
+                     , clip
+                     , paddingEach
+                        { left = 15
+                        , top = 0
+                        , bottom = 0
+                        , right = 0
+                        }
+                     ]
+                        ++ (if player.busted || player.folded then
+                                [ Font.strike
+                                ]
+
+                            else
+                                []
+                           )
                     )
                   <|
                     text player.screenName
@@ -1400,20 +1439,22 @@ uiElements model seed act =
             <|
                 Random.initialSeed seed
 
-        ( { holes, players, round, inTurn }, seed3 ) =
+        ( { holes, players, round, inTurn, button }, seed3 ) =
             Random.step
-                (Random.map4
-                    (\h ps r b ->
+                (Random.map5
+                    (\h ps r b btn ->
                         { holes = h
                         , players = ps
                         , round = r
                         , inTurn = b
+                        , button = btn
                         }
                     )
                     holesGen
                     (Random.list 5 playerGen)
                     roundGen
                     Random.Extra.bool
+                    (Random.int 0 5)
                 )
                 seed2
 
@@ -1523,6 +1564,7 @@ uiElements model seed act =
                 ]
         , container model.viewport <|
             tableUi round
+                button
                 [ getPlayer 0
                 , getPlayer 1
                 , getPlayer 2
