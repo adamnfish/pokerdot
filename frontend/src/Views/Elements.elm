@@ -264,6 +264,7 @@ tableUi round button active players =
                         p.playerId == player.playerId
                     )
                     dealer
+
         isActive player =
             Maybe.withDefault False <|
                 Maybe.map
@@ -280,8 +281,10 @@ tableUi round button active players =
                  , padding 8
                  , if player.busted || player.folded then
                     Background.color Theme.colours.disabled
+
                    else if isActive player then
                     Background.color Theme.colours.highlightSecondary
+
                    else
                     Background.color scheme.main
                  ]
@@ -435,7 +438,7 @@ selfUi isPeeking self =
     if self.busted then
         row
             [ width fill ]
-            [ text self.screenName ]
+            [ helpText [ "you are busted" ] ]
 
     else
         row
@@ -1571,7 +1574,9 @@ uiElements model seed act =
                     }
                 ]
         , container model.viewport <|
-            tableUi round button (Just (getPlayer 0).playerId)
+            tableUi round
+                button
+                (Just (getPlayer 0).playerId)
                 [ getPlayer 0
                 , getPlayer 1
                 , getPlayer 2
