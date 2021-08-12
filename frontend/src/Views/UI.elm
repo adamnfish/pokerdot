@@ -1398,7 +1398,7 @@ gameScreen model playingState currentAct self game welcome =
                 , Font.bold
                 ]
                 [ text game.gameName ]
-            , tableUi game.round game.button game.players
+            , tableUi game.round game.button game.inTurn game.players
             , selfUi model.peeking self
             , case playingState of
                 Playing ->
@@ -1506,7 +1506,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                 , Font.bold
                 ]
                 [ text game.gameName ]
-        , container model.viewport <| tableUi game.round game.button game.players
+        , container model.viewport <| tableUi game.round game.button game.inTurn game.players
         , container model.viewport <| selfUi model.peeking self
         , column
             [ width fill
@@ -1820,7 +1820,7 @@ gameResultsScreen model self game welcome =
                     , Font.bold
                     ]
                     [ text game.gameName ]
-            , tableUi game.round game.button game.players
+            , tableUi game.round game.button game.inTurn game.players
             , selfUi model.peeking self
             ]
 

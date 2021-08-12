@@ -245,8 +245,8 @@ connectionUi connected =
 -- TODO: also show pot winnings for player separately here for round results
 
 
-tableUi : Round -> Int -> List Player -> Element Msg
-tableUi round button players =
+tableUi : Round -> Int -> Maybe PlayerId -> List Player -> Element Msg
+tableUi round button active players =
     let
         pot =
             List.sum <| List.map .pot players
@@ -264,6 +264,13 @@ tableUi round button players =
                         p.playerId == player.playerId
                     )
                     dealer
+        isActive player =
+            Maybe.withDefault False <|
+                Maybe.map
+                    (\pid ->
+                        pid == player.playerId
+                    )
+                    active
 
         seat : Player -> Element Msg
         seat player =
@@ -273,7 +280,8 @@ tableUi round button players =
                  , padding 8
                  , if player.busted || player.folded then
                     Background.color Theme.colours.disabled
-
+                   else if isActive player then
+                    Background.color Theme.colours.highlightSecondary
                    else
                     Background.color scheme.main
                  ]
@@ -1563,8 +1571,7 @@ uiElements model seed act =
                     }
                 ]
         , container model.viewport <|
-            tableUi round
-                button
+            tableUi round button (Just (getPlayer 0).playerId)
                 [ getPlayer 0
                 , getPlayer 1
                 , getPlayer 2
