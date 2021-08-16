@@ -11,6 +11,7 @@ import FontAwesome.Attributes
 import FontAwesome.Icon
 import FontAwesome.Solid
 import FontAwesome.Styles
+import Html.Attributes
 import List.Extra
 import Messages exposing (lookupPlayer)
 import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
@@ -163,8 +164,9 @@ view model =
                 , Font.sansSerif
                 ]
             , Background.color <|
-                Maybe.withDefault Theme.colours.white <|
+                Maybe.withDefault Theme.colours.primary <|
                     Maybe.map .main page.scheme
+            , htmlAttribute <| Html.Attributes.style "transition" "background .2s ease-in"
             , inFront <|
                 let
                     errorsEl =
@@ -391,7 +393,42 @@ view model =
                                 overlayTemplate <| text "timer updated"
 
                             EditBlindAction ->
-                                overlayTemplate <| text "blind updated"
+                                let
+                                    newBlindAmount =
+                                        case model.ui of
+                                            LobbyScreen _ _ _ game _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            GameScreen _ _ game _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            RoundResultScreen _ _ _ game _ _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            GameResultScreen _ game _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            CommunityCardsScreen game _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            TimerScreen _ game _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            ChipSummaryScreen game _ ->
+                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
+
+                                            _ ->
+                                                ""
+                                in
+                                overlayTemplate <|
+                                    paragraph
+                                        []
+                                        [ text "blinds updated "
+                                        , el
+                                            [ Font.color <| Theme.textColour Theme.colours.primary ]
+                                          <|
+                                            text newBlindAmount
+                                        ]
 
                             NoAction ->
                                 errorsEl
@@ -531,7 +568,6 @@ welcomeHeader connected =
             [ width fill
             , spacing 25
             , paddingXY 0 25
-            , Background.color scheme.main
             , Border.color <| Theme.colours.highlightPrimary
             , Border.widthEach
                 { bottom = 2
@@ -583,7 +619,6 @@ welcomeScreen model =
         , centerX
         , spacing 48
         , paddingXY 0 50
-        , Background.color scheme.main
         ]
         [ row
             [ centerX
@@ -1680,33 +1715,37 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                                 ManualBlinds currentSmallBlind ->
                                     let
                                         recommended =
-                                            [ el
-                                                [ alignLeft
-                                                ]
-                                              <|
-                                                controlsButton Theme.scheme1
-                                                    (UpdateBlind <| ManualBlinds (game.smallBlind * 2))
-                                                <|
-                                                    column
-                                                        [ width fill
-                                                        , spacing 5
-                                                        ]
-                                                        [ el
-                                                            [ centerX ]
-                                                          <|
-                                                            text "save"
-                                                        , row
-                                                            [ centerX
-                                                            , Font.size 18
-                                                            ]
-                                                            [ text <| String.fromInt (game.smallBlind * 2)
-                                                            , text " / "
-                                                            , text <| String.fromInt (game.smallBlind * 4)
-                                                            ]
-                                                        ]
+                                            if currentSmallBlind == game.smallBlind * 2 then
+                                                [ Element.none ]
 
-                                            -- TODO: add a conditional second recommendation that rounds the blinds
-                                            ]
+                                            else
+                                                [ el
+                                                    [ alignLeft
+                                                    ]
+                                                  <|
+                                                    controlsButton Theme.scheme1
+                                                        (UpdateBlind <| ManualBlinds (game.smallBlind * 2))
+                                                    <|
+                                                        column
+                                                            [ width fill
+                                                            , spacing 5
+                                                            ]
+                                                            [ el
+                                                                [ centerX ]
+                                                              <|
+                                                                text "update"
+                                                            , row
+                                                                [ centerX
+                                                                , Font.size 18
+                                                                ]
+                                                                [ text <| String.fromInt (game.smallBlind * 2)
+                                                                , text " / "
+                                                                , text <| String.fromInt (game.smallBlind * 4)
+                                                                ]
+                                                            ]
+
+                                                -- TODO: add a conditional second recommendation that rounds the blinds
+                                                ]
                                     in
                                     column
                                         [ width fill
@@ -1778,7 +1817,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                                                                 [ el
                                                                     [ centerX ]
                                                                   <|
-                                                                    text "save"
+                                                                    text "update"
                                                                 , row
                                                                     [ centerX
                                                                     , Font.size 18
