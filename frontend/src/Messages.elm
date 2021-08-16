@@ -199,6 +199,7 @@ update msg model =
                                             | ui = GameScreen NoAct self game welcome
                                             , events = addAction model action
                                             , loadingStatus = NotLoading
+                                            , peeking = False
                                           }
                                         , Cmd.none
                                         )
@@ -241,18 +242,26 @@ update msg model =
                             ( { modelWithEvent
                                 | ui = ui
                                 , loadingStatus = NotLoading
+                                , peeking = False
                               }
                             , Cmd.none
                             )
 
                         GameScreen actSelection oldSelf oldGame welcome ->
                             let
-                                -- Ignore message if it isn't for the current game
                                 updatedModel =
+                                    -- Ignore message if it isn't for the current game
                                     if oldGame.gameId == game.gameId then
                                         { model
                                             | ui = GameScreen actSelection self game welcome
                                             , loadingStatus = NotLoading
+                                            , peeking =
+                                                -- new hole is dealt face-down
+                                                if self.hole /= oldSelf.hole then
+                                                    False
+
+                                                else
+                                                    True
                                         }
 
                                     else
@@ -262,34 +271,46 @@ update msg model =
                             , Cmd.none
                             )
 
-                        RoundResultScreen potResults playerWinnings _ _ welcome blindsSettings ->
+                        RoundResultScreen potResults playerWinnings oldSelf _ welcome blindsSettings ->
                             let
-                                newUi =
+                                updatedModel =
                                     case game.inTurn of
+                                        -- new round
                                         Just _ ->
-                                            GameScreen NoAct self game welcome
+                                            { model
+                                                | ui = GameScreen NoAct self game welcome
+                                                , loadingStatus = NotLoading
+                                                , peeking =
+                                                    -- new hole is dealt face-down
+                                                    if self.hole /= oldSelf.hole then
+                                                        False
+
+                                                    else
+                                                        True
+                                            }
 
                                         -- stay on results if a status message happens to come in while the round results are being displayed
                                         Nothing ->
                                             -- if we've successfully updated the blinds, then we can close the blinds editor
-                                            case action of
-                                                TimerStatusAction _ ->
-                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+                                            let
+                                                newUi =
+                                                    case action of
+                                                        TimerStatusAction _ ->
+                                                            RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
 
-                                                EditTimerAction ->
-                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+                                                        EditTimerAction ->
+                                                            RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
 
-                                                EditBlindAction ->
-                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+                                                        EditBlindAction ->
+                                                            RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
 
-                                                _ ->
-                                                    RoundResultScreen potResults playerWinnings self game welcome blindsSettings
-
-                                updatedModel =
-                                    { model
-                                        | ui = newUi
-                                        , loadingStatus = NotLoading
-                                    }
+                                                        _ ->
+                                                            RoundResultScreen potResults playerWinnings self game welcome blindsSettings
+                                            in
+                                            { model
+                                                | ui = newUi
+                                                , loadingStatus = NotLoading
+                                            }
                             in
                             ( registerEvent updatedModel action
                             , Cmd.none
@@ -299,6 +320,7 @@ update msg model =
                             let
                                 newUi =
                                     case game.inTurn of
+                                        -- this shouldn't happen, because the game is finished!
                                         Just _ ->
                                             GameScreen NoAct self game welcome
 
