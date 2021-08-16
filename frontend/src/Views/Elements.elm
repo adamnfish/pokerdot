@@ -13,7 +13,7 @@ import FontAwesome.Solid
 import Html.Attributes
 import List.Extra
 import Maybe.Extra
-import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), Rank(..), Round(..), Self)
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self)
 import Random
 import Random.Extra
 import Svg
@@ -245,8 +245,8 @@ connectionUi connected =
 -- TODO: also show pot winnings for player separately here for round results
 
 
-tableUi : Round -> Int -> Maybe PlayerId -> List Player -> Element Msg
-tableUi round button active players =
+tableUi : Round -> Int -> Maybe (List PlayerWinnings) -> Maybe PlayerId -> List Player -> Element Msg
+tableUi round button maybeWinnings active players =
     let
         pot =
             List.sum <| List.map .pot players
@@ -275,6 +275,18 @@ tableUi round button active players =
 
         seat : Player -> Element Msg
         seat player =
+            let
+                winnings =
+                    Maybe.withDefault 0 <|
+                        Maybe.map
+                            (\pw ->
+                                pw.winnings
+                            )
+                        <|
+                            Maybe.andThen
+                                (List.Extra.find (\pw -> pw.playerId == player.playerId))
+                                maybeWinnings
+            in
             row
                 ([ width fill
                  , spacing 8
@@ -349,7 +361,7 @@ tableUi round button active players =
                         ]
                     <|
                         text <|
-                            String.fromInt player.stack
+                            String.fromInt (player.stack - winnings)
                 , row
                     [ width <| px 60
                     , Font.color <| Theme.textColour Theme.colours.black
@@ -363,12 +375,23 @@ tableUi round button active players =
                                 |> FontAwesome.Icon.view
                             )
 
+                      else if winnings > 0 then
+                        html <|
+                            (FontAwesome.Solid.caretLeft
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
+                                |> FontAwesome.Icon.view
+                            )
+
                       else
                         Element.none
                     , text " "
                     , if player.bet > 0 then
-                        text <|
-                            String.fromInt player.bet
+                        text <| String.fromInt player.bet
+
+                      else if winnings > 0 then
+                        text <| String.fromInt winnings
 
                       else
                         Element.none
@@ -1593,6 +1616,7 @@ uiElements model seed act =
         , container model.viewport <|
             tableUi round
                 button
+                Nothing
                 (Just (getPlayer 0).playerId)
                 [ getPlayer 0
                 , getPlayer 1
