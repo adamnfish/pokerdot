@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
   <rect width="100%" height="100%" fill="#fdeb17" />
-  <path style="opacity:0.8;fill:#0097bd"
+  <path style="fill:#0097bd"
         d="M 350 75 A 275 275 0 0 0 75 350 L 75 800 L 175 800 L 175 561.97461 A 275 275 0 0 0 350 625 A 275 275 0 0 0 625 350 A 275 275 0 0 0 350 75 z "
   />
   <path style="opacity:0.8;fill:#5e01bc"
