@@ -599,7 +599,7 @@ roundDecoder =
                 |> required "flop3" cardDecoder
                 |> required "turn" cardDecoder
                 |> required "river" cardDecoder
-                |> required "hands" (Json.Decode.list playerHoleDecoder)
+                |> required "holes" (Json.Decode.list playerHoleDecoder)
     in
     Json.Decode.oneOf
         [ showdownDecoder

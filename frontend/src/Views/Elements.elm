@@ -273,6 +273,10 @@ tableUi round button maybeWinnings active players =
                     )
                     active
 
+        totalFunds =
+            List.sum <|
+                List.map .stack players
+
         seat : Player -> Element Msg
         seat player =
             let
@@ -286,114 +290,161 @@ tableUi round button maybeWinnings active players =
                             Maybe.andThen
                                 (List.Extra.find (\pw -> pw.playerId == player.playerId))
                                 maybeWinnings
+
+                -- less than half their share of the available funds
+                isPoor =
+                    player.stack < (totalFunds // (List.length players * 2))
+
+                isBusted =
+                    case round of
+                        PreFlopRound ->
+                            player.busted
+
+                        FlopRound _ _ _ ->
+                            player.busted
+
+                        TurnRound _ _ _ _ ->
+                            player.busted
+
+                        RiverRound _ _ _ _ _ ->
+                            player.busted
+
+                        ShowdownRound _ _ _ _ _ _ ->
+                            player.busted || player.stack == 0
             in
-            row
-                ([ width fill
-                 , spacing 8
-                 , padding 8
-                 , if player.busted || player.folded then
-                    Background.color Theme.colours.disabled
-
-                   else if isActive player then
-                    Background.color Theme.colours.highlightSecondary
-
-                   else
-                    Background.color scheme.main
-                 ]
-                    ++ (if isDealer player then
-                            [ inFront <|
-                                el
-                                    [ width <| px 18
-                                    , height <| px 18
-                                    , moveRight 3
-                                    , moveDown 9
-                                    , Background.color Theme.colours.night
-                                    , Border.rounded 9
-                                    , Font.size 12
-                                    , Font.color <| Theme.textColour Theme.colours.white
-                                    , Font.bold
-                                    ]
-                                <|
-                                    el [ centerX, centerY ] <|
-                                        text "d"
-                            ]
-
-                        else
-                            []
-                       )
-                )
-                [ el
+            column
+                [ width fill
+                , spacing 0
+                ]
+                [ row
                     ([ width fill
-                     , Font.alignLeft
-                     , Font.color <| Theme.textColour Theme.colours.black
-                     , Font.size 18
-                     , clip
-                     , paddingEach
-                        { left = 15
-                        , top = 0
-                        , bottom = 0
-                        , right = 0
-                        }
+                     , spacing 8
+                     , padding 8
+                     , if isBusted || player.folded then
+                        Background.color Theme.colours.disabled
+
+                       else if isActive player then
+                        Background.color Theme.colours.highlightSecondary
+
+                       else
+                        Background.color scheme.main
                      ]
-                        ++ (if player.busted || player.folded then
-                                [ Font.strike
+                        ++ (if isDealer player then
+                                [ inFront <|
+                                    el
+                                        [ width <| px 18
+                                        , height <| px 18
+                                        , moveRight 3
+                                        , moveDown 9
+                                        , Background.color Theme.colours.night
+                                        , Border.rounded 9
+                                        , Font.size 12
+                                        , Font.color <| Theme.textColour Theme.colours.white
+                                        , Font.bold
+                                        ]
+                                    <|
+                                        el [ centerX, centerY ] <|
+                                            text "d"
                                 ]
 
                             else
                                 []
                            )
                     )
-                  <|
-                    text player.screenName
-                , if player.busted then
-                    el
-                        [ Font.alignRight
-                        , Font.color <| Theme.glow <| Theme.textColour Theme.colours.black
-                        ]
-                    <|
-                        text "busted"
+                    [ el
+                        ([ width fill
+                         , Font.alignLeft
+                         , Font.color <| Theme.textColour Theme.colours.black
+                         , Font.size 18
+                         , clip
+                         , paddingEach
+                            { left = 15
+                            , top = 0
+                            , bottom = 0
+                            , right = 0
+                            }
+                         ]
+                            ++ (if isBusted || player.folded then
+                                    [ Font.strike
+                                    ]
 
-                  else
-                    el
-                        [ width <| px 50
-                        , Font.alignRight
+                                else
+                                    []
+                               )
+                        )
+                      <|
+                        text player.screenName
+                    , if isBusted then
+                        el
+                            [ Font.alignRight
+                            , Font.color <| Theme.glow <| Theme.textColour Theme.colours.black
+                            ]
+                        <|
+                            text "busted"
+
+                      else
+                        el
+                            [ width <| px 50
+                            , Font.alignRight
+                            , Font.color <| Theme.textColour Theme.colours.black
+                            ]
+                        <|
+                            text <|
+                                String.fromInt (player.stack - winnings)
+                    , row
+                        [ width <| px 60
                         , Font.color <| Theme.textColour Theme.colours.black
                         ]
-                    <|
-                        text <|
-                            String.fromInt (player.stack - winnings)
-                , row
-                    [ width <| px 60
-                    , Font.color <| Theme.textColour Theme.colours.black
+                        [ if player.bet > 0 then
+                            html <|
+                                (FontAwesome.Solid.caretRight
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                    |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
+                                    |> FontAwesome.Icon.view
+                                )
+
+                          else if winnings > 0 then
+                            html <|
+                                (FontAwesome.Solid.caretLeft
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                    |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
+                                    |> FontAwesome.Icon.view
+                                )
+
+                          else
+                            Element.none
+                        , text " "
+                        , if player.bet > 0 then
+                            text <| String.fromInt player.bet
+
+                          else if winnings > 0 then
+                            text <| String.fromInt winnings
+
+                          else
+                            Element.none
+                        ]
                     ]
-                    [ if player.bet > 0 then
-                        html <|
-                            (FontAwesome.Solid.caretRight
-                                |> FontAwesome.Icon.present
-                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
-                                |> FontAwesome.Icon.view
-                            )
+                , row
+                    [ width fill
+                    , padding 0
+                    ]
+                    [ el
+                        [ width <| fillPortion player.stack
+                        , height <| px 2
+                        , Background.color <|
+                            if isPoor then
+                                Theme.colours.error
 
-                      else if winnings > 0 then
-                        html <|
-                            (FontAwesome.Solid.caretLeft
-                                |> FontAwesome.Icon.present
-                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                |> FontAwesome.Icon.withId ("table-ui-bet-display_pokerdot_" ++ player.screenName)
-                                |> FontAwesome.Icon.view
-                            )
-
-                      else
+                            else
+                                Theme.colours.icon
+                        , htmlAttribute <| Html.Attributes.style "transition" "flex-grow 0.5s ease-out"
+                        ]
                         Element.none
-                    , text " "
-                    , if player.bet > 0 then
-                        text <| String.fromInt player.bet
-
-                      else if winnings > 0 then
-                        text <| String.fromInt winnings
-
-                      else
+                    , el
+                        [ width <| fillPortion (totalFunds - player.stack)
+                        ]
                         Element.none
                     ]
                 ]
@@ -401,12 +452,12 @@ tableUi round button maybeWinnings active players =
     column
         [ width fill
         , padding 8
-        , spacing 8
+        , spacing 6
         , Background.color Theme.colours.lowlight
         ]
         [ column
             [ width fill
-            , spacing 2
+            , spacing 4
             ]
           <|
             List.map seat players

@@ -870,7 +870,11 @@ joinGameScreen model isExternal gameCode screenName =
                         ]
             , helpText
                 [ "join an existing game. "
-                , "the game's creator can tell you the game code"
+                , if isExternal then
+                    ""
+
+                  else
+                    "the game's creator can tell you the game code"
                 ]
             ]
 
