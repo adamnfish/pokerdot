@@ -454,7 +454,9 @@ selfUi isPeeking self =
                         ]
                     <|
                         if isPeeking then
-                            [ cardUi 0 LargeCard card1, cardUi 0 LargeCard card2 ]
+                            [ cardUi 0 False LargeCard card1
+                            , cardUi 0 False LargeCard card2
+                            ]
 
                         else
                             [ hiddenCardUi, hiddenCardUi ]
@@ -932,8 +934,8 @@ hiddenCardUi =
                 ]
 
 
-cardUi : Int -> CardSize -> Card -> Element Msg
-cardUi offsetIndex cardSize card =
+cardUi : Int -> Bool -> CardSize -> Card -> Element Msg
+cardUi offsetIndex highlight cardSize card =
     let
         rank =
             case card.rank of
@@ -1014,11 +1016,11 @@ cardUi offsetIndex cardSize card =
                     ( 88, 25, 20 )
     in
     Element.el
-        [ height <| px radius
-        , width <| px radius
-        , Border.rounded (radius // 2)
-        , Background.color bgColour
-        , Border.width <|
+        ([ height <| px radius
+         , width <| px radius
+         , Border.rounded (radius // 2)
+         , Background.color bgColour
+         , Border.width <|
             case cardSize of
                 SmallCard ->
                     1
@@ -1028,14 +1030,28 @@ cardUi offsetIndex cardSize card =
 
                 LargeCard ->
                     1
-        , Border.color textColour
-        , clip
-        , Font.size fontSize
-        , Font.color textColour
-        , moveLeft <| toFloat offsetIndex * offset
+         , Border.color textColour
+         , clip
+         , Font.size fontSize
+         , Font.color textColour
+         , moveLeft <| toFloat offsetIndex * offset
 
-        --, Background.color <| rgb255 200 200 200
-        ]
+         --, Background.color <| rgb255 200 200 200
+         ]
+            ++ (if highlight then
+                    [ moveUp 4
+                    , Border.shadow
+                        { offset = ( 0, 4 )
+                        , size = 0
+                        , blur = 0
+                        , color = Theme.glow Theme.colours.lowlight
+                        }
+                    ]
+
+                else
+                    []
+               )
+        )
     <|
         row
             [ centerX
@@ -1050,85 +1066,93 @@ handUi viewport name winnings maybeHole hand =
         cardSpacing =
             1
 
+        isHoleCard card =
+            Maybe.withDefault False <|
+                Maybe.map
+                    (\( c1, c2 ) ->
+                        card == c1 || card == c2
+                    )
+                    maybeHole
+
         ( label, cardEls ) =
             case hand of
                 HighCard c1 c2 c3 c4 c5 ->
                     ( "HIGH CARD"
-                    , [ cardUi 0 NormalCard c1
-                      , cardUi 0 NormalCard c2
-                      , cardUi 0 NormalCard c3
-                      , cardUi 0 NormalCard c4
-                      , cardUi 0 NormalCard c5
+                    , [ cardUi 0 (isHoleCard c1) NormalCard c1
+                      , cardUi 0 (isHoleCard c2) NormalCard c2
+                      , cardUi 0 (isHoleCard c3) NormalCard c3
+                      , cardUi 0 (isHoleCard c4) NormalCard c4
+                      , cardUi 0 (isHoleCard c5) NormalCard c5
                       ]
                     )
 
                 Pair p1 p2 k1 k2 k3 ->
                     ( "PAIR"
-                    , [ cardUi 0 NormalCard p1
-                      , cardUi 1 NormalCard p2
-                      , cardUi 0 NormalCard k1
-                      , cardUi 0 NormalCard k2
-                      , cardUi 0 NormalCard k3
+                    , [ cardUi 0 (isHoleCard p1) NormalCard p1
+                      , cardUi 1 (isHoleCard p2) NormalCard p2
+                      , cardUi 0 (isHoleCard k1) NormalCard k1
+                      , cardUi 0 (isHoleCard k2) NormalCard k2
+                      , cardUi 0 (isHoleCard k3) NormalCard k3
                       ]
                     )
 
                 TwoPair p11 p12 p21 p22 k ->
                     ( "TWO PAIR"
-                    , [ cardUi 0 NormalCard p11
-                      , cardUi 1 NormalCard p12
-                      , cardUi 0 NormalCard p21
-                      , cardUi 1 NormalCard p22
-                      , cardUi 0 NormalCard k
+                    , [ cardUi 0 (isHoleCard p11) NormalCard p11
+                      , cardUi 1 (isHoleCard p12) NormalCard p12
+                      , cardUi 0 (isHoleCard p21) NormalCard p21
+                      , cardUi 1 (isHoleCard p22) NormalCard p22
+                      , cardUi 0 (isHoleCard k) NormalCard k
                       ]
                     )
 
                 ThreeOfAKind t1 t2 t3 k1 k2 ->
                     ( "THREE OF A KIND"
-                    , [ cardUi 0 NormalCard t1
-                      , cardUi 1 NormalCard t2
-                      , cardUi 2 NormalCard t3
-                      , cardUi 0 NormalCard k1
-                      , cardUi 0 NormalCard k2
+                    , [ cardUi 0 (isHoleCard t1) NormalCard t1
+                      , cardUi 1 (isHoleCard t2) NormalCard t2
+                      , cardUi 2 (isHoleCard t3) NormalCard t3
+                      , cardUi 0 (isHoleCard k1) NormalCard k1
+                      , cardUi 0 (isHoleCard k2) NormalCard k2
                       ]
                     )
 
                 Straight c1 c2 c3 c4 c5 ->
                     ( "STRAIGHT"
-                    , [ cardUi 0 NormalCard c1
-                      , cardUi 1 NormalCard c2
-                      , cardUi 2 NormalCard c3
-                      , cardUi 3 NormalCard c4
-                      , cardUi 4 NormalCard c5
+                    , [ cardUi 0 (isHoleCard c1) NormalCard c1
+                      , cardUi 1 (isHoleCard c2) NormalCard c2
+                      , cardUi 2 (isHoleCard c3) NormalCard c3
+                      , cardUi 3 (isHoleCard c4) NormalCard c4
+                      , cardUi 4 (isHoleCard c5) NormalCard c5
                       ]
                     )
 
                 Flush c1 c2 c3 c4 c5 ->
                     ( "FLUSH"
-                    , [ cardUi 0 NormalCard c1
-                      , cardUi 1 NormalCard c2
-                      , cardUi 2 NormalCard c3
-                      , cardUi 3 NormalCard c4
-                      , cardUi 4 NormalCard c5
+                    , [ cardUi 0 (isHoleCard c1) NormalCard c1
+                      , cardUi 1 (isHoleCard c2) NormalCard c2
+                      , cardUi 2 (isHoleCard c3) NormalCard c3
+                      , cardUi 3 (isHoleCard c4) NormalCard c4
+                      , cardUi 4 (isHoleCard c5) NormalCard c5
                       ]
                     )
 
                 FullHouse t1 t2 t3 p1 p2 ->
                     ( "FULL HOUSE"
-                    , [ cardUi 0 NormalCard t1
-                      , cardUi 1 NormalCard t2
-                      , cardUi 2 NormalCard t3
-                      , cardUi 0 NormalCard p1
-                      , cardUi 1 NormalCard p2
+                    , [ cardUi 0 (isHoleCard t1) NormalCard t1
+                      , cardUi 1 (isHoleCard t2) NormalCard t2
+                      , cardUi 2 (isHoleCard t3) NormalCard t3
+                      , cardUi 0 (isHoleCard p1) NormalCard p1
+                      , cardUi 1 (isHoleCard p2) NormalCard p2
                       ]
                     )
 
                 FourOfAKind q1 q2 q3 q4 k ->
                     ( "FOUR OF A KIND"
-                    , [ cardUi 0 NormalCard q1
-                      , cardUi 1 NormalCard q2
-                      , cardUi 2 NormalCard q3
-                      , cardUi 3 NormalCard q4
-                      , cardUi 0 NormalCard k
+                    , [ cardUi 0 (isHoleCard q1) NormalCard q1
+                      , cardUi 1 (isHoleCard q2) NormalCard q2
+                      , cardUi 2 (isHoleCard q3) NormalCard q3
+                      , cardUi 3 (isHoleCard q4) NormalCard q4
+                      , cardUi 0 (isHoleCard k) NormalCard k
                       ]
                     )
 
@@ -1138,20 +1162,13 @@ handUi viewport name winnings maybeHole hand =
 
                       else
                         "STRAIGHT FLUSH"
-                    , [ cardUi 0 NormalCard c1
-                      , cardUi 1 NormalCard c2
-                      , cardUi 2 NormalCard c3
-                      , cardUi 3 NormalCard c4
-                      , cardUi 4 NormalCard c5
+                    , [ cardUi 0 (isHoleCard c1) NormalCard c1
+                      , cardUi 1 (isHoleCard c2) NormalCard c2
+                      , cardUi 2 (isHoleCard c3) NormalCard c3
+                      , cardUi 3 (isHoleCard c4) NormalCard c4
+                      , cardUi 4 (isHoleCard c5) NormalCard c5
                       ]
                     )
-
-        winningsIcon =
-            if winnings > 0 then
-                FontAwesome.Solid.sortUp
-
-            else
-                FontAwesome.Solid.sortDown
 
         scheme =
             Theme.scheme3
@@ -1175,8 +1192,8 @@ handUi viewport name winnings maybeHole hand =
                         Just ( card1, card2 ) ->
                             row
                                 []
-                                [ cardUi 0 SmallCard card1
-                                , cardUi 1 SmallCard card2
+                                [ cardUi 0 False SmallCard card1
+                                , cardUi 1 False SmallCard card2
                                 ]
 
                         Nothing ->
@@ -1294,32 +1311,32 @@ communityCardsUi round =
                 []
 
             FlopRound flop1 flop2 flop3 ->
-                [ cardUi 0 NormalCard flop1
-                , cardUi 1 NormalCard flop2
-                , cardUi 2 NormalCard flop3
+                [ cardUi 0 False NormalCard flop1
+                , cardUi 1 False NormalCard flop2
+                , cardUi 2 False NormalCard flop3
                 ]
 
             TurnRound flop1 flop2 flop3 turn ->
-                [ cardUi 0 NormalCard flop1
-                , cardUi 1 NormalCard flop2
-                , cardUi 2 NormalCard flop3
-                , cardUi 3 NormalCard turn
+                [ cardUi 0 False NormalCard flop1
+                , cardUi 1 False NormalCard flop2
+                , cardUi 2 False NormalCard flop3
+                , cardUi 3 False NormalCard turn
                 ]
 
             RiverRound flop1 flop2 flop3 turn river ->
-                [ cardUi 0 NormalCard flop1
-                , cardUi 1 NormalCard flop2
-                , cardUi 2 NormalCard flop3
-                , cardUi 3 NormalCard turn
-                , cardUi 4 NormalCard river
+                [ cardUi 0 False NormalCard flop1
+                , cardUi 1 False NormalCard flop2
+                , cardUi 2 False NormalCard flop3
+                , cardUi 3 False NormalCard turn
+                , cardUi 4 False NormalCard river
                 ]
 
             ShowdownRound flop1 flop2 flop3 turn river _ ->
-                [ cardUi 0 NormalCard flop1
-                , cardUi 1 NormalCard flop2
-                , cardUi 2 NormalCard flop3
-                , cardUi 3 NormalCard turn
-                , cardUi 4 NormalCard river
+                [ cardUi 0 False NormalCard flop1
+                , cardUi 1 False NormalCard flop2
+                , cardUi 2 False NormalCard flop3
+                , cardUi 3 False NormalCard turn
+                , cardUi 4 False NormalCard river
                 ]
 
 
