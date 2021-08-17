@@ -228,6 +228,8 @@ Resources:
         CustomErrorResponses:
           - ErrorCachingMinTTL: 5
             ErrorCode: 404
+            ResponsePagePath: /404.html
+            ResponseCode: 404
         PriceClass: PriceClass_100
         Enabled: true
         ViewerCertificate:

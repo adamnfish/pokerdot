@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
+    <title>pokerdot</title>
+
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+    <meta name="apple-mobile-web-app-title" content="pokerdot">
+    <meta name="application-name" content="pokerdot">
+    <meta name="msapplication-TileColor" content="#ffc40d">
+    <meta name="theme-color" content="#fdeb17">
+
+    <meta property="og:title" content="pokerdot" />
+    <meta property="og:description" content="free online poker" />
+    <meta property="og:img" content="https://pokerdot.adamnfish.io/logo.png" />
+
+    <style>
+        html {
+            background-color: rgb(253, 235, 23);
+            font-family: Nunito;
+        }
+        #error-container {
+            margin: auto;
+            max-width: 500px;
+            margin-top: 80px;
+            text-align: center;
+        }
+
+        #four-oh-four {
+            margin: 60px 0 10px 0;
+            font-size: 20pt;
+            opacity: 0.3;
+        }
+
+        #error-container h2 {
+            margin-top: 0px;
+            text-align: center;
+            font-size: 30pt;
+        }
+
+        #error-container svg {
+            transform: rotate(20deg);
+        }
+
+        .button {
+            padding: 8px 12px;
+            background-color: rgb(0, 151, 189);
+            font-size: 25px;
+            text-decoration: none;
+            color: rgba(255, 255, 255);
+            border: solid 2px #000;
+            border-radius: 2px;
+            box-shadow: 5px 5px 0px 0px rgba(102,193,215,1);
+        }
+        .button:focus {
+            background-color: rgb(0, 106, 132);
+            border-color: white;
+            box-shadow: 5px 5px 0px 0px rgba(0, 165, 181, 1);
+        }
+    </style>
+</head>
+<body>
+    <div id="error-container">
+        <div id="error-hero">
+            <a href="/">
+                <svg width="100" height="100" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100%" height="100%" fill="#fdeb17" />
+                    <path style="fill:#0097bd"
+                          d="M 350 75 A 275 275 0 0 0 75 350 L 75 800 L 175 800 L 175 561.97461 A 275 275 0 0 0 350 625 A 275 275 0 0 0 625 350 A 275 275 0 0 0 350 75 z "
+                    />
+                    <path style="opacity:0.8;fill:#5e01bc"
+                          d="M 625 0 L 625 238.02539 A 275 275 0 0 0 450 175 A 275 275 0 0 0 175 450 A 275 275 0 0 0 450 725 A 275 275 0 0 0 725 450 L 725 0 L 625 0 z "
+                    />
+                </svg>
+            </a>
+        </div>
+        <p id="four-oh-four">404</p>
+        <h2>not found</h2>
+        <a href="/" class="button">
+            home
+        </a>
+    </div>
+</body>
+</html>
