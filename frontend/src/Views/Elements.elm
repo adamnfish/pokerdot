@@ -12,6 +12,7 @@ import FontAwesome.Regular
 import FontAwesome.Solid
 import Html.Attributes
 import List.Extra
+import Logic exposing (isBusted)
 import Maybe.Extra
 import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self)
 import Random
@@ -295,22 +296,8 @@ tableUi round button maybeWinnings active players =
                 isPoor =
                     player.stack < (totalFunds // (List.length players * 2))
 
-                isBusted =
-                    case round of
-                        PreFlopRound ->
-                            player.busted
-
-                        FlopRound _ _ _ ->
-                            player.busted
-
-                        TurnRound _ _ _ _ ->
-                            player.busted
-
-                        RiverRound _ _ _ _ _ ->
-                            player.busted
-
-                        ShowdownRound _ _ _ _ _ _ ->
-                            player.busted || player.stack == 0
+                busted =
+                    isBusted round player
             in
             column
                 [ width fill
@@ -320,7 +307,7 @@ tableUi round button maybeWinnings active players =
                     ([ width fill
                      , spacing 8
                      , padding 8
-                     , if isBusted || player.folded then
+                     , if busted || player.folded then
                         Background.color Theme.colours.disabled
 
                        else if isActive player then
@@ -364,7 +351,7 @@ tableUi round button maybeWinnings active players =
                             , right = 0
                             }
                          ]
-                            ++ (if isBusted || player.folded then
+                            ++ (if busted || player.folded then
                                     [ Font.strike
                                     ]
 
@@ -374,7 +361,7 @@ tableUi round button maybeWinnings active players =
                         )
                       <|
                         text player.screenName
-                    , if isBusted then
+                    , if busted then
                         el
                             [ Font.alignRight
                             , Font.color <| Theme.glow <| Theme.textColour Theme.colours.black

@@ -13,6 +13,8 @@ import FontAwesome.Solid
 import FontAwesome.Styles
 import Html.Attributes
 import List.Extra
+import Logic exposing (gameIsFinished, winner)
+import Maybe.Extra
 import Messages exposing (lookupPlayer)
 import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
 import Utils exposing (swapDown, swapUp)
@@ -115,14 +117,14 @@ view model =
 
                 RoundResultScreen potResults playerWinnings self game welcome blindsSettings ->
                     { body = roundResultsScreen model potResults playerWinnings self game welcome blindsSettings
-                    , title = welcome.gameName ++ " | round ended"
-                    , header = Nothing
-                    , scheme = Just Theme.scheme2
-                    }
+                    , title =
+                        welcome.gameName
+                            ++ (if gameIsFinished game then
+                                    " | game ended"
 
-                GameResultScreen self game welcome ->
-                    { body = gameResultsScreen model self game welcome
-                    , title = welcome.gameName ++ " | game ended"
+                                else
+                                    " | round ended"
+                               )
                     , header = Nothing
                     , scheme = Just Theme.scheme2
                     }
@@ -237,9 +239,6 @@ view model =
                             RoundResultScreen _ _ _ game _ _ ->
                                 lookupPlayer game.players pid
 
-                            GameResultScreen _ game _ ->
-                                lookupPlayer game.players pid
-
                             CommunityCardsScreen game _ ->
                                 lookupPlayer game.players pid
 
@@ -258,9 +257,6 @@ view model =
                                 pid == self.playerId
 
                             RoundResultScreen _ _ self _ _ _ ->
-                                pid == self.playerId
-
-                            GameResultScreen self _ _ ->
                                 pid == self.playerId
 
                             _ ->
@@ -403,9 +399,6 @@ view model =
                                                 String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
 
                                             RoundResultScreen _ _ _ game _ _ ->
-                                                String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
-
-                                            GameResultScreen _ game _ ->
                                                 String.fromInt game.smallBlind ++ " / " ++ String.fromInt (game.smallBlind * 2)
 
                                             CommunityCardsScreen game _ ->
@@ -1531,6 +1524,10 @@ gameScreen model playingState currentAct self game welcome =
 
 roundResultsScreen : Model -> List PotResult -> List PlayerWinnings -> Self -> Game -> Welcome -> EditBlindsSettings -> Element Msg
 roundResultsScreen model potResults playerWinnings self game welcome blindsSettings =
+    let
+        maybeWinningPlayer =
+            winner game
+    in
     column
         [ width fill
         , spacing 16
@@ -1547,6 +1544,29 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                 [ text game.gameName ]
         , container model.viewport <| tableUi game.round game.button (Just playerWinnings) game.inTurn game.players
         , container model.viewport <| selfUi model.peeking self
+        , case maybeWinningPlayer of
+            Just winningPlayer ->
+                el
+                    [ width fill
+                    , paddingXY 0 25
+                    , Background.color Theme.colours.primary
+                    , Font.alignLeft
+                    ]
+                <|
+                    container model.viewport <|
+                        paragraph
+                            []
+                            [ el
+                                [ padding 2
+                                , Background.color Theme.colours.icon
+                                ]
+                              <|
+                                text winningPlayer.screenName
+                            , text " is the winner"
+                            ]
+
+            Nothing ->
+                Element.none
         , column
             [ width fill
             , spacing 5
@@ -1568,7 +1588,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                 )
                 playerWinnings
         , container model.viewport <|
-            if self.isAdmin then
+            if self.isAdmin && Maybe.Extra.isNothing maybeWinningPlayer then
                 column
                     [ width fill
                     , spacing 18

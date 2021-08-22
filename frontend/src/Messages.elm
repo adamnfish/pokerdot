@@ -5,6 +5,7 @@ import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
+import Logic exposing (gameIsFinished)
 import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
@@ -316,28 +317,6 @@ update msg model =
                             , Cmd.none
                             )
 
-                        GameResultScreen _ _ welcome ->
-                            let
-                                newUi =
-                                    case game.inTurn of
-                                        -- this shouldn't happen, because the game is finished!
-                                        Just _ ->
-                                            GameScreen NoAct self game welcome
-
-                                        -- stay on results if a status message happens to come in while the game results are being displayed
-                                        Nothing ->
-                                            GameResultScreen self game welcome
-
-                                updatedModel =
-                                    { model
-                                        | ui = newUi
-                                        , loadingStatus = NotLoading
-                                    }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
                         CommunityCardsScreen _ welcome ->
                             let
                                 newUi =
@@ -461,11 +440,6 @@ update msg model =
                     )
 
                 RoundResultScreen potResults playerWinnings self game welcome _ ->
-                    ( newModel
-                    , sendPing welcome
-                    )
-
-                GameResultScreen self game welcome ->
                     ( newModel
                     , sendPing welcome
                     )
@@ -1016,9 +990,6 @@ welcomeFromUi ui =
         RoundResultScreen _ _ _ _ welcome _ ->
             Just welcome
 
-        GameResultScreen _ _ welcome ->
-            Just welcome
-
         CommunityCardsScreen _ welcome ->
             Just welcome
 
@@ -1087,11 +1058,6 @@ routeFromUi ui =
                 (getPlayerCode welcome.playerId)
 
         RoundResultScreen _ _ _ _ welcome _ ->
-            GameRoute
-                welcome.gameCode
-                (getPlayerCode welcome.playerId)
-
-        GameResultScreen _ _ welcome ->
             GameRoute
                 welcome.gameCode
                 (getPlayerCode welcome.playerId)

@@ -81,7 +81,6 @@ type UI
     | RejoinScreen Welcome
     | GameScreen ActSelection Self Game Welcome
     | RoundResultScreen (List PotResult) (List PlayerWinnings) Self Game Welcome EditBlindsSettings
-    | GameResultScreen Self Game Welcome
       -- TODO: admin screen to fix things
       -- spectating
     | CommunityCardsScreen Game Welcome
