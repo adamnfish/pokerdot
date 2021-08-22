@@ -262,7 +262,7 @@ update msg model =
                                                     False
 
                                                 else
-                                                    True
+                                                    model.peeking
                                         }
 
                                     else
@@ -287,7 +287,7 @@ update msg model =
                                                         False
 
                                                     else
-                                                        True
+                                                        model.peeking
                                             }
 
                                         -- stay on results if a status message happens to come in while the round results are being displayed
