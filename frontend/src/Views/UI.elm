@@ -576,6 +576,9 @@ view model =
 
                 -- body
                 , page.body
+                , el
+                    [ height <| px 10 ]
+                    Element.none
                 ]
         ]
     }

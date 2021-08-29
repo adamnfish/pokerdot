@@ -331,7 +331,6 @@ object PlayerActions {
         inTurn = None,
         players = updatedPlayers,
       ),
-      // TODO: exclude folded players from hand display
       playersWinnings,
       potsWinnings
     )
