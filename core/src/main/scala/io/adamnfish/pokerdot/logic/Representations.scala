@@ -91,7 +91,7 @@ object Representations {
       Left {
         Failures(
           "Trying to get playerDb for player ID that does not exist",
-          "There was a problem trying to save a user that could not be found.",
+          "there was a problem trying to save a user that could not be found.",
         )
       }
     } else {
@@ -175,7 +175,7 @@ object Representations {
       .toRight {
         Failures(
           s"Player $playerId not found in database for game $gameId",
-          s"Could not load all players",
+          s"could not load all players",
         )
       }
   }

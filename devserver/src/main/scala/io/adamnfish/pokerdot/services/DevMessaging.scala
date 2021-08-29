@@ -33,14 +33,14 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
   private def send(recipientId: String, body: String): Attempt[Unit] = {
     for {
       wctx <- IO.fromOption(connections.get(recipientId)).mapError(_ =>
-        Failures("User not connected", "Connection not found")
+        Failures("User not connected", "connection not found")
       )
       _ <-
         if (wctx.session.isOpen) {
           IO.unit
         } else {
           IO.fail {
-            Failures("Connection has closed", "Connection closed")
+            Failures("Connection has closed", "connection closed")
           }
         }
       result <-
@@ -48,10 +48,10 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
           wctx.send(body)
           ()
         }.mapError { err =>
-          Failures("Error sending websocket message with wctx", "Could not send message", exception = Some(err))
+          Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err))
         }
       _ <- IO.effect(logMessage(recipientId, body)).mapError { err =>
-        Failures("Error logging websocket message", "Could not log message", exception = Some(err))
+        Failures("Error logging websocket message", "could not log message", exception = Some(err))
       }
     } yield result
   }

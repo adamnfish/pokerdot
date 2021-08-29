@@ -31,12 +31,12 @@ object PlayerActions {
           if (currentBetAmount > player.stack) {
             Failures(
               "Player needs to go all-in to bet",
-              "You will have to go all-in to keep playing in this round.",
+              "you will have to go all-in to keep playing in this round.",
             )
           } else {
             Failures(
               s"Bet ($bet) must match other players' bets ($currentBetAmount)",
-              "Your bet must be at least as much as the other players have paid.",
+              "your bet must be at least as much as the other players have paid.",
             )
           }
         } else Right(())
@@ -45,7 +45,7 @@ object PlayerActions {
         if (!allIn && isRaise && (betTotal - currentBetAmount) < Play.currentRaiseAmount(game.players)) Left {
           Failures(
             "Raise amount does not meet previous raises",
-            "You must raise by at least as much as the last bet or raise.",
+            "you must raise by at least as much as the last bet or raise.",
           )
         } else Right(())
       // ensure raise amount matches minimum raise (big blind)
@@ -53,7 +53,7 @@ object PlayerActions {
         if (!allIn && isRaise && (betTotal - currentBetAmount) < game.round.smallBlind * 2) Left {
           Failures(
             "Player needs to raise by at least the Big Blind",
-            "The minimum raise is the Big Blind.",
+            "the minimum raise is the Big Blind.",
           )
         } else Right(())
       updatedPlayers = game.players.map {
@@ -91,14 +91,14 @@ object PlayerActions {
         if (player.bet < currentBetAmount) Left {
           Failures(
             "Player cannot check until they have called other players",
-            "You have to at least call other players before checking.",
+            "you have to at least call other players before checking.",
           )
         } else Right(())
       _ <-
         if (player.checked) Left {
           Failures(
             "Player is already checked",
-            "You have already checked.",
+            "you have already checked.",
           )
         } else Right(())
       updatedPlayers = game.players.map {
@@ -189,9 +189,9 @@ object PlayerActions {
             Right(None)
           case (_, Some(playing), Some(timerLevels)) =>
             if (playing == currentlyPlaying && playing) {
-              Left(Failures("Cannot start timer when it's already running", "The timer is already running."))
+              Left(Failures("Cannot start timer when it's already running", "the timer is already running."))
             } else if (playing == currentlyPlaying && !playing) {
-              Left(Failures("Cannot pause timer when it's already paused", "The timer is already paused."))
+              Left(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
             } else {
               Right {
                 game.timer.map { timerStatus =>
@@ -207,9 +207,9 @@ object PlayerActions {
             }
           case (_, Some(playing), None) =>
             if (playing == currentlyPlaying && playing) {
-              Left(Failures("Cannot start timer when it's already running", "The timer is already running."))
+              Left(Failures("Cannot start timer when it's already running", "the timer is already running."))
             } else if (playing == currentlyPlaying && !playing) {
-              Left(Failures("Cannot pause timer when it's already paused", "The timer is already paused."))
+              Left(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
             } else {
               Right {
                 game.timer.map { timerStatus =>
@@ -378,7 +378,7 @@ object PlayerActions {
     if (updatedPlayers.count(!_.busted) < 2) {
       Left(Failures(
         "Cannot advance from finished game showdown",
-        "You can't start a new round because the game has finished",
+        "you can't start a new round because the game has finished",
       ))
     } else {
       // TODO: check whether blind amounts should change based on timer

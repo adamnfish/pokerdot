@@ -40,7 +40,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
         case _ =>
           Failure(
             s"Multiple games found for code `$gameCode`",
-            "Couldn't find a game for that code",
+            "couldn't find a game for that code",
           ).asIO
       }
       maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](IO.succeed(None)) { result =>
@@ -87,7 +87,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
   private def resultToAttempt[A](result: Either[DynamoReadError, A]): Attempt[A] = {
     IO.fromEither {
       result.left.map { dre =>
-        Failures(s"DynamoReadError: $dre", "Error with saved data", None, None)
+        Failures(s"DynamoReadError: $dre", "error with saved data", None, None)
       }
     }
   }

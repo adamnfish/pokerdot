@@ -5,50 +5,50 @@ import io.adamnfish.pokerdot.models.{BreakLevel, Failure, RoundLevel, TimerLevel
 
 object Validators {
   // VALIDATORS
-  type Validator[A] = (A, String) => List[Failure]
+  type Validator[A] = (A, String, String) => List[Failure]
 
-  val nonEmpty: Validator[String] = { (str, context) =>
+  def nonEmpty: Validator[String] = { (str, context, friendlyContext) =>
     if (str.isEmpty) {
       List(
-        Failure("Validation failure: empty", s"$context is required", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext is required", Some(context))
       )
     } else Nil
   }
 
-  def nonEmptyList[A]: Validator[List[A]] = { (as, context) =>
+  def nonEmptyList[A]: Validator[List[A]] = { (as, context, friendlyContext) =>
     if (as.isEmpty) {
       List(
-        Failure("Validation failure: empty", s"$context is required", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext is required", Some(context))
       )
     } else Nil
   }
 
   private val uuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}".r
-  val isUUID: Validator[String] = { (str, context) =>
-    val wasEmpty = nonEmpty(str, context).headOption
+  val isUUID: Validator[String] = { (str, context, friendlyContext) =>
+    val wasEmpty = nonEmpty(str, context, friendlyContext).headOption
     val wasUUID =
       if (uuidPattern.pattern.matcher(str).matches) {
         None
       } else {
         Some(
-          Failure(s"Validation failure: $str not UUID", s"$context was not in the correct format", Some(context))
+          Failure(s"Validation failure: $str not UUID", s"$friendlyContext was not in the correct format", Some(context))
         )
       }
     wasEmpty.orElse(wasUUID).toList
   }
 
-  val positiveInteger: Validator[Int] = { (i, context) =>
+  val positiveInteger: Validator[Int] = { (i, context, friendlyContext) =>
     if (i < 0) {
       List(
-        Failure("Validation failure: empty", s"$context must be a positive number", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext must be a positive number", Some(context))
       )
     } else Nil
   }
 
-  val greaterThanZero: Validator[Int] = { (i, context) =>
+  val greaterThanZero: Validator[Int] = { (i, context, friendlyContext) =>
     if (i <= 0) {
       List(
-        Failure("Validation failure: empty", s"$context must be a positive number", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext must be a positive number", Some(context))
       )
     } else Nil
   }
@@ -58,8 +58,8 @@ object Validators {
    *
    * Allows upper and lower "oh" o/O as a surrogate for 0
    */
-  val gameCode: Validator[String] = { (str, context) =>
-    val wasTooShort = minLength(4)(str, context).headOption
+  val gameCode: Validator[String] = { (str, context, friendlyContext) =>
+    val wasTooShort = minLength(4)(str, context, friendlyContext).headOption
     val ValidChar = "([0-9a-fA-FoO\\-])".r
     val valid = str.zipWithIndex.forall {
       case (ValidChar(c), i) =>
@@ -71,36 +71,36 @@ object Validators {
     }
     val wasUUIDPrefix =
       if (valid) None
-      else Some(Failure(s"$str is not a UUID prefix", "Invalid game code", Some(context)))
+      else Some(Failure(s"$str is not a UUID prefix", s"invalid $friendlyContext", Some(context)))
     wasTooShort.orElse(wasUUIDPrefix).toList
   }
 
-  def minLength(min: Int): Validator[String] = { (str, context) =>
+  def minLength(min: Int): Validator[String] = { (str, context, friendlyContext) =>
     if (str.length < min)
       List(
-        Failure("Failed min length", s"$context must be at least $min characters", Some(context))
+        Failure("Failed min length", s"$friendlyContext must be at least $min characters", Some(context))
       )
     else Nil
   }
 
-  def maxLength(max: Int): Validator[String] = { (str, context) =>
+  def maxLength(max: Int): Validator[String] = { (str, context, friendlyContext) =>
     if (str.length > max)
       List(
-        Failure("Failed max length", s"$context must be no more than $max characters", Some(context))
+        Failure("Failed max length", s"$friendlyContext must be no more than $max characters", Some(context))
       )
     else Nil
   }
 
-  def sensibleLength: Validator[String] = { (str, context) =>
-    nonEmpty(str, context) ++ maxLength(50)(str, context)
+  def sensibleLength: Validator[String] = { (str, context, friendlyContext) =>
+    nonEmpty(str, context, friendlyContext) ++ maxLength(50)(str, context, friendlyContext)
   }
 
-  def timerLevel: Validator[TimerLevel] = { (tl, context) =>
+  def timerLevel: Validator[TimerLevel] = { (tl, context, friendlyContext) =>
     tl match {
       case RoundLevel(duration, smallBlind) =>
-        greaterThanZero(duration, context) ++ greaterThanZero(smallBlind, context)
+        greaterThanZero(duration, context, friendlyContext) ++ greaterThanZero(smallBlind, context, friendlyContext)
       case BreakLevel(duration) =>
-        greaterThanZero(duration, context)
+        greaterThanZero(duration, context, friendlyContext)
     }
   }
 }

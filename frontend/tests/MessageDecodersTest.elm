@@ -42,7 +42,7 @@ messageDecoders =
                 \_ ->
                     let
                         failureMessageJson =
-                            """{"failures":[{"message":"Couldn't find game, is the code correct?"}]}"""
+                            """{"failures":[{"message":"couldn't find game, is the code correct?"}]}"""
 
                         result =
                             Json.Decode.decodeString messageDecoder failureMessageJson
@@ -50,7 +50,7 @@ messageDecoders =
                     case result of
                         Ok (FailureMessage failures) ->
                             Expect.equal failures
-                                [ { message = "Couldn't find game, is the code correct?"
+                                [ { message = "couldn't find game, is the code correct?"
                                   , context = Nothing
                                   }
                                 ]

@@ -14,9 +14,9 @@ object PokerDot {
     (for {
       requestJson <- Serialisation.parse(requestBody, "could not understand the request", None).attempt
       operationJson <- IO.fromOption(requestJson.hcursor.downField("operation").focus).mapError(_ =>
-        Failures("Request did not include operation field", "Could not understand the request")
+        Failures("Request did not include operation field", "could not understand the request")
       )
-      operation <- Serialisation.extractJson[String](operationJson, "Unexpected operation").attempt
+      operation <- Serialisation.extractJson[String](operationJson, "unexpected operation").attempt
       response <- operation match {
         case "create-game" =>
           createGame(requestJson, appContext, initialSeed = appContext.rng.randomState())
@@ -121,7 +121,7 @@ object PokerDot {
       startGame <- extractStartGame(requestJson).attempt
       maybeGame <- appContext.db.getGame(startGame.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot start game, game ID not found", "Couldn't find game to start",
+        s"Cannot start game, game ID not found", "couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
@@ -145,7 +145,7 @@ object PokerDot {
       bet <- extractBet(requestJson).attempt
       maybeGame <- appContext.db.getGame(bet.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot bet, game ID not found", "Couldn't find game to start",
+        s"Cannot bet, game ID not found", "couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
@@ -169,7 +169,7 @@ object PokerDot {
       check <- extractCheck(requestJson).attempt
       maybeGame <- appContext.db.getGame(check.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot bet, game ID not found", "Couldn't find game to start",
+        s"Cannot bet, game ID not found", "couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
@@ -192,7 +192,7 @@ object PokerDot {
       fold <- extractFold(requestJson).attempt
       maybeGame <- appContext.db.getGame(fold.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot bet, game ID not found", "Couldn't find game to start",
+        s"Cannot bet, game ID not found", "couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
@@ -227,7 +227,7 @@ object PokerDot {
       advancePhase <- extractAdvancePhase(requestJson).attempt
       maybeGame <- appContext.db.getGame(advancePhase.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot start game, game ID not found", "Couldn't find game to start",
+        s"Cannot start game, game ID not found", "couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
@@ -265,7 +265,7 @@ object PokerDot {
       updateBlind <- extractUpdateBlind(requestJson).attempt
       maybeGame <- appContext.db.getGame(updateBlind.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot start game, game ID not found", "Couldn't find game to start",
+        s"Cannot start game, game ID not found", "couldn't find game to start",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt

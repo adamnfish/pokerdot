@@ -128,7 +128,7 @@ object Games {
           loop(prefixLength + 1)
         case _ =>
           IO.fail(
-            Failures("Couldn't create unique prefix of GameID", "Couldn't set up game with a join code")
+            Failures("Couldn't create unique prefix of GameID", "couldn't set up game with a join code")
           )
       }
     }
@@ -210,7 +210,7 @@ object Games {
     } else if (updateBlind.smallBlind.isDefined) {
       Right(EditBlindSummary())
     } else {
-      Left(Failures("Couldn't determine action from update blind request", "Couldn't update the blinds."))
+      Left(Failures("Couldn't determine action from update blind request", "couldn't update the blinds."))
     }
   }
 
@@ -264,7 +264,7 @@ object Games {
         Left {
           Failures(
             s"Game not found for lookup $gid",
-            "Couldn't find game. If it's old it may have been automatically deleted?",
+            "couldn't find game, it may have been automatically deleted if it is old?",
           )
         }
     }
@@ -274,7 +274,7 @@ object Games {
     if (game.started) Left {
       Failures(
         "game has already started",
-        "The game has already started.",
+        "the game has already started.",
       )
     }
     else Right(())
@@ -285,7 +285,7 @@ object Games {
     else Left {
       Failures(
         "game has not started",
-        "The game has not started.",
+        "the game has not started.",
       )
     }
   }
@@ -295,7 +295,7 @@ object Games {
       Left {
         Failures(
           "Duplicate screen name, joining game failed",
-          "Someone else already has the same name!",
+          "someone else already has the same name!",
         )
       }
     else
@@ -307,7 +307,7 @@ object Games {
       Left {
         Failures(
           "Max player count exceeded",
-          "There are already 20 players in this game, which is the maximum number.",
+          "there are already 20 players in this game, which is the maximum number.",
         )
       }
     } else {
@@ -322,7 +322,7 @@ object Games {
       Left {
         Failures(
           "Cannot start with one player",
-          "A game requires at least 2 players.",
+          "a game requires at least 2 players.",
         )
       }
     }
@@ -333,7 +333,7 @@ object Games {
       Left {
         Failures(
           "Duplicate player address, joining game failed",
-          "You can't join the same game twice.",
+          "you can't join the same game twice.",
         )
       }
     else
@@ -346,7 +346,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate key for player that does not exist",
-            "Couldn't find you in the game.",
+            "couldn't find you in the game.",
           )
         }
       case Some(player) if player.playerKey == playerKey =>
@@ -355,7 +355,7 @@ object Games {
         Left {
           Failures(
             "Invalid player key",
-            "Couldn't authenticate you for this game.",
+            "couldn't authenticate you for this game.",
           )
         }
     }
@@ -367,7 +367,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate key for spectator that does not exist",
-            "Couldn't find you in the game.",
+            "couldn't find you in the game.",
           )
         }
       case Some(spectator) if spectator.playerKey == playerKey =>
@@ -376,7 +376,7 @@ object Games {
         Left {
           Failures(
             "Invalid spectator key",
-            "Couldn't authenticate you for this game.",
+            "couldn't authenticate you for this game.",
           )
         }
     }
@@ -388,7 +388,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate host key for player that does not exist",
-            "Couldn't find you in the game.",
+            "couldn't find you in the game.",
           )
         }
       case Some(player) if player.isHost =>
@@ -397,7 +397,7 @@ object Games {
         Left {
           Failures(
             "Invalid player key, not the host",
-            "You are not the game's host."
+            "you are not the game's host."
           )
         }
     }
@@ -409,7 +409,7 @@ object Games {
         Left {
           Failures(
             "Couldn't validate host key for player that does not exist",
-            "Couldn't find you in the game.",
+            "couldn't find you in the game.",
           )
         }
       case Some(player) if player.isHost =>
@@ -418,7 +418,7 @@ object Games {
         Left {
           Failures(
             "Invalid player key, not an admin",
-            "You are not a game admin."
+            "you are not a game admin."
           )
         }
     }
@@ -431,7 +431,7 @@ object Games {
       Left {
         Failures(
           "Active player check failed",
-          "It is not your turn to act.",
+          "it is not your turn to act.",
         )
       }
     }

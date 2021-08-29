@@ -7,8 +7,8 @@ import io.circe.Json
 
 
 object Validation {
-  private[validation] def validate[A](a: A, context: String, validator: Validator[A]): List[Failure] = {
-    validator(a, context)
+  private[validation] def validate[A](a: A, context: String, friendlyContext: String, validator: Validator[A]): List[Failure] = {
+    validator(a, context, friendlyContext)
   }
 
   private[validation] def asResult[A](a: A, failures: List[Failure]): Either[Failures, A] = {
@@ -20,8 +20,8 @@ object Validation {
 
   def validate(createGame: CreateGame): Either[Failures, CreateGame] = {
     asResult(createGame,
-      validate(createGame.gameName, "gameName", sensibleLength) ++
-        validate(createGame.screenName, "screenName", sensibleLength)
+      validate(createGame.gameName, "gameName", "game name", sensibleLength) ++
+        validate(createGame.screenName, "screenName", "player name", sensibleLength)
     )
   }
 
@@ -34,8 +34,8 @@ object Validation {
 
   def validate(joinGame: JoinGame): Either[Failures, JoinGame] = {
     asResult(joinGame,
-      validate(joinGame.gameCode, "gameCode", gameCode) ++
-        validate(joinGame.screenName, "screenName", sensibleLength)
+      validate(joinGame.gameCode, "gameCode", "game code", gameCode) ++
+        validate(joinGame.screenName, "screenName", "player name", sensibleLength)
     )
   }
 
@@ -48,11 +48,11 @@ object Validation {
 
   def validate(startGame: StartGame): Either[Failures, StartGame] = {
     asResult(startGame,
-      validate(startGame.gameId.gid, "gameId", isUUID) ++
-        validate(startGame.playerId.pid, "playerId", isUUID) ++
-        validate(startGame.playerKey.key, "playerId", isUUID) ++
-        validate(startGame.playerOrder, "playerOrder", nonEmptyList[PlayerId]) ++
-        startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", isUUID)) ++
+      validate(startGame.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(startGame.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(startGame.playerKey.key, "playerId", "player's id", isUUID) ++
+        validate(startGame.playerOrder, "playerOrder", "player order", nonEmptyList[PlayerId]) ++
+        startGame.playerOrder.flatMap(pid => validate(pid.pid, "playerOrder", "player order", isUUID)) ++
         startGame.startingStack.toList.flatMap { s =>
           if (s <= 0) List(Failure(
             "Empty starting stack provided for game start",
@@ -66,7 +66,7 @@ object Validation {
           )) else Nil
         } ++
         startGame.timerConfig
-          .map(tls => validate(tls, "timerConfig", nonEmptyList[TimerLevel]))
+          .map(tls => validate(tls, "timerConfig", "timer configuration", nonEmptyList[TimerLevel]))
           .getOrElse(Nil) ++ {
         startGame.startingStack.fold[List[Failure]](Nil) { _ =>
           // if we're tracking stacks then we need to know the blinds
@@ -96,10 +96,10 @@ object Validation {
 
   def validate(bet: Bet): Either[Failures, Bet] = {
     asResult(bet,
-      validate(bet.gameId.gid, "gameId", isUUID) ++
-        validate(bet.playerId.pid, "playerId", isUUID) ++
-        validate(bet.playerKey.key, "playerId", isUUID) ++
-        validate(bet.betAmount, "betAmount", greaterThanZero)
+      validate(bet.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(bet.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(bet.playerKey.key, "playerId", "player's id", isUUID) ++
+        validate(bet.betAmount, "betAmount", "bet amount", greaterThanZero)
     )
   }
 
@@ -112,9 +112,9 @@ object Validation {
 
   def validate(check: Check): Either[Failures, Check] = {
     asResult(check,
-      validate(check.gameId.gid, "gameId", isUUID) ++
-        validate(check.playerId.pid, "playerId", isUUID) ++
-        validate(check.playerKey.key, "playerId", isUUID)
+      validate(check.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(check.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(check.playerKey.key, "playerId", "player's id", isUUID)
     )
   }
 
@@ -127,9 +127,9 @@ object Validation {
 
   def validate(fold: Fold): Either[Failures, Fold] = {
     asResult(fold,
-      validate(fold.gameId.gid, "gameId", isUUID) ++
-        validate(fold.playerId.pid, "playerId", isUUID) ++
-        validate(fold.playerKey.key, "playerId", isUUID)
+      validate(fold.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(fold.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(fold.playerKey.key, "playerId", "player's id", isUUID)
     )
   }
 
@@ -142,9 +142,9 @@ object Validation {
 
   def validate(advancePhase: AdvancePhase): Either[Failures, AdvancePhase] = {
     asResult(advancePhase,
-      validate(advancePhase.gameId.gid, "gameId", isUUID) ++
-        validate(advancePhase.playerId.pid, "playerId", isUUID) ++
-        validate(advancePhase.playerKey.key, "playerId", isUUID)
+      validate(advancePhase.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(advancePhase.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(advancePhase.playerKey.key, "playerId", "player's id", isUUID)
     )
   }
 
@@ -157,13 +157,13 @@ object Validation {
 
   def validate(updateBlind: UpdateBlind): Either[Failures, UpdateBlind] = {
     asResult(updateBlind,
-      validate(updateBlind.gameId.gid, "gameId", isUUID) ++
-        validate(updateBlind.playerId.pid, "playerId", isUUID) ++
-        validate(updateBlind.playerKey.key, "playerId", isUUID) ++
+      validate(updateBlind.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(updateBlind.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(updateBlind.playerKey.key, "playerId", "player's id", isUUID) ++
         updateBlind.timerLevels
-          .map(tls => validate(tls, "timerLevels", nonEmptyList[TimerLevel]))
+          .map(tls => validate(tls, "timerLevels", "timer levels", nonEmptyList[TimerLevel]))
           .getOrElse(Nil) ++
-        updateBlind.smallBlind.toList.flatMap(sb => validate(sb, "smallBlind", positiveInteger))
+        updateBlind.smallBlind.toList.flatMap(sb => validate(sb, "smallBlind", "blind amounts", positiveInteger))
     )
   }
 
@@ -176,9 +176,9 @@ object Validation {
 
   def validate(ping: Ping): Either[Failures, Ping] = {
     asResult(ping,
-      validate(ping.gameId.gid, "gameId", isUUID) ++
-        validate(ping.playerId.pid, "playerId", isUUID) ++
-        validate(ping.playerKey.key, "playerId", isUUID)
+      validate(ping.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(ping.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(ping.playerKey.key, "playerId", "player's id", isUUID)
     )
   }
 
