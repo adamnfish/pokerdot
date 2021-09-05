@@ -20,6 +20,7 @@ import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), Ed
 import Utils exposing (swapDown, swapUp)
 import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Theme as Theme
+import Views.Timers exposing (defaultStack, defaultTimerLevels, timerUi)
 
 
 type alias Page =
@@ -1232,7 +1233,7 @@ lobbyStartSettings playerOrder chipsSettings =
                         _ ->
                             False
                     )
-                    (InputStartGameSettings playerOrder <| TrackWithTimer 1000 [])
+                    (InputStartGameSettings playerOrder <| TrackWithTimer defaultStack (defaultTimerLevels (List.length playerOrder) defaultStack))
                     "timer"
                 , pdTab
                     (case chipsSettings of
@@ -1259,14 +1260,7 @@ lobbyStartSettings playerOrder chipsSettings =
                         [ width fill
                         , spacing 8
                         ]
-                        [ paragraph
-                            [ width fill
-                            , Font.size 18
-                            , Font.alignLeft
-                            , Font.color <| Theme.textColour Theme.colours.white
-                            ]
-                            [ text "using a game timer to track blinds does not yet work" ]
-                        , Input.text
+                        [ Input.text
                             [ Font.alignLeft
                             , paddingXY 10 8
                             , Border.solid
@@ -1296,19 +1290,24 @@ lobbyStartSettings playerOrder chipsSettings =
                                     <|
                                         text "player stacks"
                             , onChange =
-                                \value ->
+                                \stackSizeStr ->
                                     let
                                         stackSize =
-                                            1
+                                            String.toInt stackSizeStr |> Maybe.withDefault defaultStack
                                     in
                                     InputStartGameSettings playerOrder <|
                                         TrackWithTimer stackSize timerLevels
                             }
                         , el
-                            [ Font.color <| Theme.textColour Theme.colours.white
+                            [ width fill
+                            , Font.color <| Theme.textColour Theme.colours.white
                             ]
                           <|
-                            text "timer levels"
+                            timerUi
+                                (\tls -> InputStartGameSettings playerOrder <| TrackWithTimer currentStackSize tls)
+                                timerLevels
+                                (List.length playerOrder)
+                                currentStackSize
                         ]
 
                 TrackWithManualBlinds currentStackSize initialSmallBlind ->
