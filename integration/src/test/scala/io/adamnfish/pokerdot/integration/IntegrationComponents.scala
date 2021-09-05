@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.integration
 
-import io.adamnfish.pokerdot.TestDates
+import io.adamnfish.pokerdot.TestClock
 import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
@@ -40,7 +40,7 @@ trait IntegrationComponents {
               IO.unit
             }
           },
-          TestDates,
+          TestClock,
           testRng,
         )
         f(addressToContext, testDb)

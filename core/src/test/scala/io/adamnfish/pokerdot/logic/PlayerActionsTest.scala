@@ -4,7 +4,7 @@ import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer}
 import io.adamnfish.pokerdot.logic.PlayerActions._
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.{TestDates, TestHelpers, TestRng}
+import io.adamnfish.pokerdot.{ConfigurableTestClock, TestClock, TestHelpers, TestRng}
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -53,12 +53,12 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "fold" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
+    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestClock)
       .copy(stack = 1000)
-    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
+    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
       .copy(stack = 1000)
-    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
+    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
       .copy(stack = 1000)
 
     "updates player's folded status" in {
@@ -136,16 +136,16 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "advancePhase" - {
     "for the simple phases" - {
-      val game = newGame("Game name", trackStacks = true, TestDates, 1L)
+      val game = newGame("Game name", trackStacks = true, TestClock, 1L)
       val p1 :: p2 :: p3 :: p4 :: Nil = Play.dealHoles(
         List(
-          newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestDates)
+          newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestDates)
+            newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestDates)
+            newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestDates)
+            newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestClock)
             .copy(stack = 1000),
         ),
         Play.deckOrder(game.seed),
@@ -161,7 +161,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           val (newGame, _, _) = advancePhase(
             game.copy(
               round = game.round.copy(phase = phase),
-            ), TestRng
+            ), TestClock, TestRng
           ).value
           val nextPhase = newGame.round.phase
           nextPhase shouldEqual expected.get(phase).value
@@ -191,7 +191,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestRng).value
+          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
           newGame.players.map(_.pot) shouldEqual List(
             25, 5, 25, 25
           )
@@ -221,7 +221,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestRng).value
+          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
           newGame.players.map(_.bet) shouldEqual List(
             0, 0, 0, 0
           )
@@ -252,7 +252,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestRng).value
+          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
           newGame.players.map(_.checked) shouldEqual List(
             false, false, false, false
           )
@@ -283,7 +283,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestRng).value
+          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
           newGame.players.map(_.folded) shouldEqual List(
             false, true, false, false
           )
@@ -313,7 +313,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestRng).value
+          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
           newGame.players.map(_.busted) shouldEqual List(
             false, true, false, false
           )
@@ -343,7 +343,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          advancePhase(testGame, TestRng).isLeft shouldEqual true
+          advancePhase(testGame, TestClock, TestRng).isLeft shouldEqual true
         }
       }
 
@@ -373,7 +373,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 ),
               )
             )
-            val (newGame, _, _) = advancePhase(testGame, TestRng).value
+            val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
             newGame.inTurn shouldEqual Some(p2.playerId)
           }
         }
@@ -402,7 +402,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 ),
               )
             )
-            val (newGame, _, _) = advancePhase(testGame, TestRng).value
+            val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
             newGame.inTurn shouldEqual Some(p3.playerId)
           }
         }
@@ -432,7 +432,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (updatedGame, _, _) = advancePhase(testGame, TestRng).value
+          val (updatedGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
           updatedGame.round.phase shouldEqual Showdown
         }
       }
@@ -516,10 +516,10 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "advanceFromRiver" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates)
-    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates)
-    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates)
+    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock)
+    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock)
+    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock)
     val round = Play.generateRound(River, 5, rawGame.seed)
 
     "excludes folded players from the player hands" in {
@@ -548,12 +548,12 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "advanceFromFoldedFinish" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
     val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
       List(
-        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates),
-        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates),
-        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates),
+        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock),
+        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock),
+        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock),
       ),
       Play.deckOrder(rawGame.seed),
     )
@@ -595,12 +595,12 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "startNewRound" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
+    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
     val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
       List(
-        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestDates),
-        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestDates),
-        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestDates),
+        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock),
+        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock),
+        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock),
       ),
       Play.deckOrder(rawGame.seed),
     )
@@ -617,23 +617,45 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       )
 
       "round is now PreFlop" in {
-        val resultingGame = startNewRound(game, TestRng).value
+        val resultingGame = startNewRound(game, TestClock, TestRng).value
         resultingGame.round.phase shouldEqual PreFlop
       }
 
       "deals new holes to all players non-busted" in {
-        val resultingGame = startNewRound(game, TestRng).value
+        val resultingGame = startNewRound(game, TestClock, TestRng).value
         resultingGame.players.map(_.hole.isDefined) shouldEqual List(true, true, false)
       }
 
       "new cards are dealt" in {
-        val resultingGame = startNewRound(game, TestRng).value
+        val resultingGame = startNewRound(game, TestClock, TestRng).value
         resultingGame.seed should not equal game.seed
       }
 
       "all players have empty pots after new round starts" in {
-        val resultingGame = startNewRound(game, TestRng).value
+        val resultingGame = startNewRound(game, TestClock, TestRng).value
         resultingGame.players.map(_.pot) shouldEqual List(0, 0, 0)
+      }
+
+      "in a timer game, updates the blinds if the timer level has progressed" in {
+        val round = Play.generateRound(Showdown, 20, rawGame.seed)
+        val game = rawGame.copy(
+          round = round,
+          players = List(
+            p1.copy(pot = 200, stack = 800),
+            p2.copy(pot = 200, stack = 20, blind = BigBlind),
+            p3.copy(stack = 0, busted = true)
+          ),
+          timer = Some(
+            TimerStatus(0, None, List(
+              RoundLevel(100, 10),
+              RoundLevel(100, 20),
+              BreakLevel(100),
+              RoundLevel(100, 50),
+            ))
+          ),
+        )
+        val updatedGame = startNewRound(game, new ConfigurableTestClock(350), TestRng).value
+        updatedGame.round.smallBlind shouldEqual 50
       }
     }
 
@@ -647,7 +669,29 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           p3.copy(stack = 0, busted = true)
         )
       )
-      startNewRound(game, TestRng).isLeft shouldEqual true
+      startNewRound(game, TestClock, TestRng).isLeft shouldEqual true
+    }
+
+    "fails if there is a paused timer" in {
+      val round = Play.generateRound(Showdown, 5, rawGame.seed)
+      val game = rawGame.copy(
+        round = round,
+        players = List(
+          p1.copy(pot = 200, stack = 800),
+          p2.copy(pot = 200, stack = 20, blind = BigBlind),
+          p3.copy(stack = 0, busted = true)
+        ),
+        timer = Some(
+          TimerStatus(0, Some(80), List(
+            RoundLevel(100, 10),
+            RoundLevel(100, 20),
+            BreakLevel(100),
+            RoundLevel(100, 50),
+          ))
+        ),
+      )
+      val result = startNewRound(game, new ConfigurableTestClock(250), TestRng)
+      result.isLeft shouldEqual true
     }
   }
 
@@ -656,10 +700,10 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       GameId("game-id"), PlayerId("player-id"), PlayerKey("player-key"),
       None, None, None
     )
-    val rawGame = newGame("Game name", trackStacks = true, TestDates, 1L)
-    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestDates)
-    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestDates)
-    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestDates)
+    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock)
+    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock)
+    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock)
     val game = rawGame.copy(
       players = List(p1, p2, p3),
       started = true,
@@ -700,7 +744,10 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 TimerStatus(
                   timerStartTime = 0L,
                   pausedTime = None,
-                  levels = List(RoundLevel(100, 10), BreakLevel(50))
+                  levels = List(
+                    RoundLevel(1500, 10),
+                    BreakLevel(10),
+                  )
                 )
               )
             ),
@@ -734,7 +781,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
       "for a timer restart" - {
         // TODO: test and implement pausing / restarting
-        "calculates a correct start time from how long has elapsed" ignore {
+        "calculates a correct start time from how long has elapsed" in {
           val updatedGame = updateBlind(
             game.copy(
               timer = Some(
@@ -751,7 +798,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
             now = 1000L
           )
           val timerStatus = updatedGame.value.timer.value
-          timerStatus.timerStartTime shouldEqual 990L
+          timerStatus.timerStartTime shouldEqual 900L
         }
 
         "restarts the timer" in {
@@ -828,14 +875,14 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "ensurePlayersHaveFinishedActing" - {
-    val game = newGame("Game name", trackStacks = true, TestDates, 1L)
-    val p1 = newPlayer(game.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestDates).copy(
+    val game = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val p1 = newPlayer(game.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock).copy(
       stack = 1000
     )
-    val p3 = newPlayer(game.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestDates).copy(
+    val p3 = newPlayer(game.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock).copy(
       stack = 1000
     )
-    val p2 = newPlayer(game.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestDates).copy(
+    val p2 = newPlayer(game.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock).copy(
       stack = 1000
     )
 

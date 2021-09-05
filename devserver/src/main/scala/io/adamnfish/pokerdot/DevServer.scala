@@ -3,7 +3,7 @@ package io.adamnfish.pokerdot
 import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Dates, DevMessaging, DevRng, DevServerDB}
+import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
 import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
 import zio.IO
@@ -61,7 +61,7 @@ object DevServer {
       }
       ws.onMessage { wctx =>
         messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
-        val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Dates, rng)
+        val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Clock, rng)
         val program = PokerDot.pokerdot(wctx.message, appContext).catchAll { failures =>
           IO {
             println(s"[ERROR] Failures: ${failures.logString}")

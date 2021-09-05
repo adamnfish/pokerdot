@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{PokerGenerators, TestDates, TestHelpers}
+import io.adamnfish.pokerdot.{PokerGenerators, TestClock, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.newPlayer
 import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, bestHands, cardOrd, findDuplicateRanks, findDuplicateSuits, flush, fourOfAKind, fullHouse, handOrd, highCard, pair, playerWinnings, rankOrd, straight, straightFlush, suitOrd, threeOfAKind, twoPair, winnings}
@@ -298,7 +298,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -317,7 +317,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -336,7 +336,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestDates)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)

@@ -3,9 +3,10 @@ package io.adamnfish.pokerdot.logic
 import io.adamnfish.pokerdot.logic.Play.dealHoles
 import io.adamnfish.pokerdot.logic.Utils.orderFromList
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.{Database, Dates}
+import io.adamnfish.pokerdot.services.{Database, Clock}
 import zio.IO
 
+import java.time.{Duration, Instant}
 import java.util.UUID
 
 
@@ -13,13 +14,13 @@ import java.util.UUID
  * Game implementation functionality.
  */
 object Games {
-  def newGame(gameName: String, trackStacks: Boolean, dates: Dates, initialState: Long): Game = {
+  def newGame(gameName: String, trackStacks: Boolean, clock: Clock, initialState: Long): Game = {
     val round = Play.generateRound(PreFlop, 0, initialState)
     val gameId = GameId(UUID.randomUUID().toString)
     Game(
       gameId = gameId,
       gameCode = gameCode(gameId), // try this, we can replace it with a longer unique prefix if required
-      expiry = dates.expires(),
+      expiry = expiryTime(clock.now()),
       gameName = gameName,
       players = Nil,
       spectators = Nil,
@@ -28,19 +29,19 @@ object Games {
       inTurn = None,
       button = 0,
       started = false,
-      startTime = dates.now(),
+      startTime = clock.now(),
       trackStacks = trackStacks,
       timer = None,
     )
   }
 
-  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, dates: Dates): Player = {
+  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, clock: Clock): Player = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Player(
       gameId = gameId,
       playerId = playerId,
-      expiry = dates.expires(),
+      expiry = expiryTime(clock.now()),
       screenName = screenName,
       playerAddress = playerAddress,
       playerKey = playerKey,
@@ -58,13 +59,13 @@ object Games {
     )
   }
 
-  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, dates: Dates): Spectator = {
+  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, clock: Clock): Spectator = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Spectator(
       gameId = gameId,
       playerId = playerId,
-      expiry = dates.expires(),
+      expiry = expiryTime(clock.now()),
       playerAddress = playerAddress,
       playerKey = playerKey,
       screenName = screenName,
@@ -212,6 +213,13 @@ object Games {
     } else {
       Left(Failures("Couldn't determine action from update blind request", "couldn't update the blinds."))
     }
+  }
+
+  def expiryTime(now: Long): Long = {
+    Instant
+      .ofEpochMilli(now)
+      .plus(Duration.ofDays(21))
+      .toEpochMilli
   }
 
   /**
