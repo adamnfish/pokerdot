@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{TestDates, TestHelpers}
+import io.adamnfish.pokerdot.{TestClock, TestHelpers}
 import io.adamnfish.pokerdot.logic.Games.{addPlayer, newGame, newPlayer}
 import io.adamnfish.pokerdot.models.PlayerAddress
 import org.scalatest.OptionValues
@@ -10,14 +10,14 @@ import org.scalatest.matchers.should.Matchers
 
 class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with TestHelpers {
   "welcome" - {
-    val rawGame = newGame("game name", false, TestDates, 0)
+    val rawGame = newGame("game name", false, TestClock, 0)
     val hostAddress = PlayerAddress("host-address")
-    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestDates)
+    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestClock)
     val game = addPlayer(rawGame, host)
 
     "generates a welcome message for the new player" - {
       val playerAddress = PlayerAddress("player-address")
-      val player = newPlayer(game.gameId, "player", false, playerAddress, TestDates)
+      val player = newPlayer(game.gameId, "player", false, playerAddress, TestClock)
 
       "the welcome message is on the response" in {
         val response = Responses.welcome(game, player, playerAddress)
@@ -45,7 +45,7 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
 
     "does not generate a status message for the new player" in {
       val playerAddress = PlayerAddress("player-address")
-      val player = newPlayer(game.gameId, "player", false, playerAddress, TestDates)
+      val player = newPlayer(game.gameId, "player", false, playerAddress, TestClock)
       val response = Responses.welcome(game, player, playerAddress)
 
       response.statuses.keys should not contain playerAddress
@@ -53,7 +53,7 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
 
     "generates a status message for the host" in {
       val playerAddress = PlayerAddress("player-address")
-      val player = newPlayer(game.gameId, "player", false, playerAddress, TestDates)
+      val player = newPlayer(game.gameId, "player", false, playerAddress, TestClock)
       val response = Responses.welcome(game, player, playerAddress)
 
       response.statuses.keys should contain(hostAddress)

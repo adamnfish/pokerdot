@@ -3,7 +3,7 @@ package io.adamnfish.pokerdot.logic
 import io.adamnfish.pokerdot.logic.Games._
 import io.adamnfish.pokerdot.logic.Play.{dealHoles, playerIsActive, playerIsInvolved}
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.Rng
+import io.adamnfish.pokerdot.services.{Clock, Rng}
 
 
 /**
@@ -142,7 +142,7 @@ object PlayerActions {
    * Checks the round is ready to be advanced, then delegates
    * to the current round's advancement logic.
    */
-  def advancePhase(game: Game, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
+  def advancePhase(game: Game, clock: Clock, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
     for {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
@@ -164,7 +164,7 @@ object PlayerActions {
           Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings)))
         case (_, Showdown) =>
           // we can proceed from showdown whenever 2 or more players are still in the game
-          startNewRound(game, rng).map { newGame =>
+          startNewRound(game, clock, rng).map { newGame =>
             val allPlayerIds = game.players.map(_.playerId).toSet
             (newGame, allPlayerIds, None)
           }
@@ -177,66 +177,88 @@ object PlayerActions {
   }
 
   def updateBlind(game: Game, updateBlind: UpdateBlind, now: Long): Either[Failures, Game] = {
-    val newSmallBlind = updateBlind.smallBlind.getOrElse(game.round.smallBlind)
-    val currentlyPlaying = !game.timer.exists(_.pausedTime.isDefined)
-
     for {
-      newTimerStatus <-
-        (updateBlind.smallBlind, updateBlind.playing, updateBlind.timerLevels) match {
-          // TODO: can be much simpler!
-          case (Some(_), _, _) =>
-            // if we're manually setting the blind then the timer will be removed
-            Right(None)
-          case (_, Some(playing), Some(timerLevels)) =>
-            if (playing == currentlyPlaying && playing) {
-              Left(Failures("Cannot start timer when it's already running", "the timer is already running."))
-            } else if (playing == currentlyPlaying && !playing) {
-              Left(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
-            } else {
-              Right {
-                game.timer.map { timerStatus =>
-                  val pausedTime =
-                    if (playing) None
-                    else Some(now)
-                  timerStatus.copy(
-                    pausedTime = pausedTime,
-                    levels = timerLevels,
-                  )
-                }
-              }
-            }
-          case (_, Some(playing), None) =>
-            if (playing == currentlyPlaying && playing) {
-              Left(Failures("Cannot start timer when it's already running", "the timer is already running."))
-            } else if (playing == currentlyPlaying && !playing) {
-              Left(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
-            } else {
-              Right {
-                game.timer.map { timerStatus =>
-                  val pausedTime =
-                    if (playing) None
-                    else Some(now)
-                  timerStatus.copy(pausedTime = pausedTime)
-                }
-              }
-            }
-          case (_, None, Some(timerLevels)) =>
-            Right(Some {
-              game.timer.map { timerStatus =>
-                timerStatus.copy(levels = timerLevels)
-              }.getOrElse {
-                TimerStatus(
-                  now, None, timerLevels
-                )
-              }
-            })
-          case _ =>
-            Right(game.timer)
+      newGame <- (updateBlind.smallBlind, updateBlind.playing, updateBlind.timerLevels, game.timer) match {
+        case (Some(_), Some(playing), _, _) =>
+          val status = if (playing) "start" else "pause"
+          Left(Failures(s"Cannot $status a timer when using manual blinds", s"you can't $status a timer if you're using manual blinds"))
+        case (Some(_), _, Some(_), _) =>
+          Left(Failures("Cannot set timer levels when using manual blinds", "you can't create a timer if you're using manual blinds"))
+        case (None, Some(playing), None, None) =>
+          val status = if (playing) "start" else "pause"
+          Left(Failures(s"Cannot $status timer that does not exist", s"there's no timer running so we can't $status it"))
+        case (Some(manualSmallBlind), None, None, _) =>
+          // use manual blinds
+          Right {
+            game.copy(
+              round = game.round.copy(smallBlind = manualSmallBlind),
+              timer = None,
+            )
+          }
+        case (None, maybeTimerRunning, Some(timerLevels), None) =>
+          // set new timer
+          val pausedTime =
+            if (maybeTimerRunning.getOrElse(true)) None
+            else Some(now)
+          val initialBlind =
+            timerLevels
+              .collectFirst { case RoundLevel(_, smallBlind) => smallBlind }
+              .getOrElse(0) // this should be excluded by validation
+          Right {
+            game.copy(
+              round = game.round.copy(smallBlind = initialBlind),
+              timer = Some(TimerStatus(now, pausedTime, timerLevels)),
+            )
+          }
+        case (None, maybeTimerRunning, maybeTimerLevels, Some(existingTimer)) =>
+          // update an existing timer
+          for {
+            newTimerStatus <- updateBlindTimer(existingTimer, now, maybeTimerRunning, maybeTimerLevels)
+            result <- Play.timerSmallBlind(newTimerStatus, now)
+            (newSmallBlind, _) = result
+          } yield game.copy(
+            round = game.round.copy(
+              smallBlind = newSmallBlind,
+            ),
+            timer = Some(newTimerStatus),
+          )
+        case (None, None, None, None) =>
+          // ?? should be excluded by validation of the update blind request
+          Right(game)
+      }
+    } yield newGame
+  }
+
+  private def updateBlindTimer(currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], newLevels: Option[List[TimerLevel]]): Either[Failures, TimerStatus] = {
+    (currentTimerStatus.pausedTime, maybeSetPlayingStatus) match {
+      case (Some(_), Some(false)) =>
+        // already paused
+        Left(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
+      case (None, Some(true)) =>
+        // already playing
+        Left(Failures("Cannot start timer when it's already running", "the timer is already running."))
+      case (Some(currentPausedTime), Some(true)) =>
+        // unpause, which adjusts the start time to put the timer in the right place
+        Right {
+          TimerStatus(
+            timerStartTime = currentTimerStatus.timerStartTime + (now - currentPausedTime),
+            pausedTime = None,
+            levels = newLevels.getOrElse(currentTimerStatus.levels)
+          )
         }
-    } yield game.copy(
-      round = game.round.copy(smallBlind = newSmallBlind),
-      timer = newTimerStatus,
-    )
+      case (None, Some(false)) =>
+        // pause
+        Right {
+          TimerStatus(
+            timerStartTime = currentTimerStatus.timerStartTime,
+            pausedTime = Some(now),
+            levels = newLevels.getOrElse(currentTimerStatus.levels)
+          )
+        }
+      case _ =>
+        // we aren't making any changes, should be excluded by validation of the updateBlind request
+        Right(currentTimerStatus)
+    }
   }
 
   private[logic] def ensurePlayersHaveFinishedActing(game: Game): Either[Failures, Unit] = {
@@ -368,7 +390,7 @@ object PlayerActions {
    *
    * If fewer than 2 players remain, the game is finished and we should not proceed.
    */
-  private[logic] def startNewRound(game: Game, rng: Rng): Either[Failures, Game] = {
+  private[logic] def startNewRound(game: Game, clock: Clock, rng: Rng): Either[Failures, Game] = {
     // finalise player payments, reset (and bust) players
     // shuffle, deal new cards, set up new round
     val nextState = rng.nextState(game.seed)
@@ -381,14 +403,19 @@ object PlayerActions {
       ))
     } else {
       // TODO: check whether blind amounts should change based on timer
-      val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, game.round.smallBlind)
-      Right(game.copy(
-        round = game.round.copy(phase = PreFlop),
-        button = newButton, // dealer advances
-        inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
-        players = dealHoles(blindUpdatedPlayers, nextDeck),
-        seed = nextState
-      ))
+      Play.blindForNextRound(game.round.smallBlind, clock.now(), game.timer).map { newSmallBlind =>
+        val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, newSmallBlind)
+        game.copy(
+          round = game.round.copy(
+            phase = PreFlop,
+            smallBlind = newSmallBlind,
+          ),
+          button = newButton, // dealer advances
+          inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
+          players = dealHoles(blindUpdatedPlayers, nextDeck),
+          seed = nextState
+        )
+      }
     }
   }
 }

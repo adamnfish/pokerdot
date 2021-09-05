@@ -4,9 +4,10 @@ import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
 import io.adamnfish.pokerdot.integration.JoinGameIntegrationTest.{joinGameRequest, performJoinGame}
 import io.adamnfish.pokerdot.integration.StartGameIntegrationTest.{performStartGame, startGameRequest}
+import io.adamnfish.pokerdot.logic.Games
 import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.{PokerDot, TestDates, TestHelpers}
+import io.adamnfish.pokerdot.{PokerDot, TestClock, TestHelpers}
 import io.circe.syntax._
 import org.scalactic.source.Position
 import org.scalatest.OptionValues
@@ -84,8 +85,8 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
       val gameDb = db.getGame(hostWelcome.gameId).value().value
       gameDb should have(
         "started" as true,
-        "startTime" as TestDates.now(),
-        "expiry" as TestDates.expires(),
+        "startTime" as TestClock.now(),
+        "expiry" as Games.expiryTime(TestClock.now()),
         "button" as 0,
       )
     }

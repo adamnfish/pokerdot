@@ -1,11 +1,14 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.services.{Dates, Rng}
+import io.adamnfish.pokerdot.services.{Clock, Rng}
 
 
-object TestDates extends Dates {
+object TestClock extends Clock {
   override val now: () => Long = () => 0L
-  override val expires: () => Long = () => 100L
+}
+
+class ConfigurableTestClock(currentTime: Long) extends Clock {
+  override val now: () => Long = () => currentTime
 }
 
 object TestRng extends Rng {

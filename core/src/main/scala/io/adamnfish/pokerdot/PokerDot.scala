@@ -63,10 +63,10 @@ object PokerDot {
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
       createGame <- extractCreateGame(requestJson).attempt
-      rawGame = Games.newGame(createGame.gameName, trackStacks = false, appContext.dates, initialSeed)
+      rawGame = Games.newGame(createGame.gameName, trackStacks = false, appContext.clock, initialSeed)
       uniqueGameCode <- Games.makeUniquePrefix(rawGame.gameId, appContext.db, Database.checkUniquePrefix)
       game = rawGame.copy(gameCode = uniqueGameCode)
-      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, appContext.dates)
+      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, appContext.clock)
       gameWithHost = Games.addPlayer(game, host)
       gameDb = Representations.gameToDb(gameWithHost)
       hostDb = Representations.playerToDb(host)
@@ -99,7 +99,7 @@ object PokerDot {
       _ <- Games.ensureNotAlreadyPlaying(game.players, appContext.playerAddress).attempt
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName).attempt
       _ <- Games.ensurePlayerCount(game.players.length).attempt
-      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.dates)
+      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.clock)
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player, appContext.playerAddress)
       playerDb = Representations.playerToDb(player)
@@ -129,7 +129,7 @@ object PokerDot {
       _ <- Games.ensureNotStarted(rawGame).attempt
       _ <- Games.ensureHost(rawGame.players, startGame.playerKey).attempt
       _ <- Games.ensureStartingPlayerCount(rawGame.players.length).attempt
-      now = appContext.dates.now()
+      now = appContext.clock.now()
       startedGame = Games.start(rawGame, now, startGame.initialSmallBlind, startGame.timerConfig, startGame.startingStack, startGame.playerOrder)
       startedGameDb = Representations.gameToDb(startedGame)
       playerDbs = Representations.allPlayerDbs(startedGame.players)
@@ -234,7 +234,7 @@ object PokerDot {
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
       // TODO: recursively call this operation if we are auto-advancing?
-      advanceResult <- PlayerActions.advancePhase(game, appContext.rng).attempt
+      advanceResult <- PlayerActions.advancePhase(game, appContext.clock, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)
       // only do DB updates for players that have changed
@@ -271,7 +271,7 @@ object PokerDot {
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, updateBlind.playerKey).attempt
-      now = appContext.dates.now()
+      now = appContext.clock.now()
       updatedGame <- PlayerActions.updateBlind(game, updateBlind, now).attempt
       newGameDb = Representations.gameToDb(updatedGame)
       action <- Games.updateBlindAction(updateBlind).attempt

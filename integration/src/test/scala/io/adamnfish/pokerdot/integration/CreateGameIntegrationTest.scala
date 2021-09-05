@@ -62,7 +62,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
         val welcomeMessage = response.messages.get(hostAddress).value
         val gameDb = db.getGame(welcomeMessage.gameId).value().value
 
-        gameDb.expiry shouldEqual appContext.dates.expires()
+        gameDb.expiry should be > appContext.clock.now()
       }
     }
 
@@ -84,7 +84,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
         val welcomeMessage = response.messages.get(hostAddress).value
         val hostDb = db.getPlayers(welcomeMessage.gameId).value().head
 
-        hostDb.expiry shouldEqual appContext.dates.expires()
+        hostDb.expiry should be > appContext.clock.now()
       }
     }
   }

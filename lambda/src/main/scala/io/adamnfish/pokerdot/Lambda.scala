@@ -5,7 +5,7 @@ import com.amazonaws.services.lambda.runtime.events.{APIGatewayV2WebSocketEvent,
 import com.amazonaws.services.lambda.runtime.{Context => AwsContext}
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Dates, RandomRng}
+import io.adamnfish.pokerdot.services.{Clock, RandomRng}
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
@@ -50,7 +50,7 @@ class Lambda {
       rng = new RandomRng
     } yield { (playerAddress: PlayerAddress, awsContext: AwsContext) =>
       val messaging = new AwsMessaging(apiGatewayManagementClient, awsContext.getLogger)
-      AppContext(playerAddress, db, messaging, Dates, rng)
+      AppContext(playerAddress, db, messaging, Clock, rng)
     }).fold(
       { errMsg =>
         throw new RuntimeException(errMsg)

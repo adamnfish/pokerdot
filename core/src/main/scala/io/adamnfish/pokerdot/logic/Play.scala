@@ -4,6 +4,7 @@ import io.adamnfish.pokerdot.models._
 
 import scala.util.Random
 import io.adamnfish.pokerdot.logic.Utils.RichList
+import io.adamnfish.pokerdot.services.Clock
 
 import scala.annotation.tailrec
 
@@ -251,6 +252,89 @@ object Play {
         }
       )
     }
+  }
+
+  /**
+   * Checks the timer to determine whether the blinds will increase for the next round.
+   *
+   * If the timer is not present, the existing blind is re-used.
+   * If we're on a break, advancing to the next round should fail.
+   */
+  def blindForNextRound(currentSmallBlind: Int, now: Long, maybeTimerStatus: Option[TimerStatus]): Either[Failures, Int] = {
+    maybeTimerStatus match {
+      case None =>
+        Right(currentSmallBlind)
+      case Some(TimerStatus(_, Some(_), _)) =>
+        // cannot advance to new round while game is paused
+        Left(Failures("Cannot advance paused game", "you can't start a new round while the game is paused"))
+      case Some(timerStatus) =>
+        timerSmallBlind(timerStatus, now).flatMap { case (nextSmallBlind, onABreak) =>
+          if (onABreak)
+            Left(Failures("Cannot advance while on a break","wait for the break to end before starting a new round", None, None))
+          else Right(nextSmallBlind)
+        }
+    }
+  }
+
+  /**
+   * Determines the small blind amount from the provided timer configuration, and current time.
+   *
+   * This is used when rounds advance, and whenever the timer is edited.
+   */
+  def timerSmallBlind(timerStatus: TimerStatus, now: Long): Either[Failures, (Int, Boolean)] = {
+    // this is important to take care of paused timers
+    val adjustedTimerStartTime =
+      timerStatus.pausedTime match {
+        case Some(pausedTime) =>
+          timerStatus.timerStartTime + (now - pausedTime)
+        case None =>
+          timerStatus.timerStartTime
+      }
+
+    val (mAnswer, mFallback, break, _) =
+      timerStatus.levels.foldLeft[(Option[RoundLevel], Option[RoundLevel], Boolean, Long)]((None, None, false, 0)) { case ((maybeResult, maybeLastValid, onABreak, elapsed), timerLevel) =>
+        val levelDuration = timerLevel match {
+          case RoundLevel(durationSeconds, _) =>  durationSeconds
+          case BreakLevel(durationSeconds) => durationSeconds
+        }
+        if (adjustedTimerStartTime + elapsed >= now) {
+          // this and subsequent levels start in the future
+          (maybeResult, maybeLastValid, onABreak, elapsed + levelDuration)
+        } else {
+          (
+            if (now > adjustedTimerStartTime + elapsed && now <= adjustedTimerStartTime + elapsed + levelDuration) {
+              // this is the current timer level
+              timerLevel match {
+                case rl: RoundLevel =>
+                  Some(rl)
+                case _ =>
+                  // we are on a break, and should explicitly fail
+                  None
+              }
+            } else maybeResult,
+            timerLevel match {
+              case rl: RoundLevel =>
+                Some(rl)
+              case _ =>
+                maybeLastValid
+            },
+            if (now > adjustedTimerStartTime + elapsed && now <= adjustedTimerStartTime + elapsed + levelDuration) {
+              // this is the current timer level
+              timerLevel match {
+                case _: RoundLevel =>
+                  false
+                case _ =>
+                  // we are on a break, and should explicitly fail
+                  true
+              }
+            } else onABreak,
+            elapsed + levelDuration
+          )
+        }
+      }
+    mAnswer.orElse(mFallback)
+      .map(rl => (rl.smallBlind, break))
+      .toRight(Failures("No valid timer level, empty timer?", "the timer is broken so we can't move to the next round"))
   }
 
   private[logic] def nextActiveFromIndex(players: List[Player], index: Int): Option[PlayerId] = {
