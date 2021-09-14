@@ -1,8 +1,9 @@
 module UtilsTest exposing (..)
 
 import Expect
-import Test exposing (Test, describe, test)
-import Utils exposing (swapDown, swapUp)
+import Fuzz exposing (intRange)
+import Test exposing (Test, describe, fuzz, test)
+import Utils exposing (millisToTimeComponents, swapDown, swapUp)
 
 
 all : Test
@@ -35,5 +36,73 @@ all =
             , test "keeps existing list if el does not exist" <|
                 \_ ->
                     swapUp 4 [ 1, 2, 3 ] |> Expect.equal [ 1, 2, 3 ]
+            ]
+        , describe "millisToTimeComponents"
+            [ fuzz (intRange 0 999) "just millis for a small number" <|
+                \n ->
+                    millisToTimeComponents n
+                        |> Expect.equal
+                            { millis = n
+                            , seconds = 0
+                            , minutes = 0
+                            , hours = 0
+                            , days = 0
+                            , weeks = 0
+                            }
+            , fuzz (intRange 1000 1999) "millis and a second" <|
+                \n ->
+                    millisToTimeComponents n
+                        |> Expect.equal
+                            { millis = n - 1000
+                            , seconds = 1
+                            , minutes = 0
+                            , hours = 0
+                            , days = 0
+                            , weeks = 0
+                            }
+            , fuzz (intRange 0 59) "minutes" <|
+                \n ->
+                    millisToTimeComponents (1000 * 60 * n)
+                        |> Expect.equal
+                            { millis = 0
+                            , seconds = 0
+                            , minutes = n
+                            , hours = 0
+                            , days = 0
+                            , weeks = 0
+                            }
+            , fuzz (intRange 0 23) "hours" <|
+                \n ->
+                    millisToTimeComponents (1000 * 60 * 60 * n)
+                        |> Expect.equal
+                            { millis = 0
+                            , seconds = 0
+                            , minutes = 0
+                            , hours = n
+                            , days = 0
+                            , weeks = 0
+                            }
+            , fuzz (intRange 0 6) "days" <|
+                \n ->
+                    millisToTimeComponents (86400 * 1000 * n)
+                        |> Expect.equal
+                            { millis = 0
+                            , seconds = 0
+                            , minutes = 0
+                            , hours = 0
+                            , days = n
+                            , weeks = 0
+                            }
+            , fuzz (intRange 0 10) "weeks" <|
+                \n ->
+                    millisToTimeComponents (86400 * 7 * 1000 * n)
+                        |> Expect.equal
+                            { millis = 0
+                            , seconds = 0
+                            , minutes = 0
+                            , hours = 0
+                            , days = 0
+                            , weeks = n
+                            }
             ]
         ]

@@ -1,4 +1,4 @@
-module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, timerUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -14,13 +14,16 @@ import Html.Attributes
 import List.Extra
 import Logic exposing (isBusted)
 import Maybe.Extra
-import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self)
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self, TimerLevel(..), TimerStatus)
 import Random
 import Random.Extra
 import Svg
 import Svg.Attributes
+import Time exposing (Posix)
+import Utils exposing (millisToTimeComponents)
 import Views.Generators exposing (..)
 import Views.Theme as Theme
+import Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, timerRecommendations)
 
 
 type CardSize
@@ -1398,6 +1401,306 @@ communityCardsUi round =
                 , cardUi 2 False NormalCard flop3
                 , cardUi 3 False NormalCard turn
                 , cardUi 4 False NormalCard river
+                ]
+
+
+timerLevelUi : TimerLevel -> Element Msg
+timerLevelUi timerLevel =
+    -- TODO: controls for deletion, addition and movement
+    let
+        durationEl duration =
+            let
+                timeComponents =
+                    millisToTimeComponents (duration * 1000)
+
+                formatTimeComponent amount label =
+                    row
+                        []
+                        [ el
+                            []
+                          <|
+                            text <|
+                                String.fromInt amount
+                        , el
+                            [ alignBottom
+                            , Font.size 14
+                            , moveUp 1
+                            ]
+                          <|
+                            text label
+                        ]
+            in
+            -- TODO: human formatting of times
+            row
+                [ width fill
+                , spacing 2
+                ]
+                [ formatTimeComponent timeComponents.minutes "m"
+                , formatTimeComponent timeComponents.seconds "s"
+                ]
+    in
+    case timerLevel of
+        RoundLevel duration smallBlind ->
+            row
+                [ width fill
+                , spacing 8
+                , padding 8
+                , Background.color Theme.colours.primary
+                , Font.color <| Theme.textColour Theme.colours.black
+                ]
+                [ el
+                    [ width <| fillPortion 4 ]
+                  <|
+                    durationEl duration
+                , el
+                    [ width <| fillPortion 1
+                    , Font.alignRight
+                    ]
+                  <|
+                    text <|
+                        String.fromInt smallBlind
+                , el
+                    [ width shrink ]
+                  <|
+                    text " / "
+                , el
+                    [ width <| fillPortion 1
+                    , Font.alignLeft
+                    ]
+                  <|
+                    text <|
+                        String.fromInt <|
+                            smallBlind
+                                * 2
+                , el
+                    [ alignRight ]
+                  <|
+                    html <|
+                        (FontAwesome.Solid.timesCircle
+                            |> FontAwesome.Icon.present
+                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                            --|> FontAwesome.Icon.withId "share-join-link_pokerdot"
+                            --|> FontAwesome.Icon.titled "Share join link"
+                            |> FontAwesome.Icon.view
+                        )
+                ]
+
+        BreakLevel duration ->
+            row
+                [ width fill ]
+                [ text "break"
+                , durationEl duration
+                , el
+                    [ alignRight ]
+                  <|
+                    text "x"
+                ]
+
+
+editTimerUi : (Int -> List TimerLevel -> Msg) -> List TimerLevel -> Int -> Int -> Element Msg
+editTimerUi msg timerLevels playerCount stack =
+    -- show recommendation buttons
+    -- and current choice
+    -- controls to change all round lengths at once
+    let
+        largeStartingStack =
+            1000
+
+        smallStartingStack =
+            100
+
+        longGameTimer =
+            timerRecommendations LongGame playerCount largeStartingStack
+
+        mediumGameTimer =
+            timerRecommendations MediumGame playerCount largeStartingStack
+
+        shortGameTimer =
+            timerRecommendations ShortGame playerCount smallStartingStack
+    in
+    column
+        [ width fill
+        , spacing 12
+        ]
+        [ wrappedRow
+            [ width fill
+            , spacing 8
+            ]
+            [ controlsButton Theme.scheme1 (msg smallStartingStack shortGameTimer) <|
+                column
+                    [ spacing 5
+                    , width fill
+                    ]
+                    [ el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "short"
+                    , el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "game"
+                    ]
+            , controlsButton Theme.scheme1 (msg largeStartingStack mediumGameTimer) <|
+                column
+                    [ spacing 5
+                    , width fill
+                    ]
+                    [ el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "medium"
+                    , el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "game"
+                    ]
+            , controlsButton Theme.scheme1 (msg largeStartingStack longGameTimer) <|
+                column
+                    [ spacing 5
+                    , width fill
+                    ]
+                    [ el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "long"
+                    , el
+                        [ width fill
+                        , Font.center
+                        ]
+                      <|
+                        text "game"
+                    ]
+            ]
+        , el
+            []
+            Element.none
+        , row
+            [ width fill
+            , padding 2
+            , Background.color Theme.colours.night
+            , Font.color <| Theme.textColour Theme.colours.white
+            ]
+            [ el
+                [ paddingXY 8 0 ]
+              <|
+                text "Player starting stacks "
+            , el
+                [ padding 8
+                , alignRight
+                , Background.color Theme.colours.primary
+                , Font.color <| Theme.textColour Theme.colours.black
+                ]
+              <|
+                text <|
+                    String.fromInt stack
+            ]
+        , column
+            [ width fill
+            , spacing 2
+            ]
+          <|
+            List.map timerLevelUi timerLevels
+        ]
+
+
+timerUi : TimerStatus -> Posix -> Element Msg
+timerUi timerStatus now =
+    let
+        formatMaybeNext : Maybe TimerLevel -> Element Msg
+        formatMaybeNext maybeNext =
+            case maybeNext of
+                Just (RoundLevel duration smallBlind) ->
+                    row
+                        [ Font.size 11 ]
+                        [ text "Next: "
+                        , text <| String.fromInt smallBlind
+                        , text " / "
+                        , text <| String.fromInt <| smallBlind * 2
+                        ]
+
+                Just (BreakLevel duration) ->
+                    row
+                        []
+                        [ text <| String.fromInt duration
+                        , text " break"
+                        ]
+
+                Nothing ->
+                    Element.none
+    in
+    case currentTimerLevel timerStatus now of
+        TimerRunning currentLevelInfo maybeNext ->
+            row
+                []
+                [ text "running "
+                , text <| String.fromInt currentLevelInfo.smallBlind
+                , text " / "
+                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
+                , text " "
+                , formatMaybeNext maybeNext
+                ]
+
+        TimerBreak currentLevelInfo maybeNext ->
+            row
+                []
+                [ text "break "
+                , text <| String.fromInt currentLevelInfo.smallBlind
+                , text " / "
+                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
+                , text " "
+                , formatMaybeNext maybeNext
+                ]
+
+        TimerFinished smallBlind ->
+            row
+                []
+                [ text "timer finished "
+                , text <| String.fromInt smallBlind
+                , text " / "
+                , text <| String.fromInt <| smallBlind * 2
+                , text " "
+                ]
+
+        TimerPaused currentLevelInfo maybeNext ->
+            row
+                []
+                [ text "paused "
+                , text <| String.fromInt currentLevelInfo.smallBlind
+                , text " / "
+                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
+                , text " "
+                , formatMaybeNext maybeNext
+                ]
+
+        TimerPausedBreak currentLevelInfo maybeNext ->
+            row
+                []
+                [ text "paused (break) "
+                , text <| String.fromInt currentLevelInfo.smallBlind
+                , text " / "
+                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
+                , text " "
+                , formatMaybeNext maybeNext
+                ]
+
+        TimerPausedFinish smallBlind ->
+            row
+                []
+                [ text "paused (finished) "
+                , text <| String.fromInt smallBlind
+                , text " / "
+                , text <| String.fromInt <| smallBlind * 2
+                , text " "
                 ]
 
 

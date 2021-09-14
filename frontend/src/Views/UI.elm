@@ -16,11 +16,11 @@ import List.Extra
 import Logic exposing (gameIsFinished, winner)
 import Maybe.Extra
 import Messages exposing (lookupPlayer)
-import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel, TimerStatus, UI(..), Welcome)
+import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel(..), TimerStatus, UI(..), Welcome)
 import Utils exposing (swapDown, swapUp)
-import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, uiElements, zWidths)
+import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, timerUi, uiElements, zWidths)
 import Views.Theme as Theme
-import Views.Timers exposing (defaultStack, defaultTimerLevels, timerUi)
+import Views.Timers exposing (CurrentTimerLevel(..), currentTimerLevel, defaultStack, defaultTimerLevels)
 
 
 type alias Page =
@@ -1202,8 +1202,35 @@ lobbyStartSettings playerOrder chipsSettings =
             [ el
                 [ alignRight ]
               <|
-                controlsButton Theme.scheme3 SubmitStartGame (text "start")
+                controlsButton Theme.scheme3 SubmitStartGame <|
+                    column
+                        [ width fill
+                        , spacing 8
+                        ]
+                        [ el
+                            [ width fill
+                            , centerX
+                            ]
+                          <|
+                            text "start"
+                        , el
+                            [ Font.color <| Theme.textColour Theme.colours.white
+                            , centerX
+                            ]
+                          <|
+                            html <|
+                                (FontAwesome.Solid.play
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled
+                                        [ FontAwesome.Attributes.xs
+                                        ]
+                                    |> FontAwesome.Icon.view
+                                )
+                        ]
             ]
+        , el
+            [ height <| px 4 ]
+            Element.none
         , column
             [ width fill
             , spacing 6
@@ -1211,8 +1238,8 @@ lobbyStartSettings playerOrder chipsSettings =
             , Background.color Theme.colours.lowlight
             ]
             [ row
-                [ spacing 8
-                , moveUp 11
+                [ spacing 10
+                , moveUp 24
                 , moveLeft 4
                 ]
                 [ pdTab
@@ -1233,7 +1260,7 @@ lobbyStartSettings playerOrder chipsSettings =
                         _ ->
                             False
                     )
-                    (InputStartGameSettings playerOrder <| TrackWithTimer defaultStack (defaultTimerLevels (List.length playerOrder) defaultStack))
+                    (InputStartGameSettings playerOrder <| TrackWithTimer defaultStack (defaultTimerLevels (List.length playerOrder)))
                     "timer"
                 , pdTab
                     (case chipsSettings of
@@ -1260,51 +1287,13 @@ lobbyStartSettings playerOrder chipsSettings =
                         [ width fill
                         , spacing 8
                         ]
-                        [ Input.text
-                            [ Font.alignLeft
-                            , paddingXY 10 8
-                            , Border.solid
-                            , Border.width 2
-                            , Border.color Theme.colours.black
-                            , Border.widthEach { zWidths | bottom = 2 }
-                            , Border.rounded 0
-                            , Background.color Theme.colours.white
-                            , focused
-                                [ Background.color Theme.colours.highlightPrimary
-                                ]
-                            ]
-                            { text = String.fromInt currentStackSize
-                            , label =
-                                Input.labelLeft
-                                    [ width <| px 150
-                                    , paddingXY 8 0
-                                    , Font.alignRight
-                                    , Font.color <| Theme.textColour Theme.colours.white
-                                    ]
-                                <|
-                                    text "player stacks"
-                            , placeholder =
-                                Just <|
-                                    Input.placeholder
-                                        []
-                                    <|
-                                        text "player stacks"
-                            , onChange =
-                                \stackSizeStr ->
-                                    let
-                                        stackSize =
-                                            String.toInt stackSizeStr |> Maybe.withDefault defaultStack
-                                    in
-                                    InputStartGameSettings playerOrder <|
-                                        TrackWithTimer stackSize timerLevels
-                            }
-                        , el
+                        [ el
                             [ width fill
                             , Font.color <| Theme.textColour Theme.colours.white
                             ]
                           <|
-                            timerUi
-                                (\tls -> InputStartGameSettings playerOrder <| TrackWithTimer currentStackSize tls)
+                            editTimerUi
+                                (\startingStack tls -> InputStartGameSettings playerOrder <| TrackWithTimer startingStack tls)
                                 timerLevels
                                 (List.length playerOrder)
                                 currentStackSize
@@ -1473,6 +1462,12 @@ gameScreen model playingState currentAct self game welcome =
                 , Font.bold
                 ]
                 [ text game.gameName ]
+            , case game.timer of
+                Nothing ->
+                    Element.none
+
+                Just timerStatus ->
+                    timerUi timerStatus model.now
             , tableUi game.round game.button Nothing game.inTurn game.players
             , selfUi model.peeking self
             , case playingState of
