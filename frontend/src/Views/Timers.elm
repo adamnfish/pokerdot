@@ -1,10 +1,8 @@
-module Views.Timers exposing (defaultStack, defaultTimerLevels, timerUi)
+module Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, defaultStack, defaultTimerLevels, timerRecommendations)
 
-import Element exposing (..)
-import Element.Font as Font
-import Model exposing (Msg, TimerLevel(..))
-import Views.Elements exposing (controlsButton)
-import Views.Theme as Theme
+import Maybe.Extra
+import Model exposing (Msg, TimerLevel(..), TimerStatus)
+import Time exposing (Posix, posixToMillis)
 
 
 
@@ -20,8 +18,8 @@ type TimerSpeed
     | ShortGame
 
 
-recommendations : TimerSpeed -> Int -> Int -> List TimerLevel
-recommendations timerSpeed playerCount stack =
+timerRecommendations : TimerSpeed -> Int -> Int -> List TimerLevel
+timerRecommendations timerSpeed playerCount stack =
     -- expects stacks of at least 100
     -- TODO: use total funds to cap levels appropriately
     -- TODO: optionally insert breaks
@@ -50,6 +48,7 @@ recommendations timerSpeed playerCount stack =
                     , 2
                     , 3
                     , 5
+                    , 7
                     , 10
                     , 15
                     , 25
@@ -65,7 +64,8 @@ recommendations timerSpeed playerCount stack =
                 MediumGame ->
                     [ 1
                     , 2
-                    , 5
+                    , 3
+                    , 6
                     , 10
                     , 20
                     , 50
@@ -98,128 +98,130 @@ recommendations timerSpeed playerCount stack =
         blindMultiples
 
 
-timerLevelUi : TimerLevel -> Element Msg
-timerLevelUi timerLevel =
-    -- TODO: controls for deletion, addition and movement
-    let
-        durationEl duration =
-            -- TODO: human formatting of times
-            row
-                []
-                [ text <| String.fromInt duration ]
-    in
-    case timerLevel of
-        RoundLevel duration smallBlind ->
-            row
-                [ width fill ]
-                [ durationEl duration
-                , text <| String.fromInt smallBlind
-                , text " / "
-                , text <| String.fromInt <| smallBlind * 2
-                , el
-                    [ alignRight ]
-                  <|
-                    text "x"
-                ]
-
-        BreakLevel duration ->
-            row
-                [ width fill ]
-                [ text "break"
-                , durationEl duration
-                , el
-                    [ alignRight ]
-                  <|
-                    text "x"
-                ]
-
-
-timerUi : (List TimerLevel -> Msg) -> List TimerLevel -> Int -> Int -> Element Msg
-timerUi msg timerLevels playerCount stack =
-    -- show recommendation buttons
-    -- and current choice
-    -- controls to change all round lengths at once
-    let
-        longGameTimer =
-            recommendations LongGame playerCount stack
-
-        mediumGameTimer =
-            recommendations MediumGame playerCount stack
-
-        shortGameTimer =
-            recommendations ShortGame playerCount stack
-    in
-    column
-        [ width fill ]
-        [ wrappedRow
-            [ width fill
-            , spacing 8
-            ]
-            [ controlsButton Theme.scheme1 (msg shortGameTimer) <|
-                column
-                    [ spacing 5
-                    , width fill
-                    ]
-                    [ el
-                        [ width fill
-                        , Font.center
-                        ]
-                      <|
-                        text "short"
-                    , el
-                        [ width fill
-                        , Font.center
-                        ]
-                      <|
-                        text "game"
-                    ]
-            , controlsButton Theme.scheme1 (msg mediumGameTimer) <|
-                column
-                    [ spacing 5
-                    , width fill
-                    ]
-                    [ el
-                        [ width fill
-                        , Font.center
-                        ]
-                      <|
-                        text "medium"
-                    , el
-                        [ width fill
-                        , Font.center
-                        ]
-                      <|
-                        text "game"
-                    ]
-            , controlsButton Theme.scheme1 (msg longGameTimer) <|
-                column
-                    [ spacing 5
-                    , width fill
-                    ]
-                    [ el
-                        [ width fill
-                        , Font.center
-                        ]
-                      <|
-                        text "long"
-                    , el
-                        [ width fill
-                        , Font.center
-                        ]
-                      <|
-                        text "game"
-                    ]
-            ]
-        , column
-            [ width fill ]
-          <|
-            List.map timerLevelUi timerLevels
-        ]
-
-
-defaultTimerLevels playerCount stack =
-    recommendations ShortGame playerCount stack
+defaultTimerLevels playerCount =
+    timerRecommendations ShortGame playerCount 100
 
 
 defaultStack =
-    1000
+    100
+
+
+type alias CurrentTimerLevelInfo =
+    { levelDuration : Int
+    , levelProgress : Int
+    , smallBlind : Int
+    }
+
+
+type
+    CurrentTimerLevel
+    -- Describes current and next status of a running timer
+    = TimerRunning CurrentTimerLevelInfo (Maybe TimerLevel)
+    | TimerBreak CurrentTimerLevelInfo (Maybe TimerLevel)
+    | TimerFinished Int
+    | TimerPaused CurrentTimerLevelInfo (Maybe TimerLevel)
+    | TimerPausedBreak CurrentTimerLevelInfo (Maybe TimerLevel)
+    | TimerPausedFinish Int
+
+
+currentTimerLevel : TimerStatus -> Posix -> CurrentTimerLevel
+currentTimerLevel timerStatus now =
+    let
+        timerProgress =
+            case timerStatus.pausedTime of
+                Just pausedTime ->
+                    (posixToMillis pausedTime - posixToMillis timerStatus.timerStartTime) // 1000
+
+                Nothing ->
+                    (posixToMillis now - posixToMillis timerStatus.timerStartTime) // 1000
+
+        loop : List TimerLevel -> Int -> Maybe TimerLevel -> Maybe ( TimerLevel, Int ) -> Maybe TimerLevel -> CurrentTimerLevel
+        loop levels levelStartTime maybePrev maybeCurrent maybeNext =
+            case levels of
+                level :: tail ->
+                    let
+                        currentLevelDuration =
+                            case level of
+                                RoundLevel duration _ ->
+                                    duration
+
+                                BreakLevel duration ->
+                                    duration
+                    in
+                    if levelStartTime < timerProgress && levelStartTime + currentLevelDuration < timerProgress then
+                        -- haven't got to the current level, so this is at best "previous"
+                        loop tail (levelStartTime + currentLevelDuration) (Just level) Nothing Nothing
+
+                    else if levelStartTime < timerProgress && levelStartTime + currentLevelDuration > timerProgress then
+                        -- this is the current level, set current and fix prev
+                        -- TODO: only set prev if it is a round (not a break)
+                        let
+                            progress =
+                                timerProgress - levelStartTime
+                        in
+                        loop tail (levelStartTime + currentLevelDuration) maybePrev (Just ( level, progress )) Nothing
+
+                    else
+                        -- this is a subsequent level, set next if it does not already exist
+                        -- loop with empty list to stop us having to look at the rest of the levels
+                        loop [] (levelStartTime + currentLevelDuration) maybePrev maybeCurrent <|
+                            case maybeNext of
+                                Nothing ->
+                                    Just level
+
+                                Just next ->
+                                    Just next
+
+                [] ->
+                    case ( maybePrev, maybeCurrent ) of
+                        ( _, Just ( RoundLevel duration smallBlind, progress ) ) ->
+                            if Maybe.Extra.isJust timerStatus.pausedTime then
+                                TimerPaused
+                                    { levelDuration = duration
+                                    , levelProgress = progress
+                                    , smallBlind = smallBlind
+                                    }
+                                    maybeNext
+
+                            else
+                                TimerRunning
+                                    { levelDuration = duration
+                                    , levelProgress = progress
+                                    , smallBlind = smallBlind
+                                    }
+                                    maybeNext
+
+                        ( Just (RoundLevel _ prevSmallBlind), Just ( BreakLevel duration, progress ) ) ->
+                            if Maybe.Extra.isJust timerStatus.pausedTime then
+                                TimerPausedBreak
+                                    { levelDuration = duration
+                                    , levelProgress = progress
+                                    , smallBlind = prevSmallBlind
+                                    }
+                                    maybeNext
+
+                            else
+                                TimerBreak
+                                    { levelDuration = duration
+                                    , levelProgress = progress
+                                    , smallBlind = prevSmallBlind
+                                    }
+                                    maybeNext
+
+                        ( Just (RoundLevel _ prevSmallBlind), Nothing ) ->
+                            -- timer has finished
+                            if Maybe.Extra.isJust timerStatus.pausedTime then
+                                TimerPausedFinish prevSmallBlind
+
+                            else
+                                TimerFinished prevSmallBlind
+
+                        ( Nothing, Nothing ) ->
+                            -- must have been empty timer levels, which is validated against elsewhere
+                            TimerFinished 2
+
+                        _ ->
+                            -- TODO: expand on these cases
+                            TimerFinished 1
+    in
+    loop timerStatus.levels 0 Nothing Nothing Nothing
