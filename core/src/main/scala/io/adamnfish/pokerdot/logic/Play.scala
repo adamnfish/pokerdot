@@ -294,8 +294,9 @@ object Play {
     val (mAnswer, mFallback, break, _) =
       timerStatus.levels.foldLeft[(Option[RoundLevel], Option[RoundLevel], Boolean, Long)]((None, None, false, 0)) { case ((maybeResult, maybeLastValid, onABreak, elapsed), timerLevel) =>
         val levelDuration = timerLevel match {
-          case RoundLevel(durationSeconds, _) =>  durationSeconds
-          case BreakLevel(durationSeconds) => durationSeconds
+          // remember that timer level durations are seconds, but we use millis for the logic
+          case RoundLevel(durationSeconds, _) => 1000 * durationSeconds
+          case BreakLevel(durationSeconds) => 1000 * durationSeconds
         }
         if (adjustedTimerStartTime + elapsed >= now) {
           // this and subsequent levels start in the future

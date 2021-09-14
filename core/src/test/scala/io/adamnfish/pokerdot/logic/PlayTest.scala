@@ -1177,7 +1177,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         val timerStatus = TimerStatus(0, None, List(
           RoundLevel(300, 10),
         ))
-        val newSmallBlind = blindForNextRound(currentSmallBlind, 100, Some(timerStatus)).value
+        val newSmallBlind = blindForNextRound(currentSmallBlind, 100 * 1000, Some(timerStatus)).value
         newSmallBlind shouldEqual currentSmallBlind
       }
 
@@ -1187,7 +1187,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           RoundLevel(100, 10),
           RoundLevel(100, 20),
         ))
-        val newSmallBlind = blindForNextRound(currentSmallBlind, 120, Some(timerStatus)).value
+        val newSmallBlind = blindForNextRound(currentSmallBlind, 120 * 1000, Some(timerStatus)).value
         newSmallBlind shouldEqual 20
       }
 
@@ -1199,7 +1199,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           RoundLevel(100, 40),
           RoundLevel(100, 80),
         ))
-        val newSmallBlind = blindForNextRound(currentSmallBlind, 250, Some(timerStatus)).value
+        val newSmallBlind = blindForNextRound(currentSmallBlind, 250 * 1000, Some(timerStatus)).value
         newSmallBlind shouldEqual 40
       }
 
@@ -1211,7 +1211,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
             RoundLevel(100, 20),
             RoundLevel(100, 50),
           ))
-          val newSmallBlind = blindForNextRound(currentSmallBlind, 500, Some(timerStatus)).value
+          val newSmallBlind = blindForNextRound(currentSmallBlind, 500 * 1000, Some(timerStatus)).value
           newSmallBlind shouldEqual 50
         }
 
@@ -1223,7 +1223,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
             RoundLevel(100, 50),
             BreakLevel(100),
           ))
-          val newSmallBlind = blindForNextRound(currentSmallBlind, 500, Some(timerStatus)).value
+          val newSmallBlind = blindForNextRound(currentSmallBlind, 500 * 1000, Some(timerStatus)).value
           newSmallBlind shouldEqual 50
         }
       }
@@ -1236,7 +1236,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
           BreakLevel(100),
           RoundLevel(100, 50),
         ))
-        val result = blindForNextRound(currentSmallBlind, 250, Some(timerStatus))
+        val result = blindForNextRound(currentSmallBlind, 250 * 1000, Some(timerStatus))
         result.isLeft shouldEqual true
 
       }
@@ -1244,13 +1244,13 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "fails to advance the round if timer is paused" in {
       val currentSmallBlind = 10
-      val timerStatus = TimerStatus(0, Some(80), List(
+      val timerStatus = TimerStatus(0, Some(80 * 1000), List(
         RoundLevel(100, 10),
         RoundLevel(100, 20),
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      val result = blindForNextRound(currentSmallBlind, 120, Some(timerStatus))
+      val result = blindForNextRound(currentSmallBlind, 120 * 1000, Some(timerStatus))
       result.isLeft shouldEqual true
     }
   }
@@ -1265,17 +1265,17 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      timerSmallBlind(timerStatus, 350) shouldEqual Right((50, false))
+      timerSmallBlind(timerStatus, 150 * 1000) shouldEqual Right((20, false))
     }
 
     "calculates the correct blind amount for a running timer that started after 0" in {
-      val timerStatus = TimerStatus(100000, None, List(
+      val timerStatus = TimerStatus(100000 * 1000, None, List(
         RoundLevel(100, 10),
         RoundLevel(100, 20),
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      timerSmallBlind(timerStatus, 100000 + 350) shouldEqual Right((50, false))
+      timerSmallBlind(timerStatus, (100000 + 150) * 1000) shouldEqual Right((20, false))
     }
 
     "takes the last blind amount for an expired timer" in {
@@ -1285,17 +1285,17 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      timerSmallBlind(timerStatus, 1000) shouldEqual Right((50, false))
+      timerSmallBlind(timerStatus, 600 * 1000) shouldEqual Right((50, false))
     }
 
     "calculates the correct blind amount if the timer is paused" in {
-      val timerStatus = TimerStatus(0, Some(80), List(
+      val timerStatus = TimerStatus(0, Some(80 * 1000), List(
         RoundLevel(100, 10),
         RoundLevel(100, 20),
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      timerSmallBlind(timerStatus, 800) shouldEqual Right((10, false))
+      timerSmallBlind(timerStatus, 800 * 1000) shouldEqual Right((10, false))
     }
 
     "takes the last valid blind amount if we're on a break" in {
@@ -1305,17 +1305,17 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      timerSmallBlind(timerStatus, 250) shouldEqual Right((20, true))
+      timerSmallBlind(timerStatus, 250 * 1000) shouldEqual Right((20, true))
     }
 
     "takes the last valid blind amount if we're paused during a break" in {
-      val timerStatus = TimerStatus(0, Some(250), List(
+      val timerStatus = TimerStatus(0, Some(250 * 1000), List(
         RoundLevel(100, 10),
         RoundLevel(100, 20),
         BreakLevel(100),
         RoundLevel(100, 50),
       ))
-      timerSmallBlind(timerStatus, 1000) shouldEqual Right((20, true))
+      timerSmallBlind(timerStatus, 1000 * 1000) shouldEqual Right((20, true))
     }
   }
 
