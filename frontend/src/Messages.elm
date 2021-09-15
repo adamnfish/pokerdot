@@ -1,4 +1,4 @@
-module Messages exposing (lookupPlayer, routeFromUi, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
+module Messages exposing (lookupPlayer, parsePersistedGames, routeFromUi, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 
 import Browser exposing (UrlRequest(..))
 import Browser.Dom
