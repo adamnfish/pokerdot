@@ -4,7 +4,8 @@ import Browser
 import Browser.Dom
 import Browser.Events
 import Browser.Navigation
-import Messages exposing (routeFromUrl, sendPing, sendWake, uiFromRoute, update)
+import Json.Encode
+import Messages exposing (parsePersistedGames, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 import Model exposing (..)
 import Ports exposing (receiveMessage, receivePersistedGames, requestPersistedGames, socketConnect, socketDisconnect)
 import Task
@@ -23,9 +24,8 @@ init flags url navKey =
         initialRoute =
             routeFromUrl url
 
-        -- TODO: load from flags so it's available for the initial navigation check
-        initialLibrary =
-            []
+        ( initialLibrary, parseLibraryCmd ) =
+            parsePersistedGames flags.library
 
         ui =
             uiFromRoute initialRoute initialLibrary
@@ -72,6 +72,7 @@ init flags url navKey =
         , sendWake ()
         , rejoinCmd
         , requestPersistedGames ()
+        , parseLibraryCmd
         ]
     )
 
@@ -93,7 +94,8 @@ subscriptions model =
 
 
 type alias Flags =
-    ()
+    { library : Json.Encode.Value
+    }
 
 
 
