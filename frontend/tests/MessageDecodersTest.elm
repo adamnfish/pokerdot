@@ -4,6 +4,11 @@ import Expect exposing (fail)
 import Json.Decode
 import Model exposing (Action(..), GameId(..), Message(..), PlayerId(..), PlayerKey(..), messageDecoder, playerGameStatusMessageDecoder)
 import Test exposing (..)
+import Time exposing (millisToPosix)
+
+
+now =
+    millisToPosix 100000
 
 
 messageDecoders : Test
@@ -17,7 +22,7 @@ messageDecoders =
                             """{"failures":[{"message":"game name is required","context":"game name"},{"message":"screen name is required","context":"screen name"},{"message":"Another message","context":null}]}"""
 
                         result =
-                            Json.Decode.decodeString messageDecoder failureMessageJson
+                            Json.Decode.decodeString (messageDecoder now) failureMessageJson
                     in
                     case result of
                         Ok (FailureMessage failures) ->
@@ -45,7 +50,7 @@ messageDecoders =
                             """{"failures":[{"message":"couldn't find game, is the code correct?"}]}"""
 
                         result =
-                            Json.Decode.decodeString messageDecoder failureMessageJson
+                            Json.Decode.decodeString (messageDecoder now) failureMessageJson
                     in
                     case result of
                         Ok (FailureMessage failures) ->
@@ -69,7 +74,7 @@ messageDecoders =
                             """{"playerKey":"b4043f56-a225-4b21-bf49-797503b1f035","playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","gameId":"6945a740-15f4-4409-b60f-3490e7674cbe","gameCode":"6945","gameName":"Test","screenName":"Player 1","spectator":false,"game":{"gameId":"6945a740-15f4-4409-b60f-3490e7674cbe","gameCode":"6945","gameName":"Test","players":[{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","screenName":"Player 1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":false,"isAdmin":false,"hole":null},{"playerId":"de855f82-bc5d-47db-adc2-0040853674ee","screenName":"host","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":true,"isAdmin":true,"hole":null}],"spectators":[],"round":{"phase":"pre-flop"},"smallBlind":0,"inTurn":null,"button":0,"started":false,"startTime":1613414159747,"trackStacks":false,"timer":null},"self":{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","screenName":"Player 1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"hole":null,"isHost":false,"isAdmin":false}}"""
 
                         result =
-                            Json.Decode.decodeString messageDecoder welcomeMessageJson
+                            Json.Decode.decodeString (messageDecoder now) welcomeMessageJson
                     in
                     case result of
                         Ok (WelcomeMessage welcome self game) ->
@@ -81,6 +86,7 @@ messageDecoders =
                                 , gameName = "Test"
                                 , screenName = "Player 1"
                                 , spectator = False
+                                , joined = now
                                 }
 
                         Ok message ->
@@ -97,7 +103,7 @@ messageDecoders =
                             """{"self":{"playerId":"de855f82-bc5d-47db-adc2-0040853674ee","screenName":"host","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"hole":null,"isHost":true,"isAdmin":true},"game":{"gameId":"6945a740-15f4-4409-b60f-3490e7674cbe","gameCode":"6945","gameName":"Test","players":[{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","screenName":"Player 1","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":false,"isAdmin":false,"hole":null},{"playerId":"de855f82-bc5d-47db-adc2-0040853674ee","screenName":"host","stack":0,"pot":0,"bet":0,"folded":false,"busted":false,"isHost":true,"isAdmin":true,"hole":null}],"spectators":[],"round":{"phase":"pre-flop"},"smallBlind":0,"inTurn":null,"button":0,"started":false,"startTime":1613414159747,"trackStacks":false,"timer":null},"action":{"playerId":"3f37c05f-9bd6-4708-b989-3896f480180f","action":"player-joined"}}"""
 
                         result =
-                            Json.Decode.decodeString messageDecoder playerJoinedMessage
+                            Json.Decode.decodeString (messageDecoder now) playerJoinedMessage
                     in
                     case result of
                         Ok (PlayerGameStatusMessage self game action) ->

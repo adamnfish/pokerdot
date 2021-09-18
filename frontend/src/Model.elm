@@ -4,9 +4,9 @@ import Browser exposing (UrlRequest)
 import Browser.Dom exposing (Viewport)
 import Browser.Navigation
 import Json.Decode exposing (nullable)
-import Json.Decode.Pipeline exposing (optional, required)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode
-import Time exposing (Posix(..))
+import Time exposing (Posix(..), millisToPosix, posixToMillis)
 import Url
 
 
@@ -188,6 +188,7 @@ type alias Welcome =
     , gameName : String
     , screenName : String
     , spectator : Bool
+    , joined : Posix
     }
 
 
@@ -431,8 +432,8 @@ type alias UpdateBlindRequest =
 -- Codecs
 
 
-welcomeDecoder : Json.Decode.Decoder Welcome
-welcomeDecoder =
+persistedWelcomeDecoder : Json.Decode.Decoder Welcome
+persistedWelcomeDecoder =
     Json.Decode.succeed Welcome
         |> required "playerKey" playerKeyDecoder
         |> required "playerId" playerIdDecoder
@@ -441,6 +442,20 @@ welcomeDecoder =
         |> required "gameName" Json.Decode.string
         |> required "screenName" Json.Decode.string
         |> required "spectator" Json.Decode.bool
+        |> required "joined" (Json.Decode.map millisToPosix Json.Decode.int)
+
+
+serverWelcomeDecoder : Posix -> Json.Decode.Decoder Welcome
+serverWelcomeDecoder now =
+    Json.Decode.succeed Welcome
+        |> required "playerKey" playerKeyDecoder
+        |> required "playerId" playerIdDecoder
+        |> required "gameId" gameIdDecoder
+        |> required "gameCode" Json.Decode.string
+        |> required "gameName" Json.Decode.string
+        |> required "screenName" Json.Decode.string
+        |> required "spectator" Json.Decode.bool
+        |> hardcoded now
 
 
 selfDecoder : Json.Decode.Decoder Self
@@ -828,10 +843,10 @@ holeDecoder =
         |> required "card2" cardDecoder
 
 
-decodeWelcome : Json.Decode.Decoder Message
-decodeWelcome =
+decodeWelcome : Posix -> Json.Decode.Decoder Message
+decodeWelcome now =
     Json.Decode.map3 WelcomeMessage
-        welcomeDecoder
+        (serverWelcomeDecoder now)
         (Json.Decode.field "self" selfDecoder)
         (Json.Decode.field "game" gameDecoder)
 
@@ -904,10 +919,10 @@ failureMessageDecoder =
         Json.Decode.field "failures" (Json.Decode.list failureDecoder)
 
 
-messageDecoder : Json.Decode.Decoder Message
-messageDecoder =
+messageDecoder : Posix -> Json.Decode.Decoder Message
+messageDecoder now =
     Json.Decode.oneOf
-        [ decodeWelcome
+        [ decodeWelcome now
         , playerGameStatusMessageDecoder
         , spectatorGameStatusMessageDecoder
         , playerRoundWinningsMessageDecoder
@@ -974,6 +989,7 @@ welcomeEncoder welcome =
         , ( "gameName", Json.Encode.string welcome.gameName )
         , ( "screenName", Json.Encode.string welcome.screenName )
         , ( "spectator", Json.Encode.bool welcome.spectator )
+        , ( "joined", Json.Encode.int <| posixToMillis welcome.joined )
         ]
 
 
