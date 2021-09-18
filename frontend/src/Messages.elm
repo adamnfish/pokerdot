@@ -6,7 +6,7 @@ import Browser.Navigation
 import Json.Decode exposing (errorToString)
 import List.Extra
 import Logic exposing (gameIsFinished)
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeDecoder, welcomeEncoder)
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, persistedWelcomeDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeEncoder)
 import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
 import Task
 import Time
@@ -106,7 +106,7 @@ update msg model =
             )
 
         ServerMessage json ->
-            case Json.Decode.decodeValue messageDecoder json of
+            case Json.Decode.decodeValue (messageDecoder model.now) json of
                 Ok (WelcomeMessage welcome self game) ->
                     let
                         newLibrary =
@@ -933,7 +933,7 @@ parsePersistedGames : Json.Decode.Value -> ( List Welcome, Cmd msg )
 parsePersistedGames json =
     let
         persistedGamesResult =
-            Json.Decode.decodeValue (Json.Decode.list welcomeDecoder) json
+            Json.Decode.decodeValue (Json.Decode.list persistedWelcomeDecoder) json
     in
     case persistedGamesResult of
         Ok persistedGames ->
