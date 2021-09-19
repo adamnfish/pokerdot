@@ -14,7 +14,7 @@ import Html.Attributes
 import List.Extra
 import Logic exposing (isBusted)
 import Maybe.Extra
-import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self, TimerLevel(..), TimerStatus)
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self, TimerLevel(..), TimerStatus, Welcome)
 import Random
 import Random.Extra
 import Svg
@@ -242,6 +242,11 @@ connectionUi connected =
                 |> FontAwesome.Icon.titled "Not connected"
                 |> FontAwesome.Icon.view
             )
+
+
+rejoinFromLibraryUi : Posix -> List Welcome -> Element Msg
+rejoinFromLibraryUi now library =
+    Element.none
 
 
 
