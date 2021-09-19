@@ -1,4 +1,4 @@
-module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, selfUi, tableUi, timerUi, uiElements, zWidths)
+module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, rgbToStyle, selfUi, tableUi, timerUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -75,21 +75,24 @@ controlsButton scheme msg label =
         }
 
 
+to255 : Float -> Int
+to255 f =
+    round <| f * 255
+
+
+rgbToStyle : { red : Float, green : Float, blue : Float, alpha : Float } -> String
+rgbToStyle rgb =
+    "rgb("
+        ++ String.fromInt (to255 rgb.red)
+        ++ ","
+        ++ String.fromInt (to255 rgb.green)
+        ++ ","
+        ++ String.fromInt (to255 rgb.blue)
+        ++ ")"
+
+
 logo : Int -> Element Msg
 logo dimensions =
-    let
-        to255 f =
-            round <| f * 255
-
-        toRgbStr rgb =
-            "rgb("
-                ++ String.fromInt (to255 rgb.red)
-                ++ ","
-                ++ String.fromInt (to255 rgb.green)
-                ++ ","
-                ++ String.fromInt (to255 rgb.blue)
-                ++ ")"
-    in
     html <|
         Svg.svg
             [ Svg.Attributes.width <| String.fromInt dimensions
@@ -97,12 +100,12 @@ logo dimensions =
             , Svg.Attributes.viewBox "0 0 800 800"
             ]
             [ Svg.path
-                [ Svg.Attributes.fill <| toRgbStr <| Element.toRgb Theme.colours.highlightPrimary
+                [ Svg.Attributes.fill <| rgbToStyle <| Element.toRgb Theme.colours.highlightPrimary
                 , Svg.Attributes.d "M 350 75 A 275 275 0 0 0 75 350 L 75 800 L 175 800 L 175 561.97461 A 275 275 0 0 0 350 625 A 275 275 0 0 0 625 350 A 275 275 0 0 0 350 75 z "
                 ]
                 []
             , Svg.path
-                [ Svg.Attributes.fill <| toRgbStr <| Element.toRgb Theme.colours.lowlight
+                [ Svg.Attributes.fill <| rgbToStyle <| Element.toRgb Theme.colours.lowlight
                 , Svg.Attributes.opacity "0.8"
                 , Svg.Attributes.d "M 625 0 L 625 238.02539 A 275 275 0 0 0 450 175 A 275 275 0 0 0 175 450 A 275 275 0 0 0 450 725 A 275 275 0 0 0 725 450 L 725 0 L 625 0 z "
                 ]
@@ -517,7 +520,7 @@ tableUi round button maybeWinnings active players =
                         Background.color Theme.colours.disabled
 
                        else if isActive player then
-                        Background.color Theme.colours.highlightSecondary
+                        Background.color Theme.colours.highlightPrimary
 
                        else
                         Background.color scheme.main
@@ -1675,17 +1678,18 @@ timerLevelUi timerLevel =
                         String.fromInt <|
                             smallBlind
                                 * 2
-                , el
-                    [ alignRight ]
-                  <|
-                    html <|
-                        (FontAwesome.Solid.timesCircle
-                            |> FontAwesome.Icon.present
-                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                            |> FontAwesome.Icon.withId ("delete-timer-level-" ++ String.fromInt smallBlind ++ "_pokerdot")
-                            |> FontAwesome.Icon.titled "Remove timer level"
-                            |> FontAwesome.Icon.view
-                        )
+
+                --, el
+                --    [ alignRight ]
+                --  <|
+                --    html <|
+                --        (FontAwesome.Solid.timesCircle
+                --            |> FontAwesome.Icon.present
+                --            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                --            |> FontAwesome.Icon.withId ("delete-timer-level-" ++ String.fromInt smallBlind ++ "_pokerdot")
+                --            |> FontAwesome.Icon.titled "Remove timer level"
+                --            |> FontAwesome.Icon.view
+                --        )
                 ]
 
         BreakLevel duration ->
@@ -1821,90 +1825,266 @@ timerUi timerStatus now =
     let
         formatMaybeNext : Maybe TimerLevel -> Element Msg
         formatMaybeNext maybeNext =
-            case maybeNext of
-                Just (RoundLevel duration smallBlind) ->
-                    row
-                        [ Font.size 11 ]
-                        [ text "Next: "
-                        , text <| String.fromInt smallBlind
+            row
+                [ Font.size 11
+                , centerX
+                , centerY
+                ]
+            <|
+                case maybeNext of
+                    Just (RoundLevel _ smallBlind) ->
+                        [ text <| String.fromInt smallBlind
                         , text " / "
                         , text <| String.fromInt <| smallBlind * 2
                         ]
 
-                Just (BreakLevel duration) ->
-                    row
-                        []
-                        [ text <| String.fromInt duration
-                        , text " break"
+                    Just (BreakLevel _) ->
+                        [ text " break"
                         ]
 
-                Nothing ->
+                    Nothing ->
+                        [ text "-"
+                        ]
+
+        formatTimeComponent amount label =
+            row
+                []
+                [ paragraph
+                    []
+                    [ text <|
+                        String.fromInt amount
+                    ]
+                , el
+                    [ alignBottom
+                    , Font.size 14
+                    , moveUp 1
+                    ]
+                  <|
+                    text label
+                ]
+
+        remaining currentLevelInfo =
+            let
+                timerComponents =
+                    millisToTimeComponents <| 1000 * (currentLevelInfo.levelDuration - currentLevelInfo.levelProgress)
+            in
+            row
+                [ centerX
+                , centerY
+                , Font.size 18
+                , spacing 4
+                ]
+                [ if timerComponents.hours > 0 then
+                    formatTimeComponent timerComponents.hours "h"
+
+                  else
                     Element.none
+                , if timerComponents.minutes > 0 then
+                    formatTimeComponent timerComponents.minutes "m"
+
+                  else
+                    Element.none
+                , formatTimeComponent timerComponents.seconds "s"
+                ]
+
+        radialProgress progress =
+            radialProgressUi
+                { radius = 70
+                , progress = progress
+                , stroke = 4
+                , progressColour = Theme.colours.icon
+                , incompleteColour = Theme.colours.lowlight
+                , fillColour = Theme.colours.highlightPrimary
+                }
     in
     case currentTimerLevel timerStatus now of
         TimerRunning currentLevelInfo maybeNext ->
-            row
-                []
-                [ text "running "
-                , text <| String.fromInt currentLevelInfo.smallBlind
-                , text " / "
-                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
-                , text " "
-                , formatMaybeNext maybeNext
+            el
+                [ width <| px 140
+                , height <| px 140
+                , behindContent <|
+                    radialProgress <|
+                        toFloat currentLevelInfo.levelProgress
+                            / toFloat currentLevelInfo.levelDuration
                 ]
+            <|
+                column
+                    [ width fill
+                    , height fill
+                    , spacing 10
+                    , moveUp 2
+                    ]
+                    [ remaining currentLevelInfo
+                    , row
+                        [ centerX
+                        , centerY
+                        ]
+                        [ text <| String.fromInt currentLevelInfo.smallBlind
+                        , text " / "
+                        , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
+                        ]
+                    , formatMaybeNext maybeNext
+                    ]
 
         TimerBreak currentLevelInfo maybeNext ->
-            row
-                []
-                [ text "break "
-                , text <| String.fromInt currentLevelInfo.smallBlind
-                , text " / "
-                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
-                , text " "
-                , formatMaybeNext maybeNext
+            el
+                [ width <| px 140
+                , height <| px 140
+                , behindContent <|
+                    radialProgress <|
+                        toFloat currentLevelInfo.levelProgress
+                            / toFloat currentLevelInfo.levelDuration
                 ]
+            <|
+                column
+                    [ width fill
+                    , height fill
+                    , spacing 10
+                    , moveUp 2
+                    ]
+                    [ remaining currentLevelInfo
+                    , el
+                        [ centerX
+                        , centerY
+                        ]
+                      <|
+                        text "break"
+                    , formatMaybeNext maybeNext
+                    ]
 
         TimerFinished smallBlind ->
-            row
-                []
-                [ text "timer finished "
-                , text <| String.fromInt smallBlind
-                , text " / "
-                , text <| String.fromInt <| smallBlind * 2
-                , text " "
+            el
+                [ width <| px 140
+                , height <| px 140
+                , behindContent <|
+                    radialProgress 0
                 ]
+            <|
+                column
+                    [ width fill
+                    , height fill
+                    , spacing 10
+                    , moveUp 2
+                    ]
+                    [ el
+                        [ centerX
+                        , centerY
+                        , Font.size 18
+                        , spacing 4
+                        ]
+                      <|
+                        text "finished"
+                    , row
+                        [ centerX
+                        , centerY
+                        ]
+                        [ text <| String.fromInt smallBlind
+                        , text " / "
+                        , text <| String.fromInt (smallBlind * 2)
+                        ]
+                    , formatMaybeNext Nothing
+                    ]
 
         TimerPaused currentLevelInfo maybeNext ->
-            row
-                []
-                [ text "paused "
-                , text <| String.fromInt currentLevelInfo.smallBlind
-                , text " / "
-                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
-                , text " "
-                , formatMaybeNext maybeNext
+            el
+                [ width <| px 140
+                , height <| px 140
+                , behindContent <|
+                    radialProgress <|
+                        toFloat currentLevelInfo.levelProgress
+                            / toFloat currentLevelInfo.levelDuration
                 ]
+            <|
+                column
+                    [ width fill
+                    , height fill
+                    , spacing 10
+                    , moveUp 2
+                    ]
+                    [ el
+                        [ centerX
+                        , centerY
+                        , Font.size 18
+                        , spacing 4
+                        ]
+                      <|
+                        text "paused"
+                    , row
+                        [ centerX
+                        , centerY
+                        ]
+                        [ text <| String.fromInt currentLevelInfo.smallBlind
+                        , text " / "
+                        , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
+                        ]
+                    , formatMaybeNext maybeNext
+                    ]
 
         TimerPausedBreak currentLevelInfo maybeNext ->
-            row
-                []
-                [ text "paused (break) "
-                , text <| String.fromInt currentLevelInfo.smallBlind
-                , text " / "
-                , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
-                , text " "
-                , formatMaybeNext maybeNext
+            el
+                [ width <| px 140
+                , height <| px 140
+                , behindContent <|
+                    radialProgress <|
+                        toFloat currentLevelInfo.levelProgress
+                            / toFloat currentLevelInfo.levelDuration
                 ]
+            <|
+                column
+                    [ width fill
+                    , height fill
+                    , spacing 10
+                    , moveUp 2
+                    ]
+                    [ el
+                        [ centerX
+                        , centerY
+                        , Font.size 18
+                        , spacing 4
+                        ]
+                      <|
+                        text "paused"
+                    , el
+                        [ centerX
+                        , centerY
+                        ]
+                      <|
+                        text "break"
+                    , formatMaybeNext maybeNext
+                    ]
 
         TimerPausedFinish smallBlind ->
-            row
-                []
-                [ text "paused (finished) "
-                , text <| String.fromInt smallBlind
-                , text " / "
-                , text <| String.fromInt <| smallBlind * 2
-                , text " "
+            el
+                [ width <| px 140
+                , height <| px 140
+                , behindContent <|
+                    radialProgress 0
                 ]
+            <|
+                column
+                    [ width fill
+                    , height fill
+                    , spacing 10
+                    , moveUp 2
+                    ]
+                    [ el
+                        [ centerX
+                        , centerY
+                        , Font.size 18
+                        , spacing 4
+                        ]
+                      <|
+                        text "paused"
+                    , row
+                        [ centerX
+                        , centerY
+                        ]
+                        [ text <| String.fromInt smallBlind
+                        , text " / "
+                        , text <| String.fromInt (smallBlind * 2)
+                        ]
+                    , formatMaybeNext Nothing
+                    ]
 
 
 buttonHiddenAttrs hidden =
@@ -1915,6 +2095,67 @@ buttonHiddenAttrs hidden =
 
     else
         []
+
+
+type alias RadialProgress =
+    { radius : Int
+    , progress : Float
+    , stroke : Int
+    , progressColour : Element.Color
+    , incompleteColour : Element.Color
+    , fillColour : Element.Color
+    }
+
+
+radialProgressUi : RadialProgress -> Element msg
+radialProgressUi radialProgress =
+    let
+        innerRadius =
+            radialProgress.radius - radialProgress.stroke
+
+        innerCircumference =
+            pi * toFloat innerRadius * 2
+    in
+    html <|
+        Svg.svg
+            [ Svg.Attributes.height <| String.fromInt (radialProgress.radius * 2)
+            , Svg.Attributes.width <| String.fromInt (radialProgress.radius * 2)
+            ]
+            [ Svg.circle
+                -- background fill
+                [ Svg.Attributes.r <| String.fromInt innerRadius
+                , Svg.Attributes.cx <| String.fromInt radialProgress.radius
+                , Svg.Attributes.cy <| String.fromInt radialProgress.radius
+                , Svg.Attributes.fill <| rgbToStyle <| Element.toRgb <| radialProgress.fillColour
+                ]
+                []
+            , Svg.circle
+                -- incomplete progress stroke
+                [ Svg.Attributes.r <| String.fromInt innerRadius
+                , Svg.Attributes.cx <| String.fromInt radialProgress.radius
+                , Svg.Attributes.cy <| String.fromInt radialProgress.radius
+                , Svg.Attributes.strokeWidth <| String.fromInt radialProgress.stroke
+                , Svg.Attributes.strokeDasharray <| String.fromFloat innerCircumference ++ " " ++ String.fromFloat innerCircumference
+                , Svg.Attributes.strokeDashoffset <| String.fromFloat <| radialProgress.progress * innerCircumference
+                , Svg.Attributes.style <| "transform: rotate(" ++ (String.fromFloat <| (radialProgress.progress * 360) - 90) ++ "deg); transform-origin: 50% 50%;"
+                , Svg.Attributes.stroke <| rgbToStyle <| Element.toRgb <| radialProgress.incompleteColour
+                , Svg.Attributes.fill "transparent"
+                ]
+                []
+            , Svg.circle
+                -- progress stroke
+                [ Svg.Attributes.r <| String.fromInt innerRadius
+                , Svg.Attributes.cx <| String.fromInt radialProgress.radius
+                , Svg.Attributes.cy <| String.fromInt radialProgress.radius
+                , Svg.Attributes.strokeWidth <| String.fromInt radialProgress.stroke
+                , Svg.Attributes.strokeDasharray <| String.fromFloat innerCircumference ++ " " ++ String.fromFloat innerCircumference
+                , Svg.Attributes.strokeDashoffset <| String.fromFloat <| (1 - radialProgress.progress) * innerCircumference
+                , Svg.Attributes.style "transform: rotate(-90deg); transform-origin: 50% 50%;"
+                , Svg.Attributes.stroke <| rgbToStyle <| Element.toRgb <| radialProgress.progressColour
+                , Svg.Attributes.fill "transparent"
+                ]
+                []
+            ]
 
 
 

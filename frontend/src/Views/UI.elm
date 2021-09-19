@@ -1331,20 +1331,33 @@ gameScreen model playingState currentAct self game welcome =
             , spacing 16
             , paddingEach { zWidths | top = 15 }
             ]
-            [ paragraph
-                [ width shrink
-                , paddingXY 8 2
-                , Background.color Theme.colours.highlightPrimary
-                , Font.color <| Theme.textColour Theme.colours.lowlight
-                , Font.bold
-                ]
-                [ text game.gameName ]
-            , case game.timer of
-                Nothing ->
-                    Element.none
+            [ row
+                [ width fill ]
+                [ el
+                    [ width fill
+                    , alignBottom
+                    ]
+                  <|
+                    paragraph
+                        [ width shrink
+                        , paddingXY 8 2
+                        , Background.color Theme.colours.highlightPrimary
+                        , Font.color <| Theme.textColour Theme.colours.lowlight
+                        , Font.bold
+                        ]
+                        [ text game.gameName ]
+                , case game.timer of
+                    Nothing ->
+                        Element.none
 
-                Just timerStatus ->
-                    timerUi timerStatus model.now
+                    Just timerStatus ->
+                        el
+                            [ width shrink
+                            , paddingXY 8 0
+                            ]
+                        <|
+                            timerUi timerStatus model.now
+                ]
             , tableUi game.round game.button Nothing game.inTurn game.players
             , selfUi model.peeking self
             , case playingState of
@@ -1449,14 +1462,31 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
         , paddingEach { zWidths | top = 15 }
         ]
         [ container model.viewport <|
-            paragraph
-                [ width shrink
-                , paddingXY 8 2
-                , Background.color Theme.colours.highlightPrimary
-                , Font.color <| Theme.textColour Theme.colours.lowlight
-                , Font.bold
+            row
+                [ width fill ]
+                [ el
+                    [ width fill ]
+                  <|
+                    paragraph
+                        [ width shrink
+                        , paddingXY 8 2
+                        , Background.color Theme.colours.highlightPrimary
+                        , Font.color <| Theme.textColour Theme.colours.lowlight
+                        , Font.bold
+                        ]
+                        [ text game.gameName ]
+                , case game.timer of
+                    Nothing ->
+                        Element.none
+
+                    Just timerStatus ->
+                        el
+                            [ width shrink
+                            , paddingXY 8 0
+                            ]
+                        <|
+                            timerUi timerStatus model.now
                 ]
-                [ text game.gameName ]
         , container model.viewport <| tableUi game.round game.button (Just playerWinnings) game.inTurn game.players
         , container model.viewport <| selfUi model.peeking self
         , case maybeWinningPlayer of
