@@ -1,4 +1,4 @@
-module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, timerUi, uiElements, zWidths)
+module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, selfUi, tableUi, timerUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -19,7 +19,7 @@ import Random
 import Random.Extra
 import Svg
 import Svg.Attributes
-import Time exposing (Posix)
+import Time exposing (Posix, millisToPosix, posixToMillis)
 import Utils exposing (millisToTimeComponents)
 import Views.Generators exposing (..)
 import Views.Theme as Theme
@@ -246,7 +246,205 @@ connectionUi connected =
 
 rejoinFromLibraryUi : Posix -> List Welcome -> Element Msg
 rejoinFromLibraryUi now library =
-    Element.none
+    let
+        filterByTimeThresholds low high =
+            List.filter
+                (\welcome ->
+                    let
+                        ago =
+                            posixToMillis now - posixToMillis welcome.joined
+                    in
+                    ago >= low && ago < high
+                )
+                library
+
+        section message welcomes =
+            if List.isEmpty welcomes then
+                Element.none
+
+            else
+                column
+                    [ width fill
+                    , spacing 8
+                    ]
+                    [ el
+                        [ paddingEach
+                            { left = 48
+                            , top = 0
+                            , bottom = 0
+                            , right = 0
+                            }
+                        ]
+                      <|
+                        text message
+                    , column
+                        [ width fill
+                        , spacing 15
+                        ]
+                      <|
+                        List.map rejoinGameButton welcomes
+                    ]
+    in
+    column
+        [ width fill
+        , spacing 20
+        ]
+        [ section "just now" <|
+            filterByTimeThresholds
+                0
+                (1000 * 59)
+        , section "a minute ago" <|
+            filterByTimeThresholds
+                (1000 * 59)
+                (1000 * 119)
+        , section "a few minutes ago" <|
+            filterByTimeThresholds
+                (1000 * 119)
+                (1000 * 60 * 50)
+        , section "an hour ago" <|
+            filterByTimeThresholds
+                (1000 * 60 * 50)
+                (1000 * 60 * 100)
+        , section "a few hours ago" <|
+            filterByTimeThresholds
+                (1000 * 60 * 100)
+                (1000 * 60 * 60 * 18)
+        , section "yesterday" <|
+            filterByTimeThresholds
+                (1000 * 60 * 60 * 18)
+                (1000 * 60 * 60 * 36)
+        , section "a few days ago" <|
+            filterByTimeThresholds
+                (1000 * 60 * 60 * 36)
+                (1000 * 60 * 60 * 24 * 5)
+        , section "last week" <|
+            filterByTimeThresholds
+                (1000 * 60 * 60 * 24 * 5)
+                (1000 * 60 * 60 * 24 * 12)
+        , section "a few weeks back" <|
+            List.filter
+                (\welcome ->
+                    let
+                        ago =
+                            posixToMillis welcome.joined - posixToMillis now
+                    in
+                    ago >= 1000 * 60 * 60 * 24 * 12
+                )
+                library
+        ]
+
+
+rejoinGameButton welcomeMessage =
+    row
+        [ width fill
+        , spacing 6
+        ]
+        [ Input.button
+            [ height <| px 40
+            , width <| px 40
+            , centerY
+            , alignRight
+            , Border.solid
+            , Border.width 2
+            , Border.rounded 2
+            , Border.color Theme.colours.black
+            , Border.shadow
+                { offset = ( 5, 5 )
+                , size = 0
+                , blur = 0
+                , color = Theme.glow Theme.colours.error
+                }
+            , Background.color Theme.colours.error
+            , focused
+                [ Background.color <| Theme.focusColour Theme.colours.error
+                , Border.color Theme.colours.white
+                , Font.color Theme.colours.white
+                ]
+            ]
+            { onPress = Just <| DeletePersistedGame welcomeMessage
+            , label =
+                el
+                    [ centerX
+                    , centerY
+                    ]
+                <|
+                    html <|
+                        (FontAwesome.Solid.times
+                            |> FontAwesome.Icon.present
+                            |> FontAwesome.Icon.styled
+                                [ FontAwesome.Attributes.sm
+                                , FontAwesome.Attributes.fw
+                                ]
+                            |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-dismiss-" ++ welcomeMessage.gameCode)
+                            |> FontAwesome.Icon.titled "Remove game"
+                            |> FontAwesome.Icon.view
+                        )
+            }
+        , Input.button
+            [ width fill
+            , padding 5
+            , Border.solid
+            , Border.width 2
+            , Border.rounded 2
+            , Border.color Theme.colours.black
+            , Border.shadow
+                { offset = ( 5, 5 )
+                , size = 0
+                , blur = 0
+                , color = Theme.glow Theme.scheme2.main
+                }
+            , Background.color Theme.scheme2.main
+            , Font.color Theme.colours.white
+            , focused
+                [ Background.color <| Theme.focusColour Theme.scheme2.main
+                , Border.color Theme.colours.white
+                ]
+            ]
+            { onPress = Just <| NavigateGame welcomeMessage
+            , label =
+                column
+                    [ spacing 5 ]
+                    [ row
+                        []
+                        [ el
+                            [ Font.color Theme.scheme2.highlight ]
+                          <|
+                            html <|
+                                (FontAwesome.Solid.user
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled
+                                        [ FontAwesome.Attributes.sm
+                                        , FontAwesome.Attributes.fw
+                                        ]
+                                    |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-player-" ++ welcomeMessage.gameCode)
+                                    |> FontAwesome.Icon.titled "Your name"
+                                    |> FontAwesome.Icon.view
+                                )
+                        , text " "
+                        , text welcomeMessage.screenName
+                        ]
+                    , row
+                        []
+                        [ el
+                            [ Font.color Theme.scheme2.highlight ]
+                          <|
+                            html <|
+                                (FontAwesome.Solid.gamepad
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled
+                                        [ FontAwesome.Attributes.sm
+                                        , FontAwesome.Attributes.fw
+                                        ]
+                                    |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-game-" ++ welcomeMessage.gameCode)
+                                    |> FontAwesome.Icon.titled "Game name"
+                                    |> FontAwesome.Icon.view
+                                )
+                        , text " "
+                        , text welcomeMessage.gameName
+                        ]
+                    ]
+            }
+        ]
 
 
 
@@ -1484,8 +1682,8 @@ timerLevelUi timerLevel =
                         (FontAwesome.Solid.timesCircle
                             |> FontAwesome.Icon.present
                             |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                            --|> FontAwesome.Icon.withId "share-join-link_pokerdot"
-                            --|> FontAwesome.Icon.titled "Share join link"
+                            |> FontAwesome.Icon.withId ("delete-timer-level-" ++ String.fromInt smallBlind ++ "_pokerdot")
+                            |> FontAwesome.Icon.titled "Remove timer level"
                             |> FontAwesome.Icon.view
                         )
                 ]
