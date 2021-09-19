@@ -18,7 +18,7 @@ import Maybe.Extra
 import Messages exposing (lookupPlayer)
 import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel(..), TimerStatus, UI(..), Welcome)
 import Utils exposing (swapDown, swapUp)
-import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, selfUi, tableUi, timerUi, uiElements, zWidths)
+import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, selfUi, tableUi, timerUi, uiElements, zWidths)
 import Views.Theme as Theme
 import Views.Timers exposing (CurrentTimerLevel(..), currentTimerLevel, defaultStack, defaultTimerLevels)
 
@@ -702,132 +702,9 @@ welcomeScreen model =
                             text "game"
                         ]
             ]
-        , if List.isEmpty model.library then
-            Element.none
-
-          else
-            paragraph [ centerX ] [ text "Rejoin previous game" ]
         , container model.viewport <|
-            column
-                [ width fill
-                , spacing 15
-                ]
-            <|
-                List.map
-                    (\welcomeMessage ->
-                        row
-                            [ width fill
-                            , spacing 6
-                            ]
-                            [ Input.button
-                                [ height <| px 40
-                                , width <| px 40
-                                , centerY
-                                , alignRight
-                                , Border.solid
-                                , Border.width 2
-                                , Border.rounded 2
-                                , Border.color Theme.colours.black
-                                , Border.shadow
-                                    { offset = ( 5, 5 )
-                                    , size = 0
-                                    , blur = 0
-                                    , color = Theme.glow Theme.colours.error
-                                    }
-                                , Background.color Theme.colours.error
-                                , focused
-                                    [ Background.color <| Theme.focusColour Theme.colours.error
-                                    , Border.color Theme.colours.white
-                                    , Font.color Theme.colours.white
-                                    ]
-                                ]
-                                { onPress = Just <| DeletePersistedGame welcomeMessage
-                                , label =
-                                    el
-                                        [ centerX
-                                        , centerY
-                                        ]
-                                    <|
-                                        html <|
-                                            (FontAwesome.Solid.times
-                                                |> FontAwesome.Icon.present
-                                                |> FontAwesome.Icon.styled
-                                                    [ FontAwesome.Attributes.sm
-                                                    , FontAwesome.Attributes.fw
-                                                    ]
-                                                |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-dismiss-" ++ welcomeMessage.gameCode)
-                                                |> FontAwesome.Icon.titled "Remove game"
-                                                |> FontAwesome.Icon.view
-                                            )
-                                }
-                            , Input.button
-                                [ width fill
-                                , padding 5
-                                , Border.solid
-                                , Border.width 2
-                                , Border.rounded 2
-                                , Border.color Theme.colours.black
-                                , Border.shadow
-                                    { offset = ( 5, 5 )
-                                    , size = 0
-                                    , blur = 0
-                                    , color = Theme.glow Theme.scheme2.main
-                                    }
-                                , Background.color Theme.scheme2.main
-                                , Font.color Theme.colours.white
-                                , focused
-                                    [ Background.color <| Theme.focusColour Theme.scheme2.main
-                                    , Border.color Theme.colours.white
-                                    ]
-                                ]
-                                { onPress = Just <| NavigateGame welcomeMessage
-                                , label =
-                                    column
-                                        [ spacing 5 ]
-                                        [ row
-                                            []
-                                            [ el
-                                                [ Font.color Theme.scheme2.highlight ]
-                                              <|
-                                                html <|
-                                                    (FontAwesome.Solid.user
-                                                        |> FontAwesome.Icon.present
-                                                        |> FontAwesome.Icon.styled
-                                                            [ FontAwesome.Attributes.sm
-                                                            , FontAwesome.Attributes.fw
-                                                            ]
-                                                        |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-player-" ++ welcomeMessage.gameCode)
-                                                        |> FontAwesome.Icon.titled "Your name"
-                                                        |> FontAwesome.Icon.view
-                                                    )
-                                            , text " "
-                                            , text welcomeMessage.screenName
-                                            ]
-                                        , row
-                                            []
-                                            [ el
-                                                [ Font.color Theme.scheme2.highlight ]
-                                              <|
-                                                html <|
-                                                    (FontAwesome.Solid.gamepad
-                                                        |> FontAwesome.Icon.present
-                                                        |> FontAwesome.Icon.styled
-                                                            [ FontAwesome.Attributes.sm
-                                                            , FontAwesome.Attributes.fw
-                                                            ]
-                                                        |> FontAwesome.Icon.withId ("pokerdot_library-rejoin-game-" ++ welcomeMessage.gameCode)
-                                                        |> FontAwesome.Icon.titled "Game name"
-                                                        |> FontAwesome.Icon.view
-                                                    )
-                                            , text " "
-                                            , text welcomeMessage.gameName
-                                            ]
-                                        ]
-                                }
-                            ]
-                    )
-                <|
-                    List.reverse model.library
+            rejoinFromLibraryUi model.now <|
+                List.reverse model.library
         ]
 
 
