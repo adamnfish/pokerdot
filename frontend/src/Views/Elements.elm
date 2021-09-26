@@ -23,7 +23,7 @@ import Time exposing (Posix, millisToPosix, posixToMillis)
 import Utils exposing (millisToTimeComponents)
 import Views.Generators exposing (..)
 import Views.Theme as Theme
-import Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, timerRecommendations)
+import Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, filteredTimerLevels, smallBlindIsSmallEnough, timerRecommendations)
 
 
 type CardSize
@@ -1800,7 +1800,7 @@ editTimerUi msg timerLevels playerCount stack =
             [ el
                 [ paddingXY 8 0 ]
               <|
-                text "Player starting stacks "
+                text "player starting stacks "
             , el
                 [ padding 8
                 , alignRight
@@ -1816,7 +1816,8 @@ editTimerUi msg timerLevels playerCount stack =
             , spacing 2
             ]
           <|
-            List.map timerLevelUi timerLevels
+            List.map timerLevelUi <|
+                filteredTimerLevels stack playerCount timerLevels
         ]
 
 

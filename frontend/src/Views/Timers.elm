@@ -1,15 +1,9 @@
-module Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, defaultStack, defaultTimerLevels, timerRecommendations)
+module Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, defaultStack, defaultTimerLevels, filteredTimerLevels, smallBlindIsSmallEnough, timerRecommendations)
 
+import List.Extra
 import Maybe.Extra
 import Model exposing (Msg, TimerLevel(..), TimerStatus)
 import Time exposing (Posix, posixToMillis)
-
-
-
-{-
-   Useful resource!
-     https://www.pokereagles.com/home-poker/tournament-blinds.php
--}
 
 
 type TimerSpeed
@@ -20,8 +14,7 @@ type TimerSpeed
 
 timerRecommendations : TimerSpeed -> Int -> Int -> List TimerLevel
 timerRecommendations timerSpeed playerCount stack =
-    -- expects stacks of at least 100
-    -- TODO: use total funds to cap levels appropriately
+    -- NOTE: expects stacks of at least 100
     -- TODO: optionally insert breaks
     let
         initialSmallBlind =
@@ -57,8 +50,21 @@ timerRecommendations timerSpeed playerCount stack =
                     , 100
                     , 150
                     , 200
-
-                    -- adjust the end based on player count
+                    , 350
+                    , 500
+                    , 750
+                    , 1000
+                    , 1500
+                    , 2000
+                    , 3000
+                    , 5000
+                    , 7500
+                    , 10000
+                    , 15000
+                    , 20000
+                    , 30000
+                    , 40000
+                    , 50000
                     ]
 
                 MediumGame ->
@@ -73,8 +79,17 @@ timerRecommendations timerSpeed playerCount stack =
                     , 100
                     , 150
                     , 200
-
-                    -- adjust the end based on player count
+                    , 500
+                    , 1000
+                    , 1500
+                    , 2000
+                    , 5000
+                    , 7500
+                    , 10000
+                    , 15000
+                    , 20000
+                    , 30000
+                    , 50000
                     ]
 
                 ShortGame ->
@@ -86,9 +101,13 @@ timerRecommendations timerSpeed playerCount stack =
                     , 50
                     , 100
                     , 200
-
-                    -- adjust the end based on player count
-                    , 400 -- requires at least 4 players at game's start
+                    , 500
+                    , 1000
+                    , 2000
+                    , 5000
+                    , 10000
+                    , 20000
+                    , 50000
                     ]
     in
     List.map
@@ -96,6 +115,24 @@ timerRecommendations timerSpeed playerCount stack =
             RoundLevel duration <| multiple * initialSmallBlind
         )
         blindMultiples
+
+
+smallBlindIsSmallEnough : Int -> Int -> Int -> Bool
+smallBlindIsSmallEnough stackSize playerCount candidateSmallBlind =
+    (4 * candidateSmallBlind) < stackSize * playerCount
+
+
+filteredTimerLevels : Int -> Int -> List TimerLevel -> List TimerLevel
+filteredTimerLevels stackSize playerCount =
+    List.Extra.takeWhile
+        (\level ->
+            case level of
+                RoundLevel _ smallBlind ->
+                    smallBlindIsSmallEnough stackSize playerCount smallBlind
+
+                BreakLevel _ ->
+                    True
+        )
 
 
 defaultTimerLevels playerCount =

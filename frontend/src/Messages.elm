@@ -13,6 +13,7 @@ import Time
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>))
+import Views.Timers exposing (filteredTimerLevels)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -577,7 +578,7 @@ update msg model =
 
         InputStartGameSettings newPlayers chipSettings ->
             case model.ui of
-                LobbyScreen prevPlayers oldChipsSettings self game welcome ->
+                LobbyScreen prevPlayers _ self game welcome ->
                     let
                         players =
                             includeAllPlayers newPlayers prevPlayers
@@ -615,7 +616,9 @@ update msg model =
                                     , playerKey = welcome.playerKey
                                     , startingStack = Just initialStackSize
                                     , initialSmallBlind = Nothing
-                                    , timerConfig = Just timerLevels
+                                    , timerConfig =
+                                        Just <|
+                                            filteredTimerLevels initialStackSize (List.length players) timerLevels
                                     , playerOrder = List.map .playerId players
                                     }
 
