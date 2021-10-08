@@ -1,4 +1,4 @@
-module Views.Elements exposing (buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, rgbToStyle, selfUi, tableUi, timerUi, uiElements, zWidths)
+module Views.Elements exposing (blindUi, buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, rgbToStyle, selfUi, tableUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -19,11 +19,11 @@ import Random
 import Random.Extra
 import Svg
 import Svg.Attributes
-import Time exposing (Posix, millisToPosix, posixToMillis)
-import Utils exposing (millisToTimeComponents)
+import Time exposing (Posix, posixToMillis)
+import Utils exposing (TimeComponents, millisToTimeComponents)
 import Views.Generators exposing (..)
 import Views.Theme as Theme
-import Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, filteredTimerLevels, smallBlindIsSmallEnough, timerRecommendations)
+import Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, filteredTimerLevels, timerRecommendations)
 
 
 type CardSize
@@ -137,10 +137,6 @@ helpText helpStrs =
 
 pdTab : Bool -> Msg -> String -> Element Msg
 pdTab active msg label =
-    let
-        a =
-            1
-    in
     Input.button
         [ paddingXY 8 5
         , Border.rounded 1
@@ -719,8 +715,8 @@ selfUi isPeeking self =
 
                 Just ( card1, card2 ) ->
                     row
-                        [ centerX
-                        , spacing 2
+                        [ alignLeft
+                        , spacing 6
                         ]
                     <|
                         if isPeeking then
@@ -1618,23 +1614,6 @@ timerLevelUi timerLevel =
             let
                 timeComponents =
                     millisToTimeComponents (duration * 1000)
-
-                formatTimeComponent amount label =
-                    row
-                        []
-                        [ el
-                            []
-                          <|
-                            text <|
-                                String.fromInt amount
-                        , el
-                            [ alignBottom
-                            , Font.size 14
-                            , moveUp 1
-                            ]
-                          <|
-                            text label
-                        ]
             in
             -- TODO: human formatting of times
             row
@@ -1659,25 +1638,10 @@ timerLevelUi timerLevel =
                   <|
                     durationEl duration
                 , el
-                    [ width <| fillPortion 1
-                    , Font.alignRight
-                    ]
+                    []
                   <|
                     text <|
-                        String.fromInt smallBlind
-                , el
-                    [ width shrink ]
-                  <|
-                    text " / "
-                , el
-                    [ width <| fillPortion 1
-                    , Font.alignLeft
-                    ]
-                  <|
-                    text <|
-                        String.fromInt <|
-                            smallBlind
-                                * 2
+                        formatBlinds smallBlind
 
                 --, el
                 --    [ alignRight ]
@@ -1821,271 +1785,227 @@ editTimerUi msg timerLevels playerCount stack =
         ]
 
 
-timerUi : TimerStatus -> Posix -> Element Msg
-timerUi timerStatus now =
+blindUi : Posix -> Maybe TimerStatus -> Int -> Element Msg
+blindUi now maybeTimerStatus smallBlind =
     let
-        formatMaybeNext : Maybe TimerLevel -> Element Msg
-        formatMaybeNext maybeNext =
-            row
-                [ Font.size 11
-                , centerX
-                , centerY
-                ]
-            <|
-                case maybeNext of
-                    Just (RoundLevel _ smallBlind) ->
-                        [ text <| String.fromInt smallBlind
-                        , text " / "
-                        , text <| String.fromInt <| smallBlind * 2
-                        ]
-
-                    Just (BreakLevel _) ->
-                        [ text " break"
-                        ]
-
-                    Nothing ->
-                        [ text "-"
-                        ]
-
-        formatTimeComponent amount label =
-            row
-                []
-                [ paragraph
-                    []
-                    [ text <|
-                        String.fromInt amount
-                    ]
-                , el
-                    [ alignBottom
-                    , Font.size 14
-                    , moveUp 1
-                    ]
-                  <|
-                    text label
-                ]
-
         remaining currentLevelInfo =
             let
-                timerComponents =
+                timeComponents =
                     millisToTimeComponents <| 1000 * (currentLevelInfo.levelDuration - currentLevelInfo.levelProgress)
             in
             row
-                [ centerX
-                , centerY
-                , Font.size 18
-                , spacing 4
-                ]
-                [ if timerComponents.hours > 0 then
-                    formatTimeComponent timerComponents.hours "h"
+                [ spacing 2 ]
+                [ if timeComponents.hours > 0 then
+                    formatTimeComponent timeComponents.hours "h"
 
                   else
                     Element.none
-                , if timerComponents.minutes > 0 then
-                    formatTimeComponent timerComponents.minutes "m"
+                , if timeComponents.minutes > 0 then
+                    formatTimeComponent timeComponents.minutes "m"
 
                   else
                     Element.none
-                , formatTimeComponent timerComponents.seconds "s"
+                , if timeComponents.hours == 0 then
+                    formatTimeComponent timeComponents.seconds "s"
+
+                  else
+                    Element.none
                 ]
 
-        radialProgress progress =
-            radialProgressUi
-                { radius = 70
-                , progress = progress
-                , stroke = 4
-                , progressColour = Theme.colours.icon
-                , incompleteColour = Theme.colours.lowlight
-                , fillColour = Theme.colours.highlightPrimary
-                }
+        formatMaybeNext : Maybe TimerLevel -> String
+        formatMaybeNext maybeNext =
+            case maybeNext of
+                Just (RoundLevel _ currentSmallBlind) ->
+                    formatBlinds currentSmallBlind
+
+                Just (BreakLevel _) ->
+                    "break"
+
+                Nothing ->
+                    "-"
+
+        timerTemplate : CurrentTimerLevel -> Element Msg
+        timerTemplate currentTimerLevel =
+            let
+                ( progress, label ) =
+                    case currentTimerLevel of
+                        TimerRunning currentLevelInfo maybeNext ->
+                            ( toFloat currentLevelInfo.levelProgress / toFloat currentLevelInfo.levelDuration
+                            , remaining currentLevelInfo
+                            )
+
+                        TimerBreak currentLevelInfo maybeNext ->
+                            ( toFloat currentLevelInfo.levelProgress / toFloat currentLevelInfo.levelDuration
+                            , remaining currentLevelInfo
+                            )
+
+                        TimerFinished currentSmallBlind ->
+                            ( 0
+                            , text "-"
+                            )
+
+                        TimerPaused currentLevelInfo maybeNext ->
+                            ( toFloat currentLevelInfo.levelProgress / toFloat currentLevelInfo.levelDuration
+                            , text "||"
+                            )
+
+                        TimerPausedBreak currentLevelInfo maybeNext ->
+                            ( toFloat currentLevelInfo.levelProgress / toFloat currentLevelInfo.levelDuration
+                            , text "||"
+                            )
+
+                        TimerPausedFinish currentSmallBlind ->
+                            ( 0
+                            , text "||"
+                            )
+            in
+            el
+                [ height <| px 83
+                , inFront <|
+                    el
+                        [ width <| px 90
+                        , height <| px 90
+                        , moveRight 4
+                        , moveDown 4
+                        , alignRight
+                        , centerY
+                        , behindContent <|
+                            el
+                                [ width fill
+                                , height fill
+                                ]
+                            <|
+                                radialProgressUi
+                                    { radius = 45
+                                    , progress = progress
+                                    , stroke = 4
+                                    , progressColour = Theme.colours.icon
+                                    , incompleteColour = Theme.colours.lowlight
+                                    , fillColour = Theme.colours.highlightPrimary
+                                    }
+                        ]
+                    <|
+                        el
+                            [ Font.size 14
+                            , centerY
+                            , centerX
+                            ]
+                            label
+                ]
+            <|
+                el
+                    [ width fill
+                    , height fill
+                    , paddingEach
+                        { zWidths
+                            | right = 40
+                        }
+                    ]
+                <|
+                    column
+                        [ width fill
+                        , alignBottom
+                        ]
+                        [ el
+                            [ width <| minimum 120 shrink
+                            , paddingEach
+                                { zWidths
+                                    | right = 50
+                                    , bottom = 4
+                                    , top = 4
+                                    , left = 8
+                                }
+                            , Background.color Theme.colours.highlightPrimary
+                            ]
+                            (case currentTimerLevel of
+                                TimerRunning currentLevelInfo _ ->
+                                    text <| formatBlinds currentLevelInfo.smallBlind
+
+                                TimerBreak currentLevelInfo _ ->
+                                    text <| formatBlinds currentLevelInfo.smallBlind
+
+                                TimerFinished currentSmallBlind ->
+                                    text <| formatBlinds currentSmallBlind
+
+                                TimerPaused currentLevelInfo _ ->
+                                    text <| formatBlinds currentLevelInfo.smallBlind
+
+                                TimerPausedBreak currentLevelInfo _ ->
+                                    text <| formatBlinds currentLevelInfo.smallBlind
+
+                                TimerPausedFinish currentSmallBlind ->
+                                    text <| formatBlinds currentSmallBlind
+                            )
+                        , el
+                            [ width <| minimum 110 shrink
+                            , alignRight
+                            , paddingEach
+                                { zWidths
+                                    | right = 50
+                                    , bottom = 4
+                                    , top = 4
+                                    , left = 8
+                                }
+                            , Font.size 11
+                            , Font.color <| Theme.textColour Theme.colours.night
+                            , Background.color Theme.colours.highlightSecondary
+                            ]
+                            (case currentTimerLevel of
+                                TimerRunning _ maybeNext ->
+                                    text <| formatMaybeNext maybeNext
+
+                                TimerBreak _ maybeNext ->
+                                    text <| formatMaybeNext maybeNext
+
+                                TimerFinished _ ->
+                                    text "-"
+
+                                TimerPaused _ maybeNext ->
+                                    text <| formatMaybeNext maybeNext
+
+                                TimerPausedBreak _ maybeNext ->
+                                    text <| formatMaybeNext maybeNext
+
+                                TimerPausedFinish _ ->
+                                    text "-"
+                            )
+                        ]
     in
-    case currentTimerLevel timerStatus now of
-        TimerRunning currentLevelInfo maybeNext ->
-            el
-                [ width <| px 140
-                , height <| px 140
-                , behindContent <|
-                    radialProgress <|
-                        toFloat currentLevelInfo.levelProgress
-                            / toFloat currentLevelInfo.levelDuration
-                ]
-            <|
-                column
-                    [ width fill
-                    , height fill
-                    , spacing 10
-                    , moveUp 2
-                    ]
-                    [ remaining currentLevelInfo
-                    , row
-                        [ centerX
-                        , centerY
-                        ]
-                        [ text <| String.fromInt currentLevelInfo.smallBlind
-                        , text " / "
-                        , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
-                        ]
-                    , formatMaybeNext maybeNext
-                    ]
+    case Maybe.map (currentTimerLevel now) maybeTimerStatus of
+        Just currentTimer ->
+            timerTemplate currentTimer
 
-        TimerBreak currentLevelInfo maybeNext ->
+        Nothing ->
             el
-                [ width <| px 140
-                , height <| px 140
-                , behindContent <|
-                    radialProgress <|
-                        toFloat currentLevelInfo.levelProgress
-                            / toFloat currentLevelInfo.levelDuration
+                [ paddingXY 8 2
+                , Background.color Theme.colours.highlightPrimary
                 ]
             <|
-                column
-                    [ width fill
-                    , height fill
-                    , spacing 10
-                    , moveUp 2
-                    ]
-                    [ remaining currentLevelInfo
-                    , el
-                        [ centerX
-                        , centerY
-                        ]
-                      <|
-                        text "break"
-                    , formatMaybeNext maybeNext
-                    ]
+                text <|
+                    formatBlinds smallBlind
 
-        TimerFinished smallBlind ->
-            el
-                [ width <| px 140
-                , height <| px 140
-                , behindContent <|
-                    radialProgress 0
-                ]
-            <|
-                column
-                    [ width fill
-                    , height fill
-                    , spacing 10
-                    , moveUp 2
-                    ]
-                    [ el
-                        [ centerX
-                        , centerY
-                        , Font.size 18
-                        , spacing 4
-                        ]
-                      <|
-                        text "finished"
-                    , row
-                        [ centerX
-                        , centerY
-                        ]
-                        [ text <| String.fromInt smallBlind
-                        , text " / "
-                        , text <| String.fromInt (smallBlind * 2)
-                        ]
-                    , formatMaybeNext Nothing
-                    ]
 
-        TimerPaused currentLevelInfo maybeNext ->
-            el
-                [ width <| px 140
-                , height <| px 140
-                , behindContent <|
-                    radialProgress <|
-                        toFloat currentLevelInfo.levelProgress
-                            / toFloat currentLevelInfo.levelDuration
-                ]
-            <|
-                column
-                    [ width fill
-                    , height fill
-                    , spacing 10
-                    , moveUp 2
-                    ]
-                    [ el
-                        [ centerX
-                        , centerY
-                        , Font.size 18
-                        , spacing 4
-                        ]
-                      <|
-                        text "paused"
-                    , row
-                        [ centerX
-                        , centerY
-                        ]
-                        [ text <| String.fromInt currentLevelInfo.smallBlind
-                        , text " / "
-                        , text <| String.fromInt <| currentLevelInfo.smallBlind * 2
-                        ]
-                    , formatMaybeNext maybeNext
-                    ]
+formatBlinds : Int -> String
+formatBlinds blindAmount =
+    String.fromInt blindAmount ++ " / " ++ (String.fromInt <| blindAmount * 2)
 
-        TimerPausedBreak currentLevelInfo maybeNext ->
-            el
-                [ width <| px 140
-                , height <| px 140
-                , behindContent <|
-                    radialProgress <|
-                        toFloat currentLevelInfo.levelProgress
-                            / toFloat currentLevelInfo.levelDuration
-                ]
-            <|
-                column
-                    [ width fill
-                    , height fill
-                    , spacing 10
-                    , moveUp 2
-                    ]
-                    [ el
-                        [ centerX
-                        , centerY
-                        , Font.size 18
-                        , spacing 4
-                        ]
-                      <|
-                        text "paused"
-                    , el
-                        [ centerX
-                        , centerY
-                        ]
-                      <|
-                        text "break"
-                    , formatMaybeNext maybeNext
-                    ]
 
-        TimerPausedFinish smallBlind ->
-            el
-                [ width <| px 140
-                , height <| px 140
-                , behindContent <|
-                    radialProgress 0
-                ]
-            <|
-                column
-                    [ width fill
-                    , height fill
-                    , spacing 10
-                    , moveUp 2
-                    ]
-                    [ el
-                        [ centerX
-                        , centerY
-                        , Font.size 18
-                        , spacing 4
-                        ]
-                      <|
-                        text "paused"
-                    , row
-                        [ centerX
-                        , centerY
-                        ]
-                        [ text <| String.fromInt smallBlind
-                        , text " / "
-                        , text <| String.fromInt (smallBlind * 2)
-                        ]
-                    , formatMaybeNext Nothing
-                    ]
+formatTimeComponent : Int -> String -> Element msg
+formatTimeComponent amount label =
+    row
+        []
+        [ el
+            [ alignBottom ]
+          <|
+            text <|
+                String.fromInt amount
+        , el
+            [ alignBottom
+            , Font.color <| Theme.textColour Theme.colours.night
+            ]
+          <|
+            text label
+        ]
 
 
 buttonHiddenAttrs hidden =

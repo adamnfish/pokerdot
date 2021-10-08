@@ -161,8 +161,8 @@ type
     | TimerPausedFinish Int
 
 
-currentTimerLevel : TimerStatus -> Posix -> CurrentTimerLevel
-currentTimerLevel timerStatus now =
+currentTimerLevel : Posix -> TimerStatus -> CurrentTimerLevel
+currentTimerLevel now timerStatus =
     let
         timerProgress =
             case timerStatus.pausedTime of

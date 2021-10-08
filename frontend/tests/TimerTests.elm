@@ -33,7 +33,7 @@ all =
                         now =
                             millisToPosix <| startTime + (150 * 1000)
                     in
-                    currentTimerLevel timerStatus now
+                    currentTimerLevel now timerStatus
                         |> Expect.equal
                             (TimerRunning
                                 { levelDuration = 100, levelProgress = 50, smallBlind = 20 }
@@ -56,7 +56,7 @@ all =
                         now =
                             millisToPosix <| startTime + (600 * 1000)
                     in
-                    currentTimerLevel timerStatus now
+                    currentTimerLevel now timerStatus
                         |> Expect.equal (TimerFinished 50)
             , fuzz startTimeGenerator "calculates the correct blind amount if the timer is paused" <|
                 \startTime ->
@@ -75,7 +75,7 @@ all =
                         now =
                             millisToPosix <| startTime + (900 * 1000)
                     in
-                    currentTimerLevel timerStatus now
+                    currentTimerLevel now timerStatus
                         |> Expect.equal
                             (TimerPaused
                                 { levelDuration = 100, levelProgress = 20, smallBlind = 20 }
@@ -98,7 +98,7 @@ all =
                         now =
                             millisToPosix <| startTime + (1200 * 1000)
                     in
-                    currentTimerLevel timerStatus now
+                    currentTimerLevel now timerStatus
                         |> Expect.equal (TimerPausedFinish 50)
             , fuzz startTimeGenerator "takes the last valid blind amount if we're on a break" <|
                 \startTime ->
@@ -117,7 +117,7 @@ all =
                         now =
                             millisToPosix <| startTime + (230 * 1000)
                     in
-                    currentTimerLevel timerStatus now
+                    currentTimerLevel now timerStatus
                         |> Expect.equal
                             (TimerBreak
                                 { levelDuration = 100, levelProgress = 30, smallBlind = 20 }
@@ -140,7 +140,7 @@ all =
                         now =
                             millisToPosix <| startTime + (1000 * 1000)
                     in
-                    currentTimerLevel timerStatus now
+                    currentTimerLevel now timerStatus
                         |> Expect.equal
                             (TimerPausedBreak
                                 { levelDuration = 100, levelProgress = 60, smallBlind = 20 }

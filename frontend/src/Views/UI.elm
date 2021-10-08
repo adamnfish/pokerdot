@@ -18,9 +18,9 @@ import Maybe.Extra
 import Messages exposing (lookupPlayer)
 import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel(..), TimerStatus, UI(..), Welcome)
 import Utils exposing (swapDown, swapUp)
-import Views.Elements exposing (buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, selfUi, tableUi, timerUi, uiElements, zWidths)
+import Views.Elements exposing (blindUi, buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, selfUi, tableUi, uiElements, zWidths)
 import Views.Theme as Theme
-import Views.Timers exposing (CurrentTimerLevel(..), currentTimerLevel, defaultStack, defaultTimerLevels)
+import Views.Timers exposing (CurrentTimerLevel(..), defaultStack, defaultTimerLevels)
 
 
 type alias Page =
@@ -1332,7 +1332,9 @@ gameScreen model playingState currentAct self game welcome =
             , paddingEach { zWidths | top = 15 }
             ]
             [ row
-                [ width fill ]
+                [ width fill
+                , spacing 4
+                ]
                 [ el
                     [ width fill
                     , alignBottom
@@ -1342,21 +1344,16 @@ gameScreen model playingState currentAct self game welcome =
                         [ width shrink
                         , paddingXY 8 2
                         , Background.color Theme.colours.highlightPrimary
+                        , Font.alignLeft
                         , Font.color <| Theme.textColour Theme.colours.lowlight
                         , Font.bold
                         ]
                         [ text game.gameName ]
-                , case game.timer of
-                    Nothing ->
-                        Element.none
-
-                    Just timerStatus ->
-                        el
-                            [ width shrink
-                            , paddingXY 8 0
-                            ]
-                        <|
-                            timerUi timerStatus model.now
+                , el
+                    [ width shrink
+                    ]
+                  <|
+                    blindUi model.now game.timer game.smallBlind
                 ]
             , tableUi game.round game.button Nothing game.inTurn game.players
             , selfUi model.peeking self
@@ -1463,7 +1460,9 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
         ]
         [ container model.viewport <|
             row
-                [ width fill ]
+                [ width fill
+                , spacing 4
+                ]
                 [ el
                     [ width fill ]
                   <|
@@ -1471,21 +1470,16 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                         [ width shrink
                         , paddingXY 8 2
                         , Background.color Theme.colours.highlightPrimary
+                        , Font.alignLeft
                         , Font.color <| Theme.textColour Theme.colours.lowlight
                         , Font.bold
                         ]
                         [ text game.gameName ]
-                , case game.timer of
-                    Nothing ->
-                        Element.none
-
-                    Just timerStatus ->
-                        el
-                            [ width shrink
-                            , paddingXY 8 0
-                            ]
-                        <|
-                            timerUi timerStatus model.now
+                , el
+                    [ width shrink
+                    ]
+                  <|
+                    blindUi model.now game.timer game.smallBlind
                 ]
         , container model.viewport <| tableUi game.round game.button (Just playerWinnings) game.inTurn game.players
         , container model.viewport <| selfUi model.peeking self
@@ -1824,6 +1818,7 @@ gameResultsScreen model self game welcome =
                     [ width shrink
                     , paddingXY 8 2
                     , Background.color Theme.colours.highlightPrimary
+                    , Font.alignLeft
                     , Font.color <| Theme.textColour Theme.colours.lowlight
                     , Font.bold
                     ]
