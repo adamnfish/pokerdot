@@ -637,7 +637,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       }
 
       "in a timer game, updates the blinds if the timer level has progressed" in {
-        val round = Play.generateRound(Showdown, 20, rawGame.seed)
+        val round = Play.generateRound(Showdown, 10, rawGame.seed)
         val game = rawGame.copy(
           round = round,
           players = List(
@@ -654,8 +654,8 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
             ))
           ),
         )
-        val updatedGame = startNewRound(game, new ConfigurableTestClock(350), TestRng).value
-        updatedGame.round.smallBlind shouldEqual 50
+        val updatedGame = startNewRound(game, new ConfigurableTestClock(150 * 1000), TestRng).value
+        updatedGame.round.smallBlind shouldEqual 20
       }
     }
 
