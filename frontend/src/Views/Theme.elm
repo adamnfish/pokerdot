@@ -1,4 +1,4 @@
-module Views.Theme exposing (Scheme, colours, dim, focusColour, glow, pressColour, scheme1, scheme2, scheme3, scheme4, scheme5, textColour)
+module Views.Theme exposing (Scheme, colours, dim, focusColour, glow, pressColour, scheme1, scheme2, scheme3, scheme4, scheme5, slightlyDim, textColour)
 
 import Element exposing (rgb255)
 
@@ -105,6 +105,11 @@ glow =
 dim : Element.Color -> Element.Color
 dim =
     darken 0.4
+
+
+slightlyDim : Element.Color -> Element.Color
+slightlyDim =
+    darken 0.1
 
 
 clamp : Float -> Float

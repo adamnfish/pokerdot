@@ -510,7 +510,17 @@ view model =
                                             ]
                                         ]
                                         { onPress = Just NavigateHome
-                                        , label = text "home"
+                                        , label =
+                                            row
+                                                [ spacing 8 ]
+                                                [ el
+                                                    [ Background.color Theme.colours.primary
+                                                    , Border.rounded 6
+                                                    ]
+                                                  <|
+                                                    logo 18
+                                                , text "home"
+                                                ]
                                         }
                             , case model.ui of
                                 GameScreen _ _ _ welcome ->
@@ -562,7 +572,6 @@ view model =
 
                                     NotLoading ->
                                         Element.none
-                            , el [ alignRight ] <| logo 25
                             , el
                                 [ alignRight
                                 , padding 8
@@ -587,10 +596,6 @@ view model =
 
 welcomeHeader : Bool -> Element Msg
 welcomeHeader connected =
-    let
-        scheme =
-            Theme.scheme1
-    in
     el
         [ width fill
         , Border.color <| Theme.colours.lowlight

@@ -255,7 +255,7 @@ currentTimerLevel now timerStatus =
 
                         ( Nothing, Nothing ) ->
                             -- must have been empty timer levels, which is validated against elsewhere
-                            TimerFinished 2
+                            TimerFinished 0
 
                         _ ->
                             -- TODO: expand on these cases

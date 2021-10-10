@@ -1248,25 +1248,25 @@ cardUi offsetIndex highlight cardSize card =
             case card.suit of
                 Model.Clubs ->
                     ( text "♣"
-                    , rgb255 40 40 40
+                    , Theme.colours.night
                     , rgb255 253 255 255
                     )
 
                 Model.Diamonds ->
                     ( text "♦"
-                    , rgb255 150 20 20
+                    , Theme.slightlyDim Theme.colours.error
                     , rgb255 255 253 253
                     )
 
                 Model.Spades ->
                     ( text "♠"
-                    , rgb255 40 40 40
+                    , Theme.colours.night
                     , rgb255 253 255 253
                     )
 
                 Model.Hearts ->
                     ( text "♥"
-                    , rgb255 150 20 20
+                    , Theme.slightlyDim Theme.colours.error
                     , rgb255 255 253 253
                     )
 
@@ -1310,7 +1310,7 @@ cardUi offsetIndex highlight cardSize card =
                         { offset = ( 0, 4 )
                         , size = 0
                         , blur = 0
-                        , color = Theme.glow Theme.colours.lowlight
+                        , color = Theme.pressColour Theme.colours.lowlight
                         }
                     ]
 
