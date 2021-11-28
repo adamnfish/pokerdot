@@ -204,7 +204,7 @@ object Games {
   }
 
   def updateBlindAction(updateBlind: UpdateBlind): Either[Failures, ActionSummary] = {
-    if (updateBlind.timerLevels.isDefined) {
+    if (updateBlind.timerLevels.isDefined || updateBlind.progress.isDefined) {
       Right(EditTimerSummary())
     } else if (updateBlind.playing.isDefined) {
       Right(TimerStatusSummary(updateBlind.playing.contains(true)))

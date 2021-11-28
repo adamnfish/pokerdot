@@ -156,14 +156,24 @@ object Validation {
   }
 
   def validate(updateBlind: UpdateBlind): Either[Failures, UpdateBlind] = {
+    val emptyErrors =
+      if (updateBlind.timerLevels.isEmpty && updateBlind.smallBlind.isEmpty && updateBlind.playing.isEmpty&& updateBlind.progress.isEmpty)
+        List(
+          Failure("Empty update blind request", "specify what should change to update the blinds")
+        )
+      else Nil
     asResult(updateBlind,
-      validate(updateBlind.gameId.gid, "gameId", "game's id", isUUID) ++
+      emptyErrors ++
+        validate(updateBlind.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(updateBlind.playerId.pid, "playerId", "player's id", isUUID) ++
         validate(updateBlind.playerKey.key, "playerId", "player's id", isUUID) ++
         updateBlind.timerLevels
           .map(tls => validate(tls, "timerLevels", "timer levels", nonEmptyList[TimerLevel]))
           .getOrElse(Nil) ++
-        updateBlind.smallBlind.toList.flatMap(sb => validate(sb, "smallBlind", "blind amounts", positiveInteger))
+        updateBlind.smallBlind.toList
+          .flatMap(sb => validate(sb, "smallBlind", "blind amounts", positiveInteger)) ++
+        updateBlind.progress.toList
+          .flatMap(pt => validate(pt, "progress", "progress amount", sensibleDurationSeconds))
     )
   }
 

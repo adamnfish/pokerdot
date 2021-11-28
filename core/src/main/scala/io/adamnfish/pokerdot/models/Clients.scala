@@ -142,6 +142,7 @@ case class UpdateBlind(
   timerLevels: Option[List[TimerLevel]],
   smallBlind: Option[Int],
   playing: Option[Boolean],
+  progress: Option[Int],
 ) extends Request
 // game requests
 case class Bet(

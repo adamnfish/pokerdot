@@ -696,10 +696,6 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "updateBlind" - {
-    val rawUpdateGame = UpdateBlind(
-      GameId("game-id"), PlayerId("player-id"), PlayerKey("player-key"),
-      None, None, None
-    )
     val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
     val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock)
     val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock)
@@ -708,11 +704,15 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       players = List(p1, p2, p3),
       started = true,
     )
+    val rawUpdateBlind = UpdateBlind(
+      rawGame.gameId, p1.playerId, p1.playerKey,
+      None, None, None, None
+    )
 
-    "for a timer update" - {
+    "for a timer levels update" - {
       "updates the timer levels" in {
         val updatedGame = updateBlind(game,
-          rawUpdateGame.copy(
+          rawUpdateBlind.copy(
             timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
           ),
           now = 1000L
@@ -723,7 +723,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
       "updates the timer status" in {
         val updatedGame = updateBlind(game,
-          rawUpdateGame.copy(
+          rawUpdateBlind.copy(
             timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
           ),
           now = 0L
@@ -733,6 +733,17 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           "pausedTime" as None,
         )
       }
+    }
+
+    "for a timer progress update" - {
+      "moves the game's start time to match the desired progress" ignore {}
+
+      "if the game is paused" - {
+        "adjusts the game start time so that the timer's progress is correct" ignore {}
+        "does not move the game's paused time" ignore {}
+      }
+
+      "fails if the timer's progress is beyond the total timer running time" ignore {}
     }
 
     "for a playing status update" - {
@@ -751,7 +762,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 )
               )
             ),
-            rawUpdateGame.copy(
+            rawUpdateBlind.copy(
               playing = Some(false),
             ),
             now = 1000L
@@ -771,7 +782,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 )
               )
             ),
-            rawUpdateGame.copy(
+            rawUpdateBlind.copy(
               playing = Some(false),
             ),
             now = 1000L
@@ -780,7 +791,6 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       }
 
       "for a timer restart" - {
-        // TODO: test and implement pausing / restarting
         "calculates a correct start time from how long has elapsed" in {
           val updatedGame = updateBlind(
             game.copy(
@@ -792,7 +802,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 )
               )
             ),
-            rawUpdateGame.copy(
+            rawUpdateBlind.copy(
               playing = Some(true),
             ),
             now = 1000L
@@ -812,7 +822,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 )
               )
             ),
-            rawUpdateGame.copy(
+            rawUpdateBlind.copy(
               playing = Some(true),
             ),
             now = 1000L
@@ -832,13 +842,21 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 )
               )
             ),
-            rawUpdateGame.copy(
+            rawUpdateBlind.copy(
               playing = Some(true),
             ),
             now = 1000L
           ).isLeft shouldEqual true
         }
       }
+    }
+
+    "when updating both the levels and progress" - {
+      "start time is 'progress ago'" ignore {}
+
+      "levels are correctly set" ignore {}
+
+      "fails if the progress exceeds the total timer time" ignore {}
     }
 
     "for a manual blind update" - {
@@ -849,7 +867,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               River, 10, Two of Clubs, Three of Diamonds, Four of Spades, Five of Hearts, Six of Clubs, Seven of Diamonds, Eight of Hearts, Nine of Spades
             )
           ),
-          rawUpdateGame.copy(
+          rawUpdateBlind.copy(
             smallBlind = Some(20),
           ),
           now = 1000L
@@ -864,7 +882,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               River, 10, Two of Clubs, Three of Diamonds, Four of Spades, Five of Hearts, Six of Clubs, Seven of Diamonds, Eight of Hearts, Nine of Spades
             )
           ),
-          rawUpdateGame.copy(
+          rawUpdateBlind.copy(
             smallBlind = Some(20),
           ),
           now = 1000L

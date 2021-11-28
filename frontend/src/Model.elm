@@ -423,6 +423,7 @@ type alias UpdateBlindRequest =
     , playerId : PlayerId
     , playerKey : PlayerKey
     , timerLevels : Maybe (List TimerLevel)
+    , progress : Maybe Int
     , smallBlind : Maybe Int
     , playing : Maybe Bool
     }
@@ -1033,6 +1034,7 @@ updateBlindRequestEncoder updateBlindRequest =
         , ( "playerId", encodePlayerId updateBlindRequest.playerId )
         , ( "playerKey", encodePlayerKey updateBlindRequest.playerKey )
         , ( "timerLevels", (Maybe.map (Json.Encode.list encodeTimerLevel) >> Maybe.withDefault Json.Encode.null) updateBlindRequest.timerLevels )
+        , ( "progress", (Maybe.map Json.Encode.int >> Maybe.withDefault Json.Encode.null) updateBlindRequest.progress )
         , ( "smallBlind", (Maybe.map Json.Encode.int >> Maybe.withDefault Json.Encode.null) updateBlindRequest.smallBlind )
         , ( "playing", (Maybe.map Json.Encode.bool >> Maybe.withDefault Json.Encode.null) updateBlindRequest.playing )
         ]

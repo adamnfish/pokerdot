@@ -24,8 +24,6 @@ object PokerDot {
           joinGame(requestJson, appContext)
         case "start-game" =>
           startGame(requestJson, appContext)
-        case "update-blind" =>
-          updateBlind(requestJson, appContext)
         case "bet" =>
           bet(requestJson, appContext)
         case "check" =>
@@ -34,6 +32,8 @@ object PokerDot {
           fold(requestJson, appContext)
         case "advance-phase" =>
           advancePhase(requestJson, appContext)
+        case "update-blind" =>
+          updateBlind(requestJson, appContext)
         // TODO: include admin endpoint to allow manual correction of game state
         case "ping" =>
           ping(requestJson, appContext)
@@ -43,7 +43,7 @@ object PokerDot {
           Attempt.failAs[Response[GameStatus]](
             Failures(
               s"Unexpected operation: $operation",
-              "The request wasn't something I understand"
+              "the request wasn't something I understand"
             )
           )
       }
@@ -88,7 +88,7 @@ object PokerDot {
       maybeGame <- appContext.db.lookupGame(joinGame.gameCode)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
         s"Game not found for code ${joinGame.gameCode}",
-        "Couldn't find game, is the code correct?",
+        "could not find game to join, is the code correct?",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       // player/spectator IDs aren't persisted in the game's DB record until the game starts
@@ -145,7 +145,7 @@ object PokerDot {
       bet <- extractBet(requestJson).attempt
       maybeGame <- appContext.db.getGame(bet.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot bet, game ID not found", "couldn't find game to start",
+        s"Cannot bet, game ID not found", "couldn't find the game",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
@@ -169,7 +169,7 @@ object PokerDot {
       check <- extractCheck(requestJson).attempt
       maybeGame <- appContext.db.getGame(check.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot bet, game ID not found", "couldn't find game to start",
+        s"Cannot check, game ID not found", "couldn't find the game",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
@@ -192,7 +192,7 @@ object PokerDot {
       fold <- extractFold(requestJson).attempt
       maybeGame <- appContext.db.getGame(fold.gameId)
       gameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot bet, game ID not found", "couldn't find game to start",
+        s"Cannot fold, game ID not found", "couldn't find the game",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(gameDb.gameId))
       rawGame <- Representations.gameFromDb(gameDb, playerDbs).attempt
@@ -227,7 +227,7 @@ object PokerDot {
       advancePhase <- extractAdvancePhase(requestJson).attempt
       maybeGame <- appContext.db.getGame(advancePhase.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot start game, game ID not found", "couldn't find game to start",
+        s"Cannot advance phase, game ID not found", "couldn't find the game",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
@@ -256,7 +256,7 @@ object PokerDot {
    * Allows control of the blinds, manually or via the timer.
    *
    * This is commonly a manual update (for manual blind games) or play/pause (for timed games),
-   * but may also be editing the phases in timed games.
+   * but may also be editing the phases or timer progress in timed games.
    *
    * Pausing / playing is done by setting the optional pauseTime and by faking the start time, respectively.
    */
@@ -265,7 +265,7 @@ object PokerDot {
       updateBlind <- extractUpdateBlind(requestJson).attempt
       maybeGame <- appContext.db.getGame(updateBlind.gameId)
       rawGameDb <- Attempt.fromOption(maybeGame, Failures(
-        s"Cannot start game, game ID not found", "couldn't find game to start",
+        s"Cannot update blind, game ID not found", "couldn't find the game",
       ))
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt

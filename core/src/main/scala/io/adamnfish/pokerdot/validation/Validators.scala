@@ -95,6 +95,15 @@ object Validators {
     nonEmpty(str, context, friendlyContext) ++ maxLength(50)(str, context, friendlyContext)
   }
 
+  val sensibleDurationSeconds: Validator[Int] = { (timestamp, context, friendlyContext) =>
+    val twoWeeksInSeconds = 86400 * 14
+    if (timestamp > twoWeeksInSeconds)
+      List(
+        Failure("Failed sensible duration validation", s"$friendlyContext is too large to be a timer duration", Some(context))
+      )
+    else Nil
+  }
+
   def timerLevel: Validator[TimerLevel] = { (tl, context, friendlyContext) =>
     tl match {
       case RoundLevel(duration, smallBlind) =>

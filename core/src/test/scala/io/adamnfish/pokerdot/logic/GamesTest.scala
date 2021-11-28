@@ -507,7 +507,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
   "updateBlindAction" - {
     val rawUpdateGame = UpdateBlind(
       GameId("game-id"), PlayerId("player-id"), PlayerKey("player-key"),
-      None, None, None
+      None, None, None, None
     )
 
     "for a timer update" - {
@@ -521,6 +521,12 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         updateBlindAction(rawUpdateGame.copy(
           timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50))),
           playing = Some(true),
+        )).value shouldEqual EditTimerSummary()
+      }
+
+      "a progress update also counts as an edit timer action" in {
+        updateBlindAction(rawUpdateGame.copy(
+          progress = Some(10)
         )).value shouldEqual EditTimerSummary()
       }
     }

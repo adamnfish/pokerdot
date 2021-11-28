@@ -816,6 +816,7 @@ update msg model =
                                 , playerKey = welcome.playerKey
                                 , playerId = welcome.playerId
                                 , timerLevels = Nothing
+                                , progress = Nothing
                                 , smallBlind = Nothing
                                 , playing = Nothing
                                 }
@@ -828,6 +829,7 @@ update msg model =
                                 , playerKey = welcome.playerKey
                                 , playerId = welcome.playerId
                                 , timerLevels = Nothing
+                                , progress = Nothing
                                 , smallBlind = Nothing
                                 , playing = Nothing
                                 }
@@ -845,6 +847,7 @@ update msg model =
                                 , playerKey = welcome.playerKey
                                 , playerId = welcome.playerId
                                 , timerLevels = Nothing
+                                , progress = Nothing
                                 , smallBlind = Just blindAmount
                                 , playing = Nothing
                                 }
@@ -857,6 +860,7 @@ update msg model =
                                 , playerKey = welcome.playerKey
                                 , playerId = welcome.playerId
                                 , timerLevels = Nothing
+                                , progress = Nothing
                                 , smallBlind = Just blindAmount
                                 , playing = Nothing
                                 }

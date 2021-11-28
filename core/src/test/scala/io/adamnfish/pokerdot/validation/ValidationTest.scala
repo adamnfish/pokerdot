@@ -132,6 +132,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         timerLevels = Some(List(RoundLevel(300, 5), BreakLevel(60), RoundLevel(500, 10))),
         smallBlind = None,
         playing = Some(true),
+        progress = None,
       )
     }
 
@@ -145,6 +146,21 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         timerLevels = None,
         smallBlind = None,
         playing = Some(true),
+        progress = None,
+      )
+    }
+
+    "progress update" in {
+      val jsonStr =
+        s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
+           |"progress":350}""".stripMargin
+      val json = parse(jsonStr).value
+      extractUpdateBlind(json).value shouldEqual UpdateBlind(
+        GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
+        timerLevels = None,
+        smallBlind = None,
+        playing = None,
+        progress = Some(350),
       )
     }
 
@@ -158,6 +174,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         timerLevels = None,
         smallBlind = Some(50),
         playing = None,
+        progress = None,
       )
     }
   }
@@ -325,6 +342,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       timerLevels = None,
       smallBlind = None,
       playing = None,
+      progress = None,
     )
 
     "returns the request for a valid update timer requests" - {
@@ -334,13 +352,18 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       }
 
       "without timer levels" in {
-        val requestWithoutTimerLevels = rawRequest.copy(timerLevels = None)
+        val requestWithoutTimerLevels = rawRequest.copy(timerLevels = None, smallBlind = Some(10))
         validate(requestWithoutTimerLevels).value shouldEqual requestWithoutTimerLevels
       }
 
       "with manual blind update" in {
-        val requestWithoutTimerLevels = rawRequest.copy(timerLevels = None, smallBlind = Some(50))
-        validate(requestWithoutTimerLevels).value shouldEqual requestWithoutTimerLevels
+        val requestWithSmallBlindAmount = rawRequest.copy(smallBlind = Some(50))
+        validate(requestWithSmallBlindAmount).value shouldEqual requestWithSmallBlindAmount
+      }
+
+      "with a new timer progress" in {
+        val requestWithTimerProgress = rawRequest.copy(progress = Some(500))
+        validate(requestWithTimerProgress).value shouldEqual requestWithTimerProgress
       }
     }
 
@@ -358,6 +381,10 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
 
     "returns a failure if the timer levels are present and empty" in {
       validate(rawRequest.copy(timerLevels = Some(Nil))).isLeft shouldEqual true
+    }
+
+    "returns a failure if the update blind request is 'empty'" in {
+      validate(rawRequest).isLeft shouldEqual true
     }
   }
 
