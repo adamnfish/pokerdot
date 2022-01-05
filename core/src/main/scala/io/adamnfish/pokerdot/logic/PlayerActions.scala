@@ -178,16 +178,20 @@ object PlayerActions {
 
   def updateBlind(game: Game, updateBlind: UpdateBlind, now: Long): Either[Failures, Game] = {
     for {
-      newGame <- (updateBlind.smallBlind, updateBlind.playing, updateBlind.timerLevels, game.timer) match {
-        case (Some(_), Some(playing), _, _) =>
+      newGame <- (updateBlind.smallBlind, updateBlind.timerLevels, updateBlind.playing, updateBlind.progress, game.timer) match {
+        case (Some(_), _, Some(playing), _, _) =>
           val status = if (playing) "start" else "pause"
           Left(Failures(s"Cannot $status a timer when using manual blinds", s"you can't $status a timer if you're using manual blinds"))
-        case (Some(_), _, Some(_), _) =>
+        case (Some(_), Some(_), _, _, _) =>
           Left(Failures("Cannot set timer levels when using manual blinds", "you can't create a timer if you're using manual blinds"))
-        case (None, Some(playing), None, None) =>
+        case (Some(_), _, _, Some(_), _) =>
+          Left(Failures("Cannot set timer progress when using manual blinds", "you can't update a timer if you're using manual blinds"))
+        case (None, None, Some(playing), None, None) =>
           val status = if (playing) "start" else "pause"
           Left(Failures(s"Cannot $status timer that does not exist", s"there's no timer running so we can't $status it"))
-        case (Some(manualSmallBlind), None, None, _) =>
+        case (None, None, _, Some(_), None) =>
+          Left(Failures(s"Cannot update progress on a timer that does not exist", s"there's no timer running so we can't update it"))
+        case (Some(manualSmallBlind), None, None, None, _) =>
           // use manual blinds
           Right {
             game.copy(
@@ -195,11 +199,13 @@ object PlayerActions {
               timer = None,
             )
           }
-        case (None, maybeTimerRunning, Some(timerLevels), None) =>
+        case (None, Some(timerLevels), maybeTimerRunning, maybeProgress, None) =>
           // set new timer
           val pausedTime =
             if (maybeTimerRunning.getOrElse(true)) None
             else Some(now)
+          val startTime =
+            now - maybeProgress.map(_ * 1000).getOrElse(0)
           val initialBlind =
             timerLevels
               .collectFirst { case RoundLevel(_, smallBlind) => smallBlind }
@@ -207,29 +213,48 @@ object PlayerActions {
           Right {
             game.copy(
               round = game.round.copy(smallBlind = initialBlind),
-              timer = Some(TimerStatus(now, pausedTime, timerLevels)),
+              timer = Some(TimerStatus(startTime, pausedTime, timerLevels)),
             )
           }
-        case (None, maybeTimerRunning, maybeTimerLevels, Some(existingTimer)) =>
+        case (None, None, None, Some(newProgress), Some(existingTimer)) =>
+          // set the progress of an existing timer
+          val newTimer = existingTimer.pausedTime match {
+            case Some(pausedTime) =>
+              existingTimer.copy(timerStartTime = pausedTime - (newProgress * 1000))
+            case None =>
+              existingTimer.copy(timerStartTime = now - (newProgress * 1000))
+          }
+          Right {
+            game.copy(
+              timer = Some(newTimer),
+            )
+          }
+        case (None, maybeTimerLevels, maybeTimerRunning, maybeProgress, Some(existingTimer)) =>
           // update an existing timer
           for {
-            newTimerStatus <- updateBlindTimer(existingTimer, now, maybeTimerRunning, maybeTimerLevels)
+            newTimerStatus <- updateBlindTimer(existingTimer, now, maybeTimerRunning, maybeProgress, maybeTimerLevels)
             result <- Play.timerSmallBlind(newTimerStatus, now)
             (newSmallBlind, _) = result
           } yield game.copy(
-            round = game.round.copy(
-              smallBlind = newSmallBlind,
-            ),
+            round =
+              // playing / pausing shouldn't cause the current round's blind to change,
+              // even if the timer has moved on to the next level (this takes effect when the new round starts)
+              // if the blinds have been explicitly edited then we'll update the round in-place
+              if (maybeTimerLevels.isDefined)
+                game.round.copy(
+                  smallBlind = newSmallBlind,
+                )
+              else game.round,
             timer = Some(newTimerStatus),
           )
-        case (None, None, None, None) =>
+        case (None, None, None, None, None) =>
           // ?? should be excluded by validation of the update blind request
           Right(game)
       }
     } yield newGame
   }
 
-  private def updateBlindTimer(currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], newLevels: Option[List[TimerLevel]]): Either[Failures, TimerStatus] = {
+  private def updateBlindTimer(currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], maybeProgress: Option[Int], newLevels: Option[List[TimerLevel]]): Either[Failures, TimerStatus] = {
     (currentTimerStatus.pausedTime, maybeSetPlayingStatus) match {
       case (Some(_), Some(false)) =>
         // already paused
@@ -241,7 +266,12 @@ object PlayerActions {
         // unpause, which adjusts the start time to put the timer in the right place
         Right {
           TimerStatus(
-            timerStartTime = currentTimerStatus.timerStartTime + (now - currentPausedTime),
+            timerStartTime = maybeProgress match {
+              case Some(progress) =>
+                now - (progress * 1000)
+              case None =>
+                currentTimerStatus.timerStartTime + (now - currentPausedTime)
+            },
             pausedTime = None,
             levels = newLevels.getOrElse(currentTimerStatus.levels)
           )
@@ -250,14 +280,39 @@ object PlayerActions {
         // pause
         Right {
           TimerStatus(
-            timerStartTime = currentTimerStatus.timerStartTime,
+            timerStartTime = maybeProgress match {
+              case Some(progress) =>
+                now - (progress * 1000)
+              case None =>
+                currentTimerStatus.timerStartTime
+            },
             pausedTime = Some(now),
             levels = newLevels.getOrElse(currentTimerStatus.levels)
           )
         }
+      case (_, None) =>
+        // not setting the play/pause status, so we can just go ahead and update the progress and levels
+        Right {
+          TimerStatus(
+            timerStartTime = maybeProgress match {
+              case Some(progress) =>
+                now - (progress * 1000)
+              case None =>
+                currentTimerStatus.timerStartTime
+            },
+            pausedTime = currentTimerStatus.pausedTime,
+            levels = newLevels.getOrElse(currentTimerStatus.levels)
+          )
+        }
       case _ =>
-        // we aren't making any changes, should be excluded by validation of the updateBlind request
-        Right(currentTimerStatus)
+        // to get here implies a contradiction between the current and desired play/pause states
+        // this should be excluded earlier in the request lifecycle, so nothing to do here
+        Left {
+          Failures(
+            s"Unexpected application state. is playing: ${currentTimerStatus.pausedTime.isEmpty}, desired playing state ${maybeSetPlayingStatus}",
+            "couldn't understand the timer update, maybe try refreshing?"
+          )
+        }
     }
   }
 

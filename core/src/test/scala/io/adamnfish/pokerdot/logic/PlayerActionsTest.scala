@@ -710,37 +710,173 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
     )
 
     "for a timer levels update" - {
-      "updates the timer levels" in {
-        val updatedGame = updateBlind(game,
-          rawUpdateBlind.copy(
-            timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
-          ),
-          now = 1000L
-        )
-        val timerStatus = updatedGame.value.timer.value
-        timerStatus.levels shouldEqual List(RoundLevel(100, 10), BreakLevel(50))
+      "when creating a timer afresh" - {
+        "updates the timer levels" in {
+          val updatedGame = updateBlind(game,
+            rawUpdateBlind.copy(
+              timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
+            ),
+            now = 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.levels shouldEqual List(RoundLevel(100, 10), BreakLevel(50))
+        }
+
+        "updates the timer status" in {
+          val updatedGame = updateBlind(game,
+            rawUpdateBlind.copy(
+              timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
+            ),
+            now = 0L
+          )
+          updatedGame.value.timer.value should have(
+            "timerStartTime" as 0L,
+            "pausedTime" as None,
+          )
+        }
+
+        "uses the initial progress, if provided" in {
+          val updatedGame = updateBlind(game,
+            rawUpdateBlind.copy(
+              timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50))),
+              progress = Some(50),
+            ),
+            now = 200 * 1000L
+          )
+          updatedGame.value.timer.value.timerStartTime shouldEqual ((200 * 1000L) - (50 * 1000L))
+        }
       }
 
-      "updates the timer status" in {
-        val updatedGame = updateBlind(game,
-          rawUpdateBlind.copy(
-            timerLevels = Some(List(RoundLevel(100, 10), BreakLevel(50)))
-          ),
-          now = 0L
-        )
-        updatedGame.value.timer.value should have(
-          "timerStartTime" as 0L,
-          "pausedTime" as None,
-        )
+      "when editing the levels of an existing timer" - {
+        "updates the timer levels" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 200 * 1000L,
+                  pausedTime = None,
+                  levels = List(
+                    RoundLevel(1500, 10),
+                    BreakLevel(10),
+                    RoundLevel(1500, 20),
+                  )
+                )
+              ),
+            ),
+            rawUpdateBlind.copy(
+              timerLevels = Some(List(RoundLevel(1200, 10), BreakLevel(50), RoundLevel(1200, 20)))
+            ),
+            now = 1800 * 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.levels shouldEqual List(RoundLevel(1200, 10), BreakLevel(50), RoundLevel(1200, 20))
+        }
+
+        "uses the progress to set the new timer's start time, when provided" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 200 * 1000L,
+                  pausedTime = None,
+                  levels = List(
+                    RoundLevel(1500, 10),
+                    BreakLevel(10),
+                    RoundLevel(1500, 20),
+                  )
+                )
+              ),
+            ),
+            rawUpdateBlind.copy(
+              timerLevels = Some(List(RoundLevel(1200, 10), BreakLevel(50), RoundLevel(1200, 20))),
+              progress = Some(1300),
+            ),
+            now = 1800 * 1000L
+          )
+          updatedGame.value.timer.value should have(
+            "timerStartTime" as (500 * 1000L),
+            "levels" as List(RoundLevel(1200, 10), BreakLevel(50), RoundLevel(1200, 20)),
+          )
+        }
       }
     }
 
     "for a timer progress update" - {
-      "moves the game's start time to match the desired progress" ignore {}
+      "moves the game's start time to match the desired progress" in {
+        val updatedGame = updateBlind(
+          game.copy(
+            timer = Some(
+              TimerStatus(
+                timerStartTime = 200 * 1000L,
+                pausedTime = None,
+                levels = List(
+                  RoundLevel(1500, 10),
+                  BreakLevel(10),
+                  RoundLevel(1500, 20),
+                )
+              )
+            )
+          ),
+          rawUpdateBlind.copy(
+            progress = Some(50),
+          ),
+          now = 20000 * 1000L
+        )
+        val timerStatus = updatedGame.value.timer.value
+        timerStatus.timerStartTime shouldEqual ((20000 * 1000L) - (50 * 1000))
+      }
 
       "if the game is paused" - {
-        "adjusts the game start time so that the timer's progress is correct" ignore {}
-        "does not move the game's paused time" ignore {}
+        "adjusts the game start time so that the timer's progress is correct" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 200 * 1000L,
+                  pausedTime = Some(200 * 1000L),
+                  levels = List(
+                    RoundLevel(1500, 10),
+                    BreakLevel(10),
+                    RoundLevel(1500, 20),
+                  )
+                )
+              )
+            ),
+            rawUpdateBlind.copy(
+              progress = Some(50),
+            ),
+            now = 20000 * 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.timerStartTime shouldEqual ((200 * 1000L) - (50 * 1000))
+        }
+
+        "does not move the game's paused time" in {
+          forAll(Gen.choose(0, 86400)) { progress =>
+            val pausedTime = Some(500 * 1000L)
+            val updatedGame = updateBlind(
+              game.copy(
+                timer = Some(
+                  TimerStatus(
+                    timerStartTime = 200 * 1000L,
+                    pausedTime = pausedTime,
+                    levels = List(
+                      RoundLevel(1500, 10),
+                      BreakLevel(10),
+                      RoundLevel(1500, 20),
+                    )
+                  )
+                )
+              ),
+              rawUpdateBlind.copy(
+                progress = Some(progress),
+              ),
+              now = 20000 * 1000L
+            )
+            val timerStatus = updatedGame.value.timer.value
+            timerStatus.pausedTime shouldEqual pausedTime
+          }
+        }
       }
 
       "fails if the timer's progress is beyond the total timer running time" ignore {}
@@ -769,6 +905,30 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           )
           val timerStatus = updatedGame.value.timer.value
           timerStatus.pausedTime shouldEqual Some(1000L)
+        }
+
+        "adjusts the start time if the progress is also being updated" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 100 * 1000L,
+                  pausedTime = None,
+                  levels = List(
+                    RoundLevel(1500, 10),
+                    BreakLevel(10),
+                  )
+                )
+              )
+            ),
+            rawUpdateBlind.copy(
+              playing = Some(false),
+              progress = Some(200),
+            ),
+            now = 950 * 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.timerStartTime shouldEqual 750 * 1000L
         }
 
         "fails to pause game timer if it was already paused" in {
@@ -829,6 +989,55 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           )
           val timerStatus = updatedGame.value.timer.value
           timerStatus.pausedTime shouldEqual None
+        }
+
+        "if a new timer level would be in effect, does not change the round's small blind amount if the timer has not been otherwise edited)" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 0L,
+                  pausedTime = Some(270L * 1000),
+                  levels = List(
+                    RoundLevel(100, 10),
+                    BreakLevel(50),
+                    RoundLevel(100, 20),
+                  )
+                )
+              ),
+              round = game.round.copy(smallBlind = 10)
+            ),
+            rawUpdateBlind.copy(
+              playing = Some(true),
+            ),
+            now = 275L * 1000
+          )
+          updatedGame.value.round.smallBlind shouldEqual 10
+        }
+
+        "uses the provided progress (if present) to adjust the timer start time" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 100 * 1000L,
+                  pausedTime = Some(140 * 1000L),
+                  levels = List(
+                    RoundLevel(100, 10),
+                    BreakLevel(50),
+                    RoundLevel(100, 20),
+                  )
+                )
+              )
+            ),
+            rawUpdateBlind.copy(
+              playing = Some(true),
+              progress = Some(180),
+            ),
+            now = 1500 * 1000L
+          )
+          val timerStatus = updatedGame.value.timer.value
+          timerStatus.timerStartTime shouldEqual ((1500 - 180) * 1000L)
         }
 
         "fails to restart the game timer if the it was already running" in {

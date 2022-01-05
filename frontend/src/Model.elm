@@ -6,6 +6,7 @@ import Browser.Navigation
 import Json.Decode exposing (nullable)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode
+import Keyboard exposing (Key(..))
 import Time exposing (Posix(..), millisToPosix, posixToMillis)
 import Url
 
@@ -15,6 +16,8 @@ type Msg
     | Tick Time.Posix
     | OnResize
     | Resized Viewport
+    | WindowBlur
+    | KeyMsg Keyboard.Msg
       -- URLs
     | UrlChange Url.Url
     | UrlRequest UrlRequest
@@ -51,17 +54,24 @@ type Msg
     | Bet Int
     | Fold
     | AdvancePhase
-      -- blind management
-    | InputUpdateBlind EditBlindsSettings
-    | UpdateBlind EditBlindsSettings
       -- debugging / development
     | NavigateUIElements Int
+      -- overlays
+    | OpenHelpOverlay
+    | OpenEditBlindOverlay
+    | ToggleTimerPlayingOverlay
+    | InputUpdateBlindOverlay EditBlindsSettings
+    | UpdateBlindOverlay EditBlindsSettings
+    | UpdateTimerProgressOverlay Int
+    | CloseOverlay
 
 
 type alias Model =
     { ui : UI
+    , overlayUi : OverlayUI
     , connected : Bool
     , now : Time.Posix
+    , pressedKeys : List Key
     , viewport : Viewport
     , peeking : Bool -- TODO: should this be in the UI?
     , loadingStatus : LoadingStatus
@@ -88,6 +98,14 @@ type UI
     | ChipSummaryScreen Game Welcome
       -- debugging / development
     | UIElementsScreen Int ActSelection
+
+
+type OverlayUI
+    = NoOverlay
+    | EditBlindOverlay EditBlindsSettings
+      -- | AdminOverlay <- ? or use admin screen?
+      -- | PokerHandsOverlay
+    | HelpOverlay
 
 
 type Route
@@ -121,7 +139,17 @@ type EditBlindsSettings
     = DoNotEditBlinds
     | DoNotTrackBlinds
     | ManualBlinds Int
-    | TimerBlinds (List TimerLevel)
+    | TimerBlinds TimerStatus
+
+
+editBlindsSettingsFromSmallBlindAndTimerStatus : Int -> Maybe TimerStatus -> EditBlindsSettings
+editBlindsSettingsFromSmallBlindAndTimerStatus smallBlind maybeTimerStatus =
+    case maybeTimerStatus of
+        Nothing ->
+            ManualBlinds smallBlind
+
+        Just timerStatus ->
+            TimerBlinds timerStatus
 
 
 defaultChipSettings =

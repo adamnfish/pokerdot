@@ -5,9 +5,18 @@ import Browser.Dom
 import Browser.Events
 import Browser.Navigation
 import Json.Encode
+import Keyboard exposing (Key(..))
 import Messages exposing (parsePersistedGames, routeFromUrl, sendPing, sendWake, uiFromRoute, update)
 import Model exposing (..)
-import Ports exposing (receiveMessage, receivePersistedGames, requestPersistedGames, socketConnect, socketDisconnect)
+import Ports
+    exposing
+        ( blurs
+        , receiveMessage
+        , receivePersistedGames
+        , requestPersistedGames
+        , socketConnect
+        , socketDisconnect
+        )
 import Task
 import Time
 import Url
@@ -41,8 +50,10 @@ init flags url navKey =
         initial : Model
         initial =
             { ui = ui
+            , overlayUi = NoOverlay
             , connected = False
             , now = Time.millisToPosix 0
+            , pressedKeys = []
             , viewport =
                 { scene =
                     { width = 0
@@ -90,6 +101,8 @@ subscriptions model =
         , Time.every 1000 Tick
         , Browser.Events.onResize (\_ _ -> OnResize)
         , receivePersistedGames UpdateLibrary
+        , Sub.map KeyMsg Keyboard.subscriptions
+        , blurs (\_ -> WindowBlur)
         ]
 
 

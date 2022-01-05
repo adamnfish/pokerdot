@@ -4,12 +4,67 @@ import Browser exposing (UrlRequest(..))
 import Browser.Dom
 import Browser.Navigation
 import Json.Decode exposing (errorToString)
+import Keyboard exposing (Key(..))
+import KeyboardShortcuts exposing (..)
 import List.Extra
-import Logic exposing (gameIsFinished)
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, persistedWelcomeDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeEncoder)
-import Ports exposing (deletePersistedGame, persistNewGame, reportError, requestPersistedGames, sendMessage)
+import Maybe.Extra
+import Model
+    exposing
+        ( ActSelection(..)
+        , Action(..)
+        , AdvancePhaseRequest
+        , BetRequest
+        , CheckRequest
+        , ChipsSettings(..)
+        , CreateGameRequest
+        , EditBlindsSettings(..)
+        , Event
+        , Failure
+        , FoldRequest
+        , Game
+        , JoinGameRequest
+        , LoadingStatus(..)
+        , Message(..)
+        , Model
+        , Msg(..)
+        , OverlayUI(..)
+        , PingRequest
+        , Player
+        , PlayerId(..)
+        , Route(..)
+        , Self
+        , StartGameRequest
+        , UI(..)
+        , UpdateBlindRequest
+        , Welcome
+        , advancePhaseRequestEncoder
+        , betRequestEncoder
+        , checkRequestEncoder
+        , createGameRequestEncoder
+        , defaultChipSettings
+        , editBlindsSettingsFromSmallBlindAndTimerStatus
+        , foldRequestEncoder
+        , getPlayerCode
+        , joinGameRequestEncoder
+        , messageDecoder
+        , persistedWelcomeDecoder
+        , pingRequestEncoder
+        , startGameRequestEncoder
+        , updateBlindRequestEncoder
+        , wakeRequestEncoder
+        , welcomeEncoder
+        )
+import Ports
+    exposing
+        ( deletePersistedGame
+        , persistNewGame
+        , reportError
+        , requestPersistedGames
+        , scrollToTop
+        , sendMessage
+        )
 import Task
-import Time
+import Time exposing (posixToMillis)
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>))
@@ -58,6 +113,23 @@ update msg model =
             ( { model
                 | viewport = viewport
               }
+            , Cmd.none
+            )
+
+        WindowBlur ->
+            ( { model | pressedKeys = [] }
+            , Cmd.none
+            )
+
+        KeyMsg keyMsg ->
+            let
+                keys =
+                    Keyboard.update keyMsg model.pressedKeys
+
+                newModel =
+                    { model | pressedKeys = keys }
+            in
+            ( keyboardShortcuts newModel keys
             , Cmd.none
             )
 
@@ -471,6 +543,7 @@ update msg model =
         NavigateHome ->
             ( { model
                 | ui = WelcomeScreen
+                , overlayUi = NoOverlay
                 , errors = []
                 , loadingStatus = NotLoading
               }
@@ -481,12 +554,15 @@ update msg model =
             )
 
         NavigateHelp ->
-            ( model
+            ( { model | overlayUi = NoOverlay }
             , navigate model.navKey True HelpRoute
             )
 
         NavigateGame welcome ->
-            ( { model | ui = RejoinScreen welcome }
+            ( { model
+                | ui = RejoinScreen welcome
+                , overlayUi = NoOverlay
+              }
             , Cmd.batch
                 [ sendPing welcome
                 , navigate model.navKey True (GameRoute welcome.gameCode (getPlayerCode welcome.playerId))
@@ -792,56 +868,140 @@ update msg model =
                     , Cmd.none
                     )
 
-        InputUpdateBlind blindsSettings ->
+        ToggleTimerPlayingOverlay ->
+            let
+                modelWithClosedOverlay =
+                    case model.overlayUi of
+                        EditBlindOverlay _ ->
+                            { model | overlayUi = NoOverlay }
+
+                        _ ->
+                            model
+            in
             case model.ui of
-                RoundResultScreen potResults playerWinnings self game welcome _ ->
-                    ( { model | ui = RoundResultScreen potResults playerWinnings self game welcome blindsSettings }
+                GameScreen actSelection self game welcome ->
+                    case game.timer of
+                        Nothing ->
+                            ( model
+                            , reportError "cannot toggle play/pause when the game does not have a timer"
+                            )
+
+                        Just timerStatus ->
+                            ( { modelWithClosedOverlay | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , progress = Nothing
+                                , smallBlind = Nothing
+                                , playing = Just <| Maybe.Extra.isJust timerStatus.pausedTime
+                                }
+                            )
+
+                RoundResultScreen potResults playerWinnings self game welcome editBlindsSettings ->
+                    case game.timer of
+                        Nothing ->
+                            ( model
+                            , reportError "cannot toggle play/pause when the game does not have a timer"
+                            )
+
+                        Just timerStatus ->
+                            ( { modelWithClosedOverlay | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , progress = Nothing
+                                , smallBlind = Nothing
+                                , playing = Just <| Maybe.Extra.isJust timerStatus.pausedTime
+                                }
+                            )
+
+                _ ->
+                    ( model
+                    , reportError "cannot toggle play/pause when a game is not in progress"
+                    )
+
+        NavigateUIElements seed ->
+            ( { model | ui = UIElementsScreen seed NoAct }
+            , Cmd.none
+            )
+
+        OpenHelpOverlay ->
+            if model.overlayUi == HelpOverlay then
+                ( { model | overlayUi = NoOverlay }
+                , Cmd.none
+                )
+
+            else
+                ( { model | overlayUi = HelpOverlay }
+                , scrollToTop ()
+                )
+
+        OpenEditBlindOverlay ->
+            case model.ui of
+                GameScreen actSelection self game welcome ->
+                    if self.isAdmin then
+                        ( { model
+                            | overlayUi =
+                                EditBlindOverlay
+                                    (editBlindsSettingsFromSmallBlindAndTimerStatus game.smallBlind game.timer)
+                          }
+                        , scrollToTop ()
+                        )
+
+                    else
+                        ( model
+                        , reportError "Cannot open edit blind overlay when player is not a game admin"
+                        )
+
+                RoundResultScreen potResults playerWinnings self game welcome editBlindsSettings ->
+                    if self.isAdmin then
+                        ( { model
+                            | overlayUi =
+                                EditBlindOverlay
+                                    (editBlindsSettingsFromSmallBlindAndTimerStatus game.smallBlind game.timer)
+                          }
+                        , scrollToTop ()
+                        )
+
+                    else
+                        ( model
+                        , reportError "Cannot open edit blind overlay when player is not a game admin"
+                        )
+
+                _ ->
+                    ( model
+                    , reportError "Cannot open edit blind overlay when no game is running"
+                    )
+
+        InputUpdateBlindOverlay editBlindsSettings ->
+            case model.overlayUi of
+                EditBlindOverlay prevEditBlindsSettings ->
+                    ( { model | overlayUi = EditBlindOverlay editBlindsSettings }
                     , Cmd.none
                     )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model
+                    , Cmd.none
+                    )
 
-        UpdateBlind blindsSettings ->
-            case blindsSettings of
+        UpdateBlindOverlay editBlindsSettings ->
+            let
+                updatedModel =
+                    { model | overlayUi = NoOverlay }
+            in
+            case editBlindsSettings of
                 DoNotEditBlinds ->
-                    ( model, Cmd.none )
-
-                DoNotTrackBlinds ->
-                    case model.ui of
-                        GameScreen _ _ _ welcome ->
-                            ( { model | loadingStatus = AwaitingMessage }
-                            , sendUpdateBlind
-                                { gameId = welcome.gameId
-                                , playerKey = welcome.playerKey
-                                , playerId = welcome.playerId
-                                , timerLevels = Nothing
-                                , progress = Nothing
-                                , smallBlind = Nothing
-                                , playing = Nothing
-                                }
-                            )
-
-                        RoundResultScreen _ _ _ _ welcome _ ->
-                            ( { model | loadingStatus = AwaitingMessage }
-                            , sendUpdateBlind
-                                { gameId = welcome.gameId
-                                , playerKey = welcome.playerKey
-                                , playerId = welcome.playerId
-                                , timerLevels = Nothing
-                                , progress = Nothing
-                                , smallBlind = Nothing
-                                , playing = Nothing
-                                }
-                            )
-
-                        _ ->
-                            ( model, Cmd.none )
+                    ( updatedModel, Cmd.none )
 
                 ManualBlinds blindAmount ->
                     case model.ui of
                         GameScreen _ _ _ welcome ->
-                            ( { model | loadingStatus = AwaitingMessage }
+                            ( { updatedModel | loadingStatus = AwaitingMessage }
                             , sendUpdateBlind
                                 { gameId = welcome.gameId
                                 , playerKey = welcome.playerKey
@@ -854,7 +1014,7 @@ update msg model =
                             )
 
                         RoundResultScreen _ _ _ _ welcome _ ->
-                            ( { model | loadingStatus = AwaitingMessage }
+                            ( { updatedModel | loadingStatus = AwaitingMessage }
                             , sendUpdateBlind
                                 { gameId = welcome.gameId
                                 , playerKey = welcome.playerKey
@@ -867,14 +1027,124 @@ update msg model =
                             )
 
                         _ ->
-                            ( model, Cmd.none )
+                            ( updatedModel, Cmd.none )
 
-                TimerBlinds timerLevels ->
-                    -- TODO: support timers
-                    ( model, Cmd.none )
+                DoNotTrackBlinds ->
+                    case model.ui of
+                        GameScreen _ _ _ welcome ->
+                            ( { updatedModel | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , progress = Nothing
+                                , smallBlind = Nothing
+                                , playing = Nothing
+                                }
+                            )
 
-        NavigateUIElements seed ->
-            ( { model | ui = UIElementsScreen seed NoAct }
+                        RoundResultScreen _ _ _ _ welcome _ ->
+                            ( { updatedModel | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Nothing
+                                , progress = Nothing
+                                , smallBlind = Nothing
+                                , playing = Nothing
+                                }
+                            )
+
+                        _ ->
+                            ( updatedModel, Cmd.none )
+
+                TimerBlinds timerStatus ->
+                    let
+                        timerProgress =
+                            (posixToMillis model.now - posixToMillis timerStatus.timerStartTime) // 1000
+                    in
+                    case model.ui of
+                        GameScreen _ _ _ welcome ->
+                            ( { updatedModel | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Just timerStatus.levels
+                                , progress = Just timerProgress
+                                , smallBlind = Nothing
+                                , playing = Nothing
+                                }
+                            )
+
+                        RoundResultScreen _ _ _ _ welcome _ ->
+                            ( { updatedModel | loadingStatus = AwaitingMessage }
+                            , sendUpdateBlind
+                                { gameId = welcome.gameId
+                                , playerKey = welcome.playerKey
+                                , playerId = welcome.playerId
+                                , timerLevels = Just timerStatus.levels
+                                , progress = Just timerProgress
+                                , smallBlind = Nothing
+                                , playing = Nothing
+                                }
+                            )
+
+                        _ ->
+                            ( updatedModel, Cmd.none )
+
+        UpdateTimerProgressOverlay progress ->
+            let
+                updatedModel =
+                    { model | overlayUi = NoOverlay }
+            in
+            case model.ui of
+                LobbyScreen players chipsSettings self game welcome ->
+                    ( { updatedModel | loadingStatus = AwaitingMessage }
+                    , sendUpdateBlind
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        , timerLevels = Nothing
+                        , progress = Just progress
+                        , smallBlind = Nothing
+                        , playing = Nothing
+                        }
+                    )
+
+                GameScreen actSelection self game welcome ->
+                    ( { updatedModel | loadingStatus = AwaitingMessage }
+                    , sendUpdateBlind
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        , timerLevels = Nothing
+                        , progress = Just progress
+                        , smallBlind = Nothing
+                        , playing = Nothing
+                        }
+                    )
+
+                RoundResultScreen potResults playerWinnings self game welcome editBlindsSettings ->
+                    ( { updatedModel | loadingStatus = AwaitingMessage }
+                    , sendUpdateBlind
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        , timerLevels = Nothing
+                        , progress = Just progress
+                        , smallBlind = Nothing
+                        , playing = Nothing
+                        }
+                    )
+
+                _ ->
+                    ( updatedModel, Cmd.none )
+
+        CloseOverlay ->
+            ( { model | overlayUi = NoOverlay }
             , Cmd.none
             )
 

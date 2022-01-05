@@ -1,4 +1,4 @@
-module Views.Elements exposing (blindUi, buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, rgbToStyle, selfUi, tableUi, uiElements, zWidths)
+module Views.Elements exposing (blindUi, buttonHiddenAttrs, cardUi, communityCardsUi, connectionUi, container, controlsButton, divider, editTimerUi, formatBlinds, formatTimeComponent, handUi, helpText, hiddenCardUi, logo, pdTab, pdText, pokerControlsUi, pokerdotInText, rejoinFromLibraryUi, rgbToStyle, selfUi, tableUi, timerLevelUi, uiElements, zWidths)
 
 import Browser.Dom exposing (Viewport)
 import Element exposing (..)
@@ -10,20 +10,47 @@ import FontAwesome.Attributes
 import FontAwesome.Icon
 import FontAwesome.Regular
 import FontAwesome.Solid
+import Html
 import Html.Attributes
 import List.Extra
 import Logic exposing (isBusted)
 import Maybe.Extra
-import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self, TimerLevel(..), TimerStatus, Welcome)
+import Model
+    exposing
+        ( ActSelection(..)
+        , Card
+        , ChipsSettings(..)
+        , EditBlindsSettings(..)
+        , Game
+        , Hand(..)
+        , Model
+        , Msg(..)
+        , Player
+        , PlayerId(..)
+        , PlayerWinnings
+        , Rank(..)
+        , Round(..)
+        , Self
+        , TimerLevel(..)
+        , TimerStatus
+        , Welcome
+        )
 import Random
 import Random.Extra
 import Svg
 import Svg.Attributes
-import Time exposing (Posix, posixToMillis)
+import Time exposing (Posix, millisToPosix, posixToMillis)
 import Utils exposing (TimeComponents, millisToTimeComponents)
 import Views.Generators exposing (..)
 import Views.Theme as Theme
-import Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, filteredTimerLevels, timerRecommendations)
+import Views.Timers
+    exposing
+        ( CurrentTimerLevel(..)
+        , TimerSpeed(..)
+        , currentTimerLevel
+        , filteredTimerLevels
+        , timerRecommendations
+        )
 
 
 type CardSize
@@ -113,6 +140,36 @@ logo dimensions =
             ]
 
 
+divider : Element Msg
+divider =
+    column
+        [ width fill
+        , padding 8
+        ]
+        [ html <|
+            Html.hr [ Html.Attributes.hidden True ] []
+        , el
+            [ width fill
+            , height <| px 1
+            , Background.color Theme.colours.highlightPrimary
+            ]
+          <|
+            Element.none
+        , el
+            [ width fill
+            , height <| px 1
+            , Background.color Theme.colours.lowlight
+            ]
+          <|
+            Element.none
+        ]
+
+
+pokerdotInText : Element Msg
+pokerdotInText =
+    el [ Font.color Theme.colours.lowlight ] <| text "pokerdot"
+
+
 helpText : List String -> Element Msg
 helpText helpStrs =
     let
@@ -135,50 +192,51 @@ helpText helpStrs =
         List.map helpFragment helpStrs
 
 
-pdTab : Bool -> Msg -> String -> Element Msg
-pdTab active msg label =
-    Input.button
-        [ paddingXY 8 5
-        , Border.rounded 1
-        , Border.solid
-        , Border.width 2
-        , Border.color <|
-            if active then
-                Theme.colours.lowlight
-
-            else
-                Theme.colours.black
-        , if active then
-            Border.shadow
+pdTab : Color -> Bool -> Msg -> String -> Element Msg
+pdTab tabColour active msg label =
+    if active then
+        el
+            [ paddingXY 8 5
+            , Border.rounded 1
+            , Border.solid
+            , Border.width 2
+            , Border.color Theme.colours.night
+            , Border.shadow
                 { offset = ( 2, 2 )
                 , size = 0
                 , blur = 0
-                , color = Theme.dim Theme.colours.highlightSecondary
+                , color = Theme.dim Theme.colours.shadow
                 }
+            , Background.color Theme.colours.lowlight
+            , Font.color <| Theme.textColour Theme.colours.white
+            ]
+        <|
+            text label
 
-          else
-            Border.shadow
+    else
+        Input.button
+            [ paddingXY 8 5
+            , Border.rounded 1
+            , Border.solid
+            , Border.width 2
+            , Border.color Theme.colours.black
+            , Border.shadow
                 { offset = ( 5, 5 )
                 , size = 0
                 , blur = 0
-                , color = Theme.glow Theme.colours.highlightSecondary
+                , color = Theme.glow tabColour
                 }
-        , Background.color <|
-            if active then
-                Theme.colours.highlightSecondary
-
-            else
-                Theme.colours.highlightPrimary
-        , Font.color <| Theme.textColour Theme.colours.black
-        , focused
-            [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
-            , Border.color Theme.colours.white
+            , Background.color tabColour
             , Font.color <| Theme.textColour Theme.colours.white
+            , focused
+                [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
+                , Border.color Theme.colours.white
+                , Font.color <| Theme.textColour Theme.colours.white
+                ]
             ]
-        ]
-        { onPress = Just msg
-        , label = text label
-        }
+            { onPress = Just msg
+            , label = text label
+            }
 
 
 pdText : (String -> msg) -> String -> String -> Element msg
@@ -736,7 +794,9 @@ selfUi isPeeking self =
                         , centerY
                         , Font.center
                         ]
-                        [ text "peek"
+                        [ row []
+                            [ text "peek"
+                            ]
                         , if isPeeking then
                             el
                                 [ alignRight
@@ -1642,18 +1702,6 @@ timerLevelUi timerLevel =
                   <|
                     text <|
                         formatBlinds smallBlind
-
-                --, el
-                --    [ alignRight ]
-                --  <|
-                --    html <|
-                --        (FontAwesome.Solid.timesCircle
-                --            |> FontAwesome.Icon.present
-                --            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                --            |> FontAwesome.Icon.withId ("delete-timer-level-" ++ String.fromInt smallBlind ++ "_pokerdot")
-                --            |> FontAwesome.Icon.titled "Remove timer level"
-                --            |> FontAwesome.Icon.view
-                --        )
                 ]
 
         BreakLevel duration ->
@@ -1661,10 +1709,6 @@ timerLevelUi timerLevel =
                 [ width fill ]
                 [ text "break"
                 , durationEl duration
-                , el
-                    [ alignRight ]
-                  <|
-                    text "x"
                 ]
 
 
@@ -1785,9 +1829,55 @@ editTimerUi msg timerLevels playerCount stack =
         ]
 
 
-blindUi : Posix -> Maybe TimerStatus -> Int -> Element Msg
-blindUi now maybeTimerStatus smallBlind =
+blindUi : Posix -> Maybe TimerStatus -> Int -> Bool -> Element Msg
+blindUi now maybeTimerStatus smallBlind isAdmin =
     let
+        openBlindOverlayButton =
+            Input.button
+                [ height <| px 30
+                , width <| px 72
+                , Font.color <| Theme.textColour Theme.colours.white
+                , Font.size 16
+                , Background.color Theme.scheme3.highlight
+                , Border.rounded 2
+                , Border.width 2
+                , Border.color Theme.colours.black
+                , Border.shadow
+                    { offset = ( 5, 5 )
+                    , size = 0
+                    , blur = 0
+                    , color = Theme.glow Theme.scheme3.highlight
+                    }
+                , focused
+                    [ Background.color <| Theme.focusColour Theme.scheme3.highlight
+                    , Border.color Theme.colours.white
+                    , Border.shadow
+                        { offset = ( 5, 5 )
+                        , size = 0
+                        , blur = 0
+                        , color = Theme.glow <| Theme.focusColour Theme.scheme3.highlight
+                        }
+                    ]
+                ]
+                { onPress = Just OpenEditBlindOverlay
+                , label =
+                    row
+                        [ centerX
+                        , centerY
+                        , spacing 4
+                        ]
+                        [ row []
+                            [ text "edit" ]
+                        , text ""
+                        , html
+                            (FontAwesome.Solid.edit
+                                |> FontAwesome.Icon.present
+                                |> FontAwesome.Icon.styled [ FontAwesome.Attributes.xs ]
+                                |> FontAwesome.Icon.view
+                            )
+                        ]
+                }
+
         remaining currentLevelInfo =
             let
                 timeComponents =
@@ -1846,17 +1936,32 @@ blindUi now maybeTimerStatus smallBlind =
 
                         TimerPaused currentLevelInfo maybeNext ->
                             ( toFloat currentLevelInfo.levelProgress / toFloat currentLevelInfo.levelDuration
-                            , text "||"
+                            , html
+                                (FontAwesome.Solid.pause
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                    |> FontAwesome.Icon.view
+                                )
                             )
 
                         TimerPausedBreak currentLevelInfo maybeNext ->
                             ( toFloat currentLevelInfo.levelProgress / toFloat currentLevelInfo.levelDuration
-                            , text "||"
+                            , html
+                                (FontAwesome.Solid.pause
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                    |> FontAwesome.Icon.view
+                                )
                             )
 
                         TimerPausedFinish currentSmallBlind ->
                             ( 0
-                            , text "||"
+                            , html
+                                (FontAwesome.Solid.pause
+                                    |> FontAwesome.Icon.present
+                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                                    |> FontAwesome.Icon.view
+                                )
                             )
             in
             el
@@ -1866,7 +1971,7 @@ blindUi now maybeTimerStatus smallBlind =
                         [ width <| px 90
                         , height <| px 90
                         , moveRight 4
-                        , moveDown 4
+                        , moveUp 2
                         , alignRight
                         , centerY
                         , behindContent <|
@@ -1897,16 +2002,23 @@ blindUi now maybeTimerStatus smallBlind =
                     [ width fill
                     , height fill
                     , paddingEach
-                        { zWidths
-                            | right = 40
-                        }
+                        { zWidths | right = 40 }
                     ]
                 <|
                     column
                         [ width fill
                         , alignBottom
                         ]
-                        [ el
+                        [ if isAdmin then
+                            el
+                                [ paddingEach
+                                    { zWidths | bottom = 6 }
+                                ]
+                                openBlindOverlayButton
+
+                          else
+                            Element.none
+                        , el
                             [ width <| minimum 120 shrink
                             , paddingEach
                                 { zWidths
@@ -1976,13 +2088,29 @@ blindUi now maybeTimerStatus smallBlind =
             timerTemplate currentTimer
 
         Nothing ->
-            el
-                [ paddingXY 8 2
-                , Background.color Theme.colours.highlightPrimary
+            column
+                []
+                [ if isAdmin then
+                    el
+                        [ paddingEach
+                            { zWidths
+                                | bottom = 6
+                                , right = 5
+                            }
+                        , alignRight
+                        ]
+                        openBlindOverlayButton
+
+                  else
+                    Element.none
+                , el
+                    [ paddingXY 8 2
+                    , Background.color Theme.colours.highlightPrimary
+                    ]
+                  <|
+                    text <|
+                        formatBlinds smallBlind
                 ]
-            <|
-                text <|
-                    formatBlinds smallBlind
 
 
 formatBlinds : Int -> String

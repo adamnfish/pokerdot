@@ -157,7 +157,7 @@ object Validation {
 
   def validate(updateBlind: UpdateBlind): Either[Failures, UpdateBlind] = {
     val emptyErrors =
-      if (updateBlind.timerLevels.isEmpty && updateBlind.smallBlind.isEmpty && updateBlind.playing.isEmpty&& updateBlind.progress.isEmpty)
+      if (updateBlind.timerLevels.isEmpty && updateBlind.smallBlind.isEmpty && updateBlind.playing.isEmpty && updateBlind.progress.isEmpty)
         List(
           Failure("Empty update blind request", "specify what should change to update the blinds")
         )
@@ -173,7 +173,10 @@ object Validation {
         updateBlind.smallBlind.toList
           .flatMap(sb => validate(sb, "smallBlind", "blind amounts", positiveInteger)) ++
         updateBlind.progress.toList
-          .flatMap(pt => validate(pt, "progress", "progress amount", sensibleDurationSeconds))
+          .flatMap(pt =>
+            validate(pt, "progress", "progress amount", sensibleDurationSeconds) ++
+              validate(pt, "progress", "progress amount", positiveInteger)
+          )
     )
   }
 

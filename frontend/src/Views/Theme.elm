@@ -1,6 +1,6 @@
 module Views.Theme exposing (Scheme, colours, dim, focusColour, glow, pressColour, scheme1, scheme2, scheme3, scheme4, scheme5, slightlyDim, textColour)
 
-import Element exposing (rgb255)
+import Element exposing (rgb255, rgba255)
 
 
 type alias Scheme =
@@ -19,10 +19,14 @@ colours =
         rgb255 44 45 49
     , primary =
         rgb255 253 235 23
+    , secondary =
+        rgb255 251 94 9
     , highlightPrimary =
         rgb255 87 197 224
     , highlightSecondary =
         rgb255 73 197 182
+    , cta =
+        rgb255 0 151 189
     , lowlight =
         rgb255 94 1 188
     , error =
@@ -31,6 +35,8 @@ colours =
         rgb255 67 250 0
     , disabled =
         rgb255 244 243 240
+    , shadow =
+        rgba255 64 65 69 0.8
     }
 
 

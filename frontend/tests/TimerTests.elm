@@ -1,15 +1,11 @@
 module TimerTests exposing (all)
 
 import Expect
-import Fuzz exposing (intRange)
+import Fixtures exposing (startTimeGenerator)
 import Model exposing (TimerLevel(..))
-import Test exposing (Test, describe, fuzz, only, test)
+import Test exposing (Test, describe, fuzz, test)
 import Time exposing (millisToPosix)
 import Views.Timers exposing (CurrentTimerLevel(..), currentTimerLevel, smallBlindIsSmallEnough)
-
-
-startTimeGenerator =
-    intRange 0 100000
 
 
 all : Test

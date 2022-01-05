@@ -12,10 +12,23 @@ const app = Elm.Main.init({
   }
 });
 
+app.ports.scrollToTop.subscribe(function () {
+  console.log('scroll to top');
+  window.scroll({ top: 0, behavior: 'smooth' });
+});
+
+window.addEventListener('blur', (event) => {
+  app.ports.blurs.send(null);
+});
 
 // Server communication
 
 const socket = new ReconnectingWebSocket(apiUri(location.hostname));
+
+window.addEventListener('beforeunload', function(){
+  console.log("Disconnecting WS")
+  socket.close();
+});
 
 socket.addEventListener('open', function (event) {
   console.log('Websocket connection opened');
@@ -48,33 +61,33 @@ app.ports.reportError.subscribe(function (error) {
 });
 
 function apiUri(hostname) {
-    if (/(localhost|[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/.test(hostname)) {
-        return "ws://" + hostname + ":7000/api";
-    } else {
-        const match = hostname.match(/(\w+?)\.(.*)/);
-        return "wss://" + match[1] + "-api." + match[2] + "/"
-    }
+  if (/(localhost|[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/.test(hostname)) {
+    return "ws://" + hostname + ":7000/api";
+  } else {
+    const match = hostname.match(/(\w+?)\.(.*)/);
+    return "wss://" + match[1] + "-api." + match[2] + "/"
+  }
 }
 
 
 // Library persistence
 
 app.ports.persistNewGame.subscribe(function (gameData) {
-    console.log('>> Updating library ', gameData);
-    saveGame(gameData);
+  console.log('>> Updating library ', gameData);
+  saveGame(gameData);
 });
 
 app.ports.deletePersistedGame.subscribe(function (gameData) {
-    console.log('>> Deleting saved game ', gameData);
-    const games = getGameLibrary();
-    const updated = removeGame(games, gameData);
+  console.log('>> Deleting saved game ', gameData);
+  const games = getGameLibrary();
+  const updated = removeGame(games, gameData);
 });
 
 app.ports.requestPersistedGames.subscribe(function () {
-    console.log('>> Reloading saved games ');
-    const games = getGameLibrary();
+  console.log('>> Reloading saved games ');
+  const games = getGameLibrary();
 
-    app.ports.receivePersistedGames.send(games);
+  app.ports.receivePersistedGames.send(games);
 });
 
 

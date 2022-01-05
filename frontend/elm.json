@@ -19,7 +19,8 @@
             "elm-community/maybe-extra": "5.2.0",
             "elm-community/random-extra": "3.2.0",
             "lattyware/elm-fontawesome": "5.0.0",
-            "mdgriffith/elm-ui": "1.1.8"
+            "mdgriffith/elm-ui": "1.1.8",
+            "ohanhi/keyboard": "2.0.1"
         },
         "indirect": {
             "elm/virtual-dom": "1.0.2"

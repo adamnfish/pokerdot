@@ -16,9 +16,54 @@ import List.Extra
 import Logic exposing (gameIsFinished, winner)
 import Maybe.Extra
 import Messages exposing (lookupPlayer)
-import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TimerLevel(..), TimerStatus, UI(..), Welcome)
+import Model
+    exposing
+        ( ActSelection(..)
+        , Action(..)
+        , Card
+        , ChipsSettings(..)
+        , EditBlindsSettings(..)
+        , Game
+        , Hand(..)
+        , LoadingStatus(..)
+        , Model
+        , Msg(..)
+        , OverlayUI(..)
+        , Player
+        , PlayerId
+        , PlayerWinnings
+        , PlayingState(..)
+        , PotResult
+        , Round(..)
+        , Self
+        , TimerLevel(..)
+        , TimerStatus
+        , UI(..)
+        , Welcome
+        )
 import Utils exposing (swapDown, swapUp)
-import Views.Elements exposing (blindUi, buttonHiddenAttrs, communityCardsUi, connectionUi, container, controlsButton, editTimerUi, handUi, helpText, logo, pdTab, pdText, pokerControlsUi, rejoinFromLibraryUi, selfUi, tableUi, uiElements, zWidths)
+import Views.Elements
+    exposing
+        ( blindUi
+        , buttonHiddenAttrs
+        , communityCardsUi
+        , connectionUi
+        , container
+        , controlsButton
+        , editTimerUi
+        , handUi
+        , helpText
+        , logo
+        , pdTab
+        , pdText
+        , pokerControlsUi
+        , rejoinFromLibraryUi
+        , selfUi
+        , tableUi
+        , uiElements
+        , zWidths
+        )
+import Views.Overlays exposing (editBlindsOverlay, helpOverlay, overlayTemplate)
 import Views.Theme as Theme
 import Views.Timers exposing (CurrentTimerLevel(..), defaultStack, defaultTimerLevels)
 
@@ -34,6 +79,7 @@ type alias Page =
 view : Model -> Browser.Document Msg
 view model =
     let
+        page : Page
         page =
             case model.ui of
                 WelcomeScreen ->
@@ -157,6 +203,44 @@ view model =
                     , header = Nothing
                     , scheme = Just Theme.scheme2
                     }
+
+        overlay =
+            case model.overlayUi of
+                NoOverlay ->
+                    Nothing
+
+                HelpOverlay ->
+                    Just <|
+                        overlayTemplate model.viewport "help?" helpOverlay
+
+                EditBlindOverlay editBlindsSettings ->
+                    case model.ui of
+                        GameScreen actSelection self game welcome ->
+                            Just <|
+                                overlayTemplate model.viewport "edit blinds" <|
+                                    editBlindsOverlay model.now
+                                        (List.sum <| List.map (\p -> p.stack + p.pot + p.bet) game.players)
+                                        (List.length game.players)
+                                        game.smallBlind
+                                        game.timer
+                                        editBlindsSettings
+
+                        RoundResultScreen potResults playerWinnings self game welcome _ ->
+                            Just <|
+                                overlayTemplate model.viewport "edit blinds" <|
+                                    editBlindsOverlay model.now
+                                        (List.sum <| List.map (\p -> p.stack + p.pot + p.bet) game.players)
+                                        (List.length game.players)
+                                        game.smallBlind
+                                        game.timer
+                                        editBlindsSettings
+
+                        _ ->
+                            Just <|
+                                overlayTemplate model.viewport "edit blinds" <|
+                                    paragraph []
+                                        [ text "you cannot edit blinds when you are not playing a game"
+                                        ]
     in
     { title = page.title
     , body =
@@ -348,7 +432,7 @@ view model =
                                                     text "timer paused"
 
                                     EditTimerAction ->
-                                        Just <| container <| text "timer updated"
+                                        Just <| container <| text "blinds timer updated"
 
                                     EditBlindAction ->
                                         let
@@ -481,6 +565,7 @@ view model =
                         row
                             [ width fill
                             , padding 2
+                            , spacing 8
                             ]
                             [ case model.ui of
                                 WelcomeScreen ->
@@ -522,6 +607,35 @@ view model =
                                                 , text "home"
                                                 ]
                                         }
+                            , Input.button
+                                [ padding 8
+                                , Background.color Theme.colours.lowlight
+                                , Font.size 20
+                                , Font.color <| Theme.textColour Theme.colours.white
+                                , Border.shadow
+                                    { offset = ( 5, 5 )
+                                    , size = 0
+                                    , blur = 0
+                                    , color = Theme.glow Theme.colours.lowlight
+                                    }
+                                , focused
+                                    [ Background.color <| Theme.focusColour Theme.colours.lowlight
+                                    , Border.color Theme.colours.white
+                                    , Border.shadow
+                                        { offset = ( 5, 5 )
+                                        , size = 0
+                                        , blur = 0
+                                        , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
+                                        }
+                                    ]
+                                ]
+                                { onPress = Just OpenHelpOverlay
+                                , label =
+                                    row
+                                        [ spacing 8 ]
+                                        [ text "?"
+                                        ]
+                                }
                             , case model.ui of
                                 GameScreen _ _ _ welcome ->
                                     row
@@ -584,8 +698,18 @@ view model =
                     Just headerEl ->
                         headerEl
 
-                -- body
-                , page.body
+                -- body & overlay
+                , el
+                    (case overlay of
+                        Nothing ->
+                            [ width fill ]
+
+                        Just overlayElement ->
+                            [ width fill
+                            , inFront overlayElement
+                            ]
+                    )
+                    page.body
                 , el
                     [ height <| px 10 ]
                     Element.none
@@ -1124,7 +1248,7 @@ lobbyStartSettings playerOrder chipsSettings =
                 , moveUp 24
                 , moveLeft 4
                 ]
-                [ pdTab
+                [ pdTab Theme.colours.cta
                     (case chipsSettings of
                         TrackWithManualBlinds _ _ ->
                             True
@@ -1134,7 +1258,7 @@ lobbyStartSettings playerOrder chipsSettings =
                     )
                     (InputStartGameSettings playerOrder <| TrackWithManualBlinds 1000 5)
                     "manual blinds"
-                , pdTab
+                , pdTab Theme.colours.cta
                     (case chipsSettings of
                         TrackWithTimer _ _ ->
                             True
@@ -1144,16 +1268,17 @@ lobbyStartSettings playerOrder chipsSettings =
                     )
                     (InputStartGameSettings playerOrder <| TrackWithTimer defaultStack (defaultTimerLevels (List.length playerOrder)))
                     "timer"
-                , pdTab
-                    (case chipsSettings of
-                        DoNotTrackChips ->
-                            True
 
-                        _ ->
-                            False
-                    )
-                    (InputStartGameSettings playerOrder DoNotTrackChips)
-                    "no chips"
+                --, pdTab
+                --    (case chipsSettings of
+                --        DoNotTrackChips ->
+                --            True
+                --
+                --        _ ->
+                --            False
+                --    )
+                --    (InputStartGameSettings playerOrder DoNotTrackChips)
+                --    "no chips"
                 ]
             , case chipsSettings of
                 DoNotTrackChips ->
@@ -1358,7 +1483,7 @@ gameScreen model playingState currentAct self game welcome =
                     [ width shrink
                     ]
                   <|
-                    blindUi model.now game.timer game.smallBlind
+                    blindUi model.now game.timer game.smallBlind self.isAdmin
                 ]
             , tableUi game.round game.button Nothing game.inTurn game.players
             , selfUi model.peeking self
@@ -1484,7 +1609,7 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                     [ width shrink
                     ]
                   <|
-                    blindUi model.now game.timer game.smallBlind
+                    blindUi model.now game.timer game.smallBlind self.isAdmin
                 ]
         , container model.viewport <| tableUi game.round game.button (Just playerWinnings) game.inTurn game.players
         , container model.viewport <| selfUi model.peeking self
@@ -1539,55 +1664,24 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                     ]
                     [ row
                         [ width fill ]
-                        [ case blindsSettings of
-                            DoNotEditBlinds ->
-                                controlsButton Theme.scheme3
-                                    (InputUpdateBlind <| ManualBlinds game.smallBlind)
-                                    (column
-                                        [ width fill ]
-                                        [ el
-                                            [ width fill
-                                            , Font.center
-                                            ]
-                                          <|
-                                            text "edit"
-                                        , el
-                                            [ width fill
-                                            , Font.center
-                                            ]
-                                          <|
-                                            text "blinds"
-                                        ]
-                                    )
-
-                            _ ->
-                                controlsButton Theme.scheme3
-                                    (InputUpdateBlind DoNotEditBlinds)
-                                <|
-                                    column
-                                        [ width fill
-                                        , spacing 5
-                                        ]
-                                        [ el
-                                            [ width fill
-                                            , Font.center
-                                            ]
-                                          <|
-                                            text "cancel"
-                                        , el
-                                            [ centerX
-                                            , Font.center
-                                            ]
-                                          <|
-                                            html
-                                                (FontAwesome.Solid.times
-                                                    |> FontAwesome.Icon.present
-                                                    |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
-                                                    |> FontAwesome.Icon.withId "cancel-edit-blinds_pokerdot"
-                                                    |> FontAwesome.Icon.titled "cancel edit blinds"
-                                                    |> FontAwesome.Icon.view
-                                                )
-                                        ]
+                        [ controlsButton Theme.scheme3
+                            OpenEditBlindOverlay
+                            (column
+                                [ width fill ]
+                                [ el
+                                    [ width fill
+                                    , Font.center
+                                    ]
+                                  <|
+                                    text "edit"
+                                , el
+                                    [ width fill
+                                    , Font.center
+                                    ]
+                                  <|
+                                    text "blinds"
+                                ]
+                            )
                         , el
                             [ alignRight ]
                           <|
@@ -1608,201 +1702,6 @@ roundResultsScreen model potResults playerWinnings self game welcome blindsSetti
                                         text "round"
                                     ]
                         ]
-                    , if blindsSettings == DoNotEditBlinds then
-                        Element.none
-
-                      else
-                        column
-                            [ width fill
-                            , spacing 6
-                            , padding 8
-                            , Background.color Theme.colours.lowlight
-                            ]
-                            [ row
-                                [ spacing 8
-                                , moveUp 11
-                                , moveLeft 4
-                                ]
-                                [ pdTab
-                                    (case blindsSettings of
-                                        ManualBlinds _ ->
-                                            True
-
-                                        _ ->
-                                            False
-                                    )
-                                    (InputUpdateBlind <| ManualBlinds game.smallBlind)
-                                    "manual blinds"
-                                , pdTab
-                                    (case blindsSettings of
-                                        TimerBlinds _ ->
-                                            True
-
-                                        _ ->
-                                            False
-                                    )
-                                    (InputUpdateBlind <| TimerBlinds [])
-                                    "timer"
-                                , pdTab
-                                    (case blindsSettings of
-                                        DoNotTrackBlinds ->
-                                            True
-
-                                        _ ->
-                                            False
-                                    )
-                                    (InputUpdateBlind DoNotTrackBlinds)
-                                    "no chips"
-                                ]
-                            , case blindsSettings of
-                                DoNotEditBlinds ->
-                                    Element.none
-
-                                DoNotTrackBlinds ->
-                                    el
-                                        [ Font.color <| Theme.textColour Theme.colours.white
-                                        , Font.size 18
-                                        ]
-                                    <|
-                                        text "games without chips do not work yet"
-
-                                TimerBlinds timerLevels ->
-                                    column
-                                        [ width fill
-                                        , spacing 8
-                                        ]
-                                        [ paragraph
-                                            [ width fill
-                                            , Font.size 18
-                                            , Font.alignLeft
-                                            , Font.color <| Theme.textColour Theme.colours.white
-                                            ]
-                                            [ text "using a game timer to track blinds does not yet work" ]
-                                        ]
-
-                                ManualBlinds currentSmallBlind ->
-                                    let
-                                        recommended =
-                                            if currentSmallBlind == game.smallBlind * 2 then
-                                                [ Element.none ]
-
-                                            else
-                                                [ el
-                                                    [ alignLeft
-                                                    ]
-                                                  <|
-                                                    controlsButton Theme.scheme1
-                                                        (UpdateBlind <| ManualBlinds (game.smallBlind * 2))
-                                                    <|
-                                                        column
-                                                            [ width fill
-                                                            , spacing 5
-                                                            ]
-                                                            [ el
-                                                                [ centerX ]
-                                                              <|
-                                                                text "update"
-                                                            , row
-                                                                [ centerX
-                                                                , Font.size 18
-                                                                ]
-                                                                [ text <| String.fromInt (game.smallBlind * 2)
-                                                                , text " / "
-                                                                , text <| String.fromInt (game.smallBlind * 4)
-                                                                ]
-                                                            ]
-
-                                                -- TODO: add a conditional second recommendation that rounds the blinds
-                                                ]
-                                    in
-                                    column
-                                        [ width fill
-                                        , spacing 4
-                                        ]
-                                        [ row
-                                            []
-                                            [ Input.text
-                                                [ width <| px 100
-                                                , paddingXY 10 8
-                                                , Border.solid
-                                                , Border.width 2
-                                                , Border.color Theme.colours.black
-                                                , Border.widthEach { zWidths | bottom = 2 }
-                                                , Border.rounded 0
-                                                , Background.color Theme.colours.white
-                                                , focused
-                                                    [ Background.color Theme.colours.highlightPrimary
-                                                    , Border.color Theme.colours.white
-                                                    ]
-                                                , Font.alignRight
-                                                ]
-                                                { text = String.fromInt currentSmallBlind
-                                                , label =
-                                                    Input.labelLeft
-                                                        [ width <| px 150
-                                                        , paddingXY 8 0
-                                                        , Font.alignRight
-                                                        , Font.color <| Theme.textColour Theme.colours.white
-                                                        ]
-                                                    <|
-                                                        text "blind amount"
-                                                , placeholder =
-                                                    Just <| Input.placeholder [] <| text "initial small blind"
-                                                , onChange =
-                                                    \value ->
-                                                        let
-                                                            smallBlind =
-                                                                Maybe.withDefault 0 <| String.toInt value
-                                                        in
-                                                        InputUpdateBlind <|
-                                                            ManualBlinds smallBlind
-                                                }
-                                            , row
-                                                [ Font.color <| Theme.textColour Theme.colours.white ]
-                                                [ text " / "
-                                                , text <| String.fromInt (currentSmallBlind * 2)
-                                                ]
-                                            ]
-                                        , row
-                                            [ width fill
-                                            , padding 8
-                                            , spacing 8
-                                            ]
-                                            (List.append
-                                                recommended
-                                                (if game.smallBlind /= currentSmallBlind then
-                                                    [ el
-                                                        [ alignRight
-                                                        ]
-                                                      <|
-                                                        controlsButton Theme.scheme1
-                                                            (UpdateBlind <| ManualBlinds currentSmallBlind)
-                                                        <|
-                                                            column
-                                                                [ width fill
-                                                                , spacing 5
-                                                                ]
-                                                                [ el
-                                                                    [ centerX ]
-                                                                  <|
-                                                                    text "update"
-                                                                , row
-                                                                    [ centerX
-                                                                    , Font.size 18
-                                                                    ]
-                                                                    [ text <| String.fromInt currentSmallBlind
-                                                                    , text " / "
-                                                                    , text <| String.fromInt (currentSmallBlind * 2)
-                                                                    ]
-                                                                ]
-                                                    ]
-
-                                                 else
-                                                    []
-                                                )
-                                            )
-                                        ]
-                            ]
                     ]
 
             else

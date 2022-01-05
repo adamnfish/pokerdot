@@ -150,18 +150,28 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       )
     }
 
-    "progress update" in {
-      val jsonStr =
-        s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
-           |"progress":350}""".stripMargin
-      val json = parse(jsonStr).value
-      extractUpdateBlind(json).value shouldEqual UpdateBlind(
-        GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
-        timerLevels = None,
-        smallBlind = None,
-        playing = None,
-        progress = Some(350),
-      )
+    "progress update" - {
+      "works for a valid progress update request" in {
+        val jsonStr =
+          s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
+             |"progress":350}""".stripMargin
+        val json = parse(jsonStr).value
+        extractUpdateBlind(json).value shouldEqual UpdateBlind(
+          GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
+          timerLevels = None,
+          smallBlind = None,
+          playing = None,
+          progress = Some(350),
+        )
+      }
+
+      "fails for a negative progress update" in {
+        val jsonStr =
+          s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
+             |"progress":-10}""".stripMargin
+        val json = parse(jsonStr).value
+        extractUpdateBlind(json).isLeft shouldEqual true
+      }
     }
 
     "with manual blind change" in {
