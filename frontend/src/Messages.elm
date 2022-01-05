@@ -1063,7 +1063,7 @@ update msg model =
                 TimerBlinds timerStatus ->
                     let
                         timerProgress =
-                            (posixToMillis model.now - posixToMillis timerStatus.timerStartTime) // 1000
+                            ceiling <| toFloat (posixToMillis model.now - posixToMillis timerStatus.timerStartTime) / 1000
                     in
                     case model.ui of
                         GameScreen _ _ _ welcome ->

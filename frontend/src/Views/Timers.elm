@@ -167,10 +167,10 @@ currentTimerLevel now timerStatus =
         timerProgress =
             case timerStatus.pausedTime of
                 Just pausedTime ->
-                    (posixToMillis pausedTime - posixToMillis timerStatus.timerStartTime) // 1000
+                    ceiling <| toFloat (posixToMillis pausedTime - posixToMillis timerStatus.timerStartTime) / 1000
 
                 Nothing ->
-                    (posixToMillis now - posixToMillis timerStatus.timerStartTime) // 1000
+                    ceiling <| toFloat (posixToMillis now - posixToMillis timerStatus.timerStartTime) / 1000
 
         loop : List TimerLevel -> Int -> Maybe TimerLevel -> Maybe ( TimerLevel, Int ) -> Maybe TimerLevel -> CurrentTimerLevel
         loop levels levelStartTime maybePrev maybeCurrent maybeNext =

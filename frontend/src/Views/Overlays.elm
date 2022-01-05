@@ -645,10 +645,10 @@ timerLevelsFromStatus now timerStatus =
         timerProgress =
             case timerStatus.pausedTime of
                 Just pausedTime ->
-                    (posixToMillis pausedTime - startedMillis) // 1000
+                    ceiling <| toFloat (posixToMillis pausedTime - startedMillis) / 1000
 
                 Nothing ->
-                    (nowMillis - startedMillis) // 1000
+                    ceiling <| toFloat (nowMillis - startedMillis) / 1000
 
         ( _, accumulatedTimerLevels ) =
             List.foldl
