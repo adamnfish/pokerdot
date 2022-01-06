@@ -30,17 +30,21 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
     send(playerAddress.address, Serialisation.encodeFailure(message))
   }
 
+  /**
+   * send failures are internal so clients are not distracted by
+   * constant warnings after someone leaves the game.
+   */
   private def send(recipientId: String, body: String): Attempt[Unit] = {
     for {
       wctx <- IO.fromOption(connections.get(recipientId)).mapError(_ =>
-        Failures("User not connected", "connection not found")
+        Failures("User not connected", "connection not found", internal = true)
       )
       _ <-
         if (wctx.session.isOpen) {
           IO.unit
         } else {
           IO.fail {
-            Failures("Connection has closed", "connection closed")
+            Failures("Connection has closed", "connection closed", internal = true)
           }
         }
       result <-
@@ -48,10 +52,10 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
           wctx.send(body)
           ()
         }.mapError { err =>
-          Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err))
+          Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err), internal = true)
         }
       _ <- IO.effect(logMessage(recipientId, body)).mapError { err =>
-        Failures("Error logging websocket message", "could not log message", exception = Some(err))
+        Failures("Error logging websocket message", "could not log message", exception = Some(err), internal = true)
       }
     } yield result
   }

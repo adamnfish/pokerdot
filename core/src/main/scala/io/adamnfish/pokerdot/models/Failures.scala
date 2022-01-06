@@ -12,11 +12,15 @@ case class Failures(failures: List[Failure]) {
       failure.exception.flatMap(e => Option(e.getCause).map(c => "caused by: " + c.getStackTrace.mkString("\n")))
     ).flatten.mkString(" | ")
   }.mkString(", ")
+
+  val isInternal: Boolean = failures.forall(_.internal)
+  val externalFailures: List[Failure] = failures.filterNot(_.internal)
 }
 object Failures {
   def apply(error: Failure): Failures = {
     Failures(List(error))
   }
+
   def apply(errors: Seq[Failure]): Failures = {
     Failures(errors.toList)
   }
@@ -25,9 +29,10 @@ object Failures {
     logMessage: String,
     userMessage: String,
     context: Option[String] = None,
-    exception: Option[Throwable] = None
+    exception: Option[Throwable] = None,
+    internal: Boolean = false,
   ): Failures = {
-    Failures(Failure(logMessage, userMessage, context, exception))
+    Failures(List(Failure(logMessage, userMessage, context, exception, internal)))
   }
 }
 
@@ -36,7 +41,8 @@ case class Failure(
   logMessage: String,
   userMessage: String,
   context: Option[String] = None,
-  exception: Option[Throwable] = None
+  exception: Option[Throwable] = None,
+  internal: Boolean = false
 ) {
   def asIO: IO[Failures, Nothing] = IO.fail(Failures(this))
   def asFailures: Failures = Failures(this)

@@ -31,7 +31,8 @@ class AwsMessaging(client: ApiGatewayManagementApiClient, logger: LambdaLogger) 
           s"AWS messaging failure ${e.getMessage}",
           "Unable to send message to player",
           None,
-          Some(e)
+          Some(e),
+          internal = true,
         )
     }.map(_ => ())
   }

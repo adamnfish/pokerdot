@@ -54,7 +54,8 @@ object PokerDot {
       }
     } yield operation)
       .tapError { failures =>
-        appContext.messaging.sendError(appContext.playerAddress, failures)
+        if (failures.isInternal) IO.unit
+        else appContext.messaging.sendError(appContext.playerAddress, failures.copy(failures = failures.externalFailures))
       }
   }
 
