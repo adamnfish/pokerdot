@@ -38,6 +38,22 @@ trait TestHelpers extends Matchers {
     }
   }
 
+  /**
+   * For testing 'pure' attempts (i.e. `Either[Failures, ?]`).
+   */
+  implicit class RichEitherFailures[R](er: Either[Failures, R]) {
+    def is(attemptStatus: AttemptStatus)(implicit pos: Position): Assertion = {
+      er match {
+        case Right(a) =>
+          if (attemptStatus == ASuccess) Succeeded
+          else Failed(s"Expected failed either but got success `$a`").toSucceeded
+        case Left(left) =>
+          if (attemptStatus == AFailure) Succeeded
+          else Failed(s"Expected successful either, got failure: ${left.logString}").toSucceeded
+      }
+    }
+  }
+
   implicit class RichAttempt[A](aa: Attempt[A]) {
     def value()(implicit pos: Position): A = {
       testRuntime.unsafeRunSync(aa) match {

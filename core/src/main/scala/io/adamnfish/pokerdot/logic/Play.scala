@@ -298,7 +298,7 @@ object Play {
           case RoundLevel(durationSeconds, _) => 1000 * durationSeconds
           case BreakLevel(durationSeconds) => 1000 * durationSeconds
         }
-        if (adjustedTimerStartTime + elapsed >= now) {
+        if (adjustedTimerStartTime + elapsed > now) {
           // this and subsequent levels start in the future
           (maybeResult, maybeLastValid, onABreak, elapsed + levelDuration)
         } else {

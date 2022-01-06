@@ -798,6 +798,34 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
             "levels" as List(RoundLevel(1200, 10), BreakLevel(50), RoundLevel(1200, 20)),
           )
         }
+
+        "allows a progress of 0 when creating a new timer" in {
+          val updatedGame = updateBlind(
+            game.copy(
+              round = game.round.copy(
+                smallBlind = 5
+              ),
+              timer = Some(
+                TimerStatus(
+                  timerStartTime = 200 * 1000L,
+                  pausedTime = None,
+                  levels = List(
+                    RoundLevel(1500, 10),
+                    BreakLevel(10),
+                    RoundLevel(1500, 20),
+                  )
+                )
+              ),
+            ),
+            rawUpdateBlind.copy(
+              timerLevels = Some(List(RoundLevel(1200, 10), BreakLevel(50), RoundLevel(1200, 20))),
+              progress = Some(0),
+            ),
+            now = 1800 * 1000L
+          )
+          updatedGame.value.round.smallBlind shouldEqual 10
+          updatedGame.value.timer.value.timerStartTime shouldEqual 1800 * 1000L
+        }
       }
     }
 
