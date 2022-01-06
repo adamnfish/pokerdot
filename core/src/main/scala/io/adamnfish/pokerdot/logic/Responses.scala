@@ -19,18 +19,26 @@ object Responses {
       self = summariseSelf(newPlayer)
     )
     val action = PlayerJoinedSummary(newPlayer.playerId)
-    val withAllStatuses = messageAndStatuses(welcomeMessage, newPlayer.playerAddress, game, action)
+    val withAllStatuses = messageAndStatuses(welcomeMessage, newPlayer.playerId, newPlayerAddress, game, action)
     withAllStatuses.copy(
       // we don't want to send a status message to the new player
       statuses = withAllStatuses.statuses.filterNot { case (address, _) => address == newPlayerAddress }
     )
   }
 
-  def gameStatuses(game: Game, actionSummary: ActionSummary): Response[GameStatus] = {
+  /**
+   * Send game status updates to all players.
+   *
+   * The current player's active address should be used, rather than the one that is saved in the DB.
+   */
+  def gameStatuses(game: Game, actionSummary: ActionSummary, playerId: PlayerId, playerAddress: PlayerAddress): Response[GameStatus] = {
     Response(
       Map.empty,
       game.players.map { player =>
-        player.playerAddress -> Representations.gameStatus(game, player, actionSummary)
+        val address =
+          if (player.playerId == playerId) playerAddress
+          else player.playerAddress
+        address -> Representations.gameStatus(game, player, actionSummary)
       }.toMap,
     )
   }
@@ -39,18 +47,23 @@ object Responses {
    * Winnings needs to be provided:
    * - potWinnings (1 entry per side pot and one entry for the main pot)
    * - playerWinnings (1 entry per player)
+   *
+   * The current player's active address should be used, rather than the one that is saved in the DB.
    */
-  def roundWinnings(game: Game, potWinnings: List[PotWinnings], playerWinnings: List[PlayerWinnings]): Response[RoundWinnings] = {
+  def roundWinnings(game: Game, potWinnings: List[PotWinnings], playerWinnings: List[PlayerWinnings], playerId: PlayerId, playerAddress: PlayerAddress): Response[RoundWinnings] = {
     Response(
       game.players.map { player =>
-        player.playerAddress -> Representations.roundWinnings(game, player, potWinnings, playerWinnings)
+        val address =
+          if (player.playerId == playerId) playerAddress
+          else player.playerAddress
+        address -> Representations.roundWinnings(game, player, potWinnings, playerWinnings)
       }.toMap,
       Map.empty,
     )
   }
 
-  def messageAndStatuses[A <: Message](message: A, playerAddress: PlayerAddress, game: Game, actionSummary: ActionSummary): Response[A] = {
-    val response = gameStatuses(game, actionSummary)
+  private def messageAndStatuses[A <: Message](message: A, playerId: PlayerId, playerAddress: PlayerAddress, game: Game, actionSummary: ActionSummary): Response[A] = {
+    val response = gameStatuses(game, actionSummary, playerId: PlayerId, playerAddress: PlayerAddress)
     response.copy(
       messages = Map(
         playerAddress -> message

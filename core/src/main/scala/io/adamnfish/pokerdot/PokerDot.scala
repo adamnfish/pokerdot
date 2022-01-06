@@ -137,7 +137,7 @@ object PokerDot {
       _ <- playerDbs.ioTraverse(appContext.db.writePlayer)
       // persist started game
       _ <- appContext.db.writeGame(startedGameDb)
-    } yield Responses.gameStatuses(startedGame, GameStartedSummary())
+    } yield Responses.gameStatuses(startedGame, GameStartedSummary(), startGame.playerId, appContext.playerAddress)
   }
 
   def bet(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
@@ -161,7 +161,7 @@ object PokerDot {
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(newGame, action)
+    } yield Responses.gameStatuses(newGame, action, bet.playerId, appContext.playerAddress)
   }
 
   def check(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
@@ -184,7 +184,7 @@ object PokerDot {
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(newGame, CheckSummary(check.playerId))
+    } yield Responses.gameStatuses(newGame, CheckSummary(check.playerId), check.playerId, appContext.playerAddress)
   }
 
   def fold(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
@@ -207,7 +207,7 @@ object PokerDot {
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(newGame, FoldSummary(fold.playerId))
+    } yield Responses.gameStatuses(newGame, FoldSummary(fold.playerId), fold.playerId, appContext.playerAddress)
   }
 
   /**
@@ -245,9 +245,9 @@ object PokerDot {
       // TODO: this is too much logic for the controller
       winnings match {
         case Some((playerWinnings, potWinnings)) =>
-          Responses.roundWinnings(updatedGame, potWinnings, playerWinnings)
+          Responses.roundWinnings(updatedGame, potWinnings, playerWinnings, advancePhase.playerId, appContext.playerAddress)
         case None =>
-          Responses.gameStatuses(updatedGame, AdvancePhaseSummary())
+          Responses.gameStatuses(updatedGame, AdvancePhaseSummary(), advancePhase.playerId, appContext.playerAddress)
       }
     }
   }
@@ -277,7 +277,7 @@ object PokerDot {
       action <- Games.updateBlindAction(updateBlind).attempt
       _ <- appContext.db.writeGame(newGameDb)
       // this endpoint won't update players so there's no need to save them
-    } yield Responses.gameStatuses(updatedGame, action)
+    } yield Responses.gameStatuses(updatedGame, action, updateBlind.playerId, appContext.playerAddress)
   }
 
   /**

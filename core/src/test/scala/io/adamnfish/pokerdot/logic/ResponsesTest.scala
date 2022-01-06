@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.{TestClock, TestHelpers}
 import io.adamnfish.pokerdot.logic.Games.{addPlayer, newGame, newPlayer}
-import io.adamnfish.pokerdot.models.PlayerAddress
+import io.adamnfish.pokerdot.models.{NoActionSummary, PlayerAddress}
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -57,6 +57,66 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
       val response = Responses.welcome(game, player, playerAddress)
 
       response.statuses.keys should contain(hostAddress)
+    }
+  }
+
+  "gameStatuses" - {
+    val rawGame = newGame("game name", false, TestClock, 0)
+    val hostAddress = PlayerAddress("host-address")
+    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestClock)
+    val player1Address = PlayerAddress("player-1-address")
+    val player1 = newPlayer(rawGame.gameId, "player1", false, player1Address, TestClock)
+    val player2Address = PlayerAddress("player-2-address")
+    val player2 = newPlayer(rawGame.gameId, "player2", false, player2Address, TestClock)
+
+    val game = addPlayer(addPlayer(addPlayer(rawGame,
+      host),
+      player1),
+      player2
+    )
+
+    "sends a game status message to all players" in {
+      val responses = Responses.gameStatuses(game, NoActionSummary(), host.playerId, hostAddress)
+      responses.statuses.keySet should contain only(hostAddress, player1Address, player2Address)
+    }
+
+    "does not send any specific messages" in {
+      val responses = Responses.gameStatuses(game, NoActionSummary(), host.playerId, hostAddress)
+      responses.messages shouldBe empty
+    }
+
+    "uses the active player's current (rather than persisted) address" in {
+      val currentAddress = PlayerAddress("different-address")
+      val responses = Responses.gameStatuses(game, NoActionSummary(), player1.playerId, currentAddress)
+      responses.statuses.keySet should (
+        contain(currentAddress) and
+          not contain player1Address
+        )
+    }
+  }
+
+  "roundWinnings" - {
+    val rawGame = newGame("game name", false, TestClock, 0)
+    val hostAddress = PlayerAddress("host-address")
+    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestClock)
+    val player1Address = PlayerAddress("player-1-address")
+    val player1 = newPlayer(rawGame.gameId, "player1", false, player1Address, TestClock)
+    val player2Address = PlayerAddress("player-2-address")
+    val player2 = newPlayer(rawGame.gameId, "player2", false, player2Address, TestClock)
+
+    val game = addPlayer(addPlayer(addPlayer(rawGame,
+      host),
+      player1),
+      player2
+    )
+
+    "uses the active player's current (rather than persisted) address" in {
+      val currentAddress = PlayerAddress("different-address")
+      val responses = Responses.roundWinnings(game, Nil, Nil, player1.playerId, currentAddress)
+      responses.messages.keySet should (
+        contain(currentAddress) and
+          not contain player1Address
+        )
     }
   }
 }
