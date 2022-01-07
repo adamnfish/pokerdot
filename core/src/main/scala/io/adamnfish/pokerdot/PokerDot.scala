@@ -54,8 +54,15 @@ object PokerDot {
       }
     } yield operation)
       .tapError { failures =>
-        if (failures.isInternal) IO.unit
-        else appContext.messaging.sendError(appContext.playerAddress, failures.copy(failures = failures.externalFailures))
+        // There are some failure messages that we don't want to send to clients (e.g. failed message delivery).
+        // It's not urgent, but prevents cluttering a user's experience with irrelevant failure information.
+        failures.externalFailures match {
+          case Nil =>
+            // if all the messages were 'internal' then there's no need to send a failure message
+            IO.unit
+          case externalFailures =>
+            appContext.messaging.sendError(appContext.playerAddress, failures.copy(failures = externalFailures))
+        }
       }
   }
 

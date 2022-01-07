@@ -13,7 +13,6 @@ case class Failures(failures: List[Failure]) {
     ).flatten.mkString(" | ")
   }.mkString(", ")
 
-  val isInternal: Boolean = failures.forall(_.internal)
   val externalFailures: List[Failure] = failures.filterNot(_.internal)
 }
 object Failures {
