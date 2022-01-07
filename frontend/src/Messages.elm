@@ -65,10 +65,10 @@ import Ports
         )
 import Task
 import Time exposing (posixToMillis)
+import Timers exposing (filteredTimerLevels)
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>))
-import Views.Timers exposing (filteredTimerLevels)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

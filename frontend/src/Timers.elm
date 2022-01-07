@@ -1,4 +1,4 @@
-module Views.Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, defaultStack, defaultTimerLevels, filteredTimerLevels, smallBlindIsSmallEnough, timerRecommendations)
+module Timers exposing (CurrentTimerLevel(..), TimerSpeed(..), currentTimerLevel, defaultStack, defaultTimerLevels, filteredTimerLevels, smallBlindIsSmallEnough, timerRecommendations)
 
 import List.Extra
 import Maybe.Extra

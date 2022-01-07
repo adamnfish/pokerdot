@@ -5,7 +5,7 @@ import Fixtures exposing (startTimeGenerator)
 import Model exposing (TimerLevel(..))
 import Test exposing (Test, describe, fuzz, test)
 import Time exposing (millisToPosix)
-import Views.Timers exposing (CurrentTimerLevel(..), currentTimerLevel, smallBlindIsSmallEnough)
+import Timers exposing (CurrentTimerLevel(..), currentTimerLevel, smallBlindIsSmallEnough)
 
 
 all : Test

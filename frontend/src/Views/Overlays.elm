@@ -12,10 +12,10 @@ import FontAwesome.Solid
 import Maybe.Extra
 import Model exposing (EditBlindsSettings(..), Msg(..), TimerLevel(..), TimerStatus)
 import Time exposing (Posix, millisToPosix, posixToMillis)
+import Timers exposing (TimerSpeed(..), filteredTimerLevels, timerRecommendations)
 import Utils exposing (millisToTimeComponents)
-import Views.Elements exposing (controlsButton, divider, formatBlinds, formatTimeComponent, pdTab, pokerdotInText, timerLevelUi, zWidths)
+import Views.Elements exposing (controlsButton, divider, formatBlinds, formatTimeComponent, pdTab, pokerdotInText, zWidths)
 import Views.Theme as Theme
-import Views.Timers exposing (TimerSpeed(..), currentTimerLevel, filteredTimerLevels, timerRecommendations)
 
 
 overlayTemplate : Viewport -> String -> Element Msg -> Element Msg

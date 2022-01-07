@@ -40,10 +40,7 @@ import Random.Extra
 import Svg
 import Svg.Attributes
 import Time exposing (Posix, millisToPosix, posixToMillis)
-import Utils exposing (TimeComponents, millisToTimeComponents)
-import Views.Generators exposing (..)
-import Views.Theme as Theme
-import Views.Timers
+import Timers
     exposing
         ( CurrentTimerLevel(..)
         , TimerSpeed(..)
@@ -51,6 +48,9 @@ import Views.Timers
         , filteredTimerLevels
         , timerRecommendations
         )
+import Utils exposing (TimeComponents, millisToTimeComponents)
+import Views.Generators exposing (..)
+import Views.Theme as Theme
 
 
 type CardSize

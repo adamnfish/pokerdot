@@ -41,6 +41,7 @@ import Model
         , UI(..)
         , Welcome
         )
+import Timers exposing (CurrentTimerLevel(..), defaultStack, defaultTimerLevels)
 import Utils exposing (swapDown, swapUp)
 import Views.Elements
     exposing
@@ -65,7 +66,6 @@ import Views.Elements
         )
 import Views.Overlays exposing (editBlindsOverlay, helpOverlay, overlayTemplate)
 import Views.Theme as Theme
-import Views.Timers exposing (CurrentTimerLevel(..), defaultStack, defaultTimerLevels)
 
 
 type alias Page =
