@@ -73,6 +73,8 @@ overlayTemplate viewport title overlayBody =
                                 , color = Theme.glow <| Theme.focusColour Theme.colours.secondary
                                 }
                             ]
+                        , mouseOver
+                            [ Background.color <| Theme.focusColour Theme.colours.secondary ]
                         ]
                         { onPress = Just CloseOverlay
                         , label =
@@ -571,6 +573,8 @@ editTimerLevel now timerStartTime maybeNewTimer timerChronology timerLevelInfo =
                             , color = Theme.glow <| Theme.focusColour Theme.colours.secondary
                             }
                         ]
+                    , mouseOver
+                        [ Background.color <| Theme.focusColour Theme.colours.secondary ]
                     ]
                     { onPress =
                         case maybeNewTimer of

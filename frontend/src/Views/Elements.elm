@@ -96,6 +96,9 @@ controlsButton scheme msg label =
                 , color = Theme.glow <| Theme.focusColour scheme.highlight
                 }
             ]
+        , mouseOver
+            [ Background.color <| Theme.focusColour scheme.highlight
+            ]
         ]
         { onPress = Just msg
         , label = label
@@ -232,6 +235,9 @@ pdTab tabColour active msg label =
                 [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
                 , Border.color Theme.colours.white
                 , Font.color <| Theme.textColour Theme.colours.white
+                ]
+            , mouseOver
+                [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
                 ]
             ]
             { onPress = Just msg
@@ -417,6 +423,8 @@ rejoinGameButton welcomeMessage =
                 , Border.color Theme.colours.white
                 , Font.color Theme.colours.white
                 ]
+            , mouseOver
+                [ Background.color <| Theme.focusColour Theme.colours.error ]
             ]
             { onPress = Just <| DeletePersistedGame welcomeMessage
             , label =
@@ -456,6 +464,8 @@ rejoinGameButton welcomeMessage =
                 [ Background.color <| Theme.focusColour Theme.scheme2.main
                 , Border.color Theme.colours.white
                 ]
+            , mouseOver
+                [ Background.color <| Theme.focusColour Theme.scheme2.main ]
             ]
             { onPress = Just <| NavigateGame welcomeMessage
             , label =
@@ -945,6 +955,18 @@ pokerControlsUi isActive smallBlind actSelection self players =
                                         , Border.rounded 2
                                         , Border.width 2
                                         , Border.color Theme.colours.black
+                                        , focused
+                                            [ Background.color <| Theme.focusColour Theme.scheme3.highlight
+                                            , Border.color Theme.colours.white
+                                            , Border.shadow
+                                                { offset = ( 5, 5 )
+                                                , size = 0
+                                                , blur = 0
+                                                , color = Theme.glow <| Theme.focusColour Theme.scheme3.highlight
+                                                }
+                                            ]
+                                        , mouseOver
+                                            [ Background.color <| Theme.focusColour Theme.scheme3.highlight ]
                                         ]
                                         { onPress = Just (InputBet <| max 1 (betAmount - 1))
                                         , label =
@@ -966,6 +988,18 @@ pokerControlsUi isActive smallBlind actSelection self players =
                                         , Border.rounded 2
                                         , Border.width 2
                                         , Border.color Theme.colours.black
+                                        , focused
+                                            [ Background.color <| Theme.focusColour Theme.scheme3.highlight
+                                            , Border.color Theme.colours.white
+                                            , Border.shadow
+                                                { offset = ( 5, 5 )
+                                                , size = 0
+                                                , blur = 0
+                                                , color = Theme.glow <| Theme.focusColour Theme.scheme3.highlight
+                                                }
+                                            ]
+                                        , mouseOver
+                                            [ Background.color <| Theme.focusColour Theme.scheme3.highlight ]
                                         ]
                                         { onPress = Just (InputBet <| min self.stack (betAmount + 1))
                                         , label =
@@ -1027,6 +1061,8 @@ pokerControlsUi isActive smallBlind actSelection self players =
                                                         , color = Theme.glow Theme.scheme3.highlight
                                                         }
                                                     ]
+                                                , mouseOver
+                                                    [ Background.color <| Theme.focusColour Theme.scheme3.highlight ]
                                                 , Border.solid
                                                 , Border.rounded 2
                                                 , Border.width 2
@@ -1858,6 +1894,8 @@ blindUi now maybeTimerStatus smallBlind isAdmin =
                         , color = Theme.glow <| Theme.focusColour Theme.scheme3.highlight
                         }
                     ]
+                , mouseOver
+                    [ Background.color <| Theme.focusColour Theme.scheme3.highlight ]
                 ]
                 { onPress = Just OpenEditBlindOverlay
                 , label =

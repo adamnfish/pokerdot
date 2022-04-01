@@ -577,6 +577,8 @@ view model =
                                         , Background.color Theme.colours.lowlight
                                         , Font.size 20
                                         , Font.color <| Theme.textColour Theme.colours.white
+                                        , Border.color <| Theme.colours.lowlight
+                                        , Border.width 2
                                         , Border.shadow
                                             { offset = ( 5, 5 )
                                             , size = 0
@@ -592,6 +594,10 @@ view model =
                                                 , blur = 0
                                                 , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
                                                 }
+                                            ]
+                                        , mouseOver
+                                            [ Background.color <| Theme.focusColour Theme.colours.lowlight
+                                            , Border.color <| Theme.focusColour Theme.colours.lowlight
                                             ]
                                         ]
                                         { onPress = Just NavigateHome
@@ -612,6 +618,8 @@ view model =
                                 , Background.color Theme.colours.lowlight
                                 , Font.size 20
                                 , Font.color <| Theme.textColour Theme.colours.white
+                                , Border.color <| Theme.colours.lowlight
+                                , Border.width 2
                                 , Border.shadow
                                     { offset = ( 5, 5 )
                                     , size = 0
@@ -627,6 +635,10 @@ view model =
                                         , blur = 0
                                         , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
                                         }
+                                    ]
+                                , mouseOver
+                                    [ Background.color <| Theme.focusColour Theme.colours.lowlight
+                                    , Border.color <| Theme.focusColour Theme.colours.lowlight
                                     ]
                                 ]
                                 { onPress = Just OpenHelpOverlay
@@ -1039,6 +1051,8 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
                                     , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
                                     }
                                 ]
+                             , mouseOver
+                                [ Background.color <| Theme.focusColour Theme.colours.lowlight ]
                              ]
                                 ++ buttonHiddenAttrs first
                             )
@@ -1084,6 +1098,8 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
                                     , color = Theme.glow <| Theme.focusColour Theme.colours.lowlight
                                     }
                                 ]
+                             , mouseOver
+                                [ Background.color <| Theme.focusColour Theme.colours.lowlight ]
                              ]
                                 ++ buttonHiddenAttrs last
                             )
