@@ -232,12 +232,12 @@ pdTab tabColour active msg label =
             , Background.color tabColour
             , Font.color <| Theme.textColour Theme.colours.white
             , focused
-                [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
+                [ Background.color <| Theme.focusColour tabColour
                 , Border.color Theme.colours.white
                 , Font.color <| Theme.textColour Theme.colours.white
                 ]
             , mouseOver
-                [ Background.color <| Theme.focusColour Theme.colours.highlightSecondary
+                [ Background.color <| Theme.focusColour tabColour
                 ]
             ]
             { onPress = Just msg
