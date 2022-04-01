@@ -1023,7 +1023,12 @@ lobbyScreen model playerOrder chipsSettings self game welcome =
                     [ alignRight
                     , spacing 8
                     ]
-                    [ if self.isAdmin then
+                    [ el
+                        [ width <| px 0
+                        , height <| px 30
+                        ]
+                        Element.none
+                    , if self.isAdmin then
                         Input.button
                             ([ width <| px 30
                              , height <| px 30
