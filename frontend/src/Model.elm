@@ -36,11 +36,13 @@ type Msg
     | RequestPersistedGames
       -- create game
     | NavigateCreateGame
-    | InputCreateGame String String
+    | CreateGameInputGameName String
+    | CreateGameInputScreenName String
     | SubmitCreateGame String String
       -- join game
     | NavigateJoinGame
-    | InputJoinGame Bool String String
+    | JoinGameInputGameCode String
+    | JoinGameInputScreenName String
     | SubmitJoinGame String String
       -- lobby
     | InputStartGameSettings (List Player) ChipsSettings
@@ -85,8 +87,8 @@ type alias Model =
 type UI
     = WelcomeScreen
     | HelpScreen
-    | CreateGameScreen String String
-    | JoinGameScreen Bool String String
+    | CreateGameScreen TextInput TextInput
+    | JoinGameScreen Bool TextInput TextInput
     | LobbyScreen (List Player) ChipsSettings Self Game Welcome
     | RejoinScreen Welcome
     | GameScreen ActSelection Self Game Welcome
@@ -166,6 +168,12 @@ type alias Failure =
     -- TODO: include level here (at least error vs info)
     { message : String
     , context : Maybe String
+    }
+
+
+type alias TextInput =
+    { value : String
+    , failures : List Failure
     }
 
 

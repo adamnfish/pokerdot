@@ -3,6 +3,26 @@ module Utils exposing (..)
 import List.Extra
 
 
+maybeContains : a -> Maybe a -> Bool
+maybeContains pa ma =
+    case ma of
+        Just a ->
+            a == pa
+
+        Nothing ->
+            False
+
+
+maybeContainsOneOf : List a -> Maybe a -> Bool
+maybeContainsOneOf pas ma =
+    case ma of
+        Just a ->
+            List.member a pas
+
+        Nothing ->
+            False
+
+
 flip : (a -> b -> c) -> (b -> a -> c)
 flip fn b a =
     fn a b

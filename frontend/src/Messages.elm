@@ -8,52 +8,7 @@ import Keyboard exposing (Key(..))
 import KeyboardShortcuts exposing (..)
 import List.Extra
 import Maybe.Extra
-import Model
-    exposing
-        ( ActSelection(..)
-        , Action(..)
-        , AdvancePhaseRequest
-        , BetRequest
-        , CheckRequest
-        , ChipsSettings(..)
-        , CreateGameRequest
-        , EditBlindsSettings(..)
-        , Event
-        , Failure
-        , FoldRequest
-        , Game
-        , JoinGameRequest
-        , LoadingStatus(..)
-        , Message(..)
-        , Model
-        , Msg(..)
-        , OverlayUI(..)
-        , PingRequest
-        , Player
-        , PlayerId(..)
-        , Route(..)
-        , Self
-        , StartGameRequest
-        , UI(..)
-        , UpdateBlindRequest
-        , Welcome
-        , advancePhaseRequestEncoder
-        , betRequestEncoder
-        , checkRequestEncoder
-        , createGameRequestEncoder
-        , defaultChipSettings
-        , editBlindsSettingsFromSmallBlindAndTimerStatus
-        , foldRequestEncoder
-        , getPlayerCode
-        , joinGameRequestEncoder
-        , messageDecoder
-        , persistedWelcomeDecoder
-        , pingRequestEncoder
-        , startGameRequestEncoder
-        , updateBlindRequestEncoder
-        , wakeRequestEncoder
-        , welcomeEncoder
-        )
+import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), OverlayUI(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, TextInput, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, editBlindsSettingsFromSmallBlindAndTimerStatus, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, persistedWelcomeDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeEncoder)
 import Ports
     exposing
         ( deletePersistedGame
@@ -69,6 +24,7 @@ import Timers exposing (filteredTimerLevels)
 import Url
 import Url.Builder
 import Url.Parser exposing ((</>))
+import Utils exposing (maybeContains, maybeContainsOneOf)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -196,8 +152,8 @@ update msg model =
                             GameRoute welcome.gameCode (getPlayerCode welcome.playerId)
                     in
                     case model.ui of
-                        CreateGameScreen gameName _ ->
-                            if gameName == welcome.gameName then
+                        CreateGameScreen gameNameInput _ ->
+                            if gameNameInput.value == welcome.gameName then
                                 ( { model
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players defaultChipSettings self game welcome
@@ -215,8 +171,8 @@ update msg model =
                                 , persistNewGame savedGameJson
                                 )
 
-                        JoinGameScreen external gameCode _ ->
-                            if gameCode == welcome.gameCode then
+                        JoinGameScreen external gameCodeInput _ ->
+                            if gameCodeInput.value == welcome.gameCode then
                                 ( { model
                                     | library = newLibrary
                                     , ui = LobbyScreen game.players defaultChipSettings self game welcome
@@ -463,12 +419,67 @@ update msg model =
                     , Cmd.none
                     )
 
-                Ok (FailureMessage failures) ->
+                Ok (FailureMessage newFailures) ->
                     let
-                        updatedModel =
-                            displayFailures model failures
+                        ( globalFailures, newUi ) =
+                            case model.ui of
+                                CreateGameScreen gameNameInput screenNameInput ->
+                                    let
+                                        ( gameNameFailures, remaining1 ) =
+                                            List.partition
+                                                (\failure ->
+                                                    maybeContains "gameName" failure.context
+                                                )
+                                                newFailures
+
+                                        ( screenNameFailures, nonUiFailures ) =
+                                            List.partition
+                                                (\failure ->
+                                                    maybeContains "screenName" failure.context
+                                                )
+                                                remaining1
+
+                                        newGameNameInput =
+                                            withFailures gameNameInput gameNameFailures
+
+                                        newScreenNameInput =
+                                            withFailures screenNameInput screenNameFailures
+                                    in
+                                    ( nonUiFailures, CreateGameScreen newGameNameInput newScreenNameInput )
+
+                                JoinGameScreen external gameCodeInput screenNameInput ->
+                                    let
+                                        ( gameCodeFailures, remaining1 ) =
+                                            List.partition
+                                                (\failure ->
+                                                    maybeContains "gameCode" failure.context
+                                                )
+                                                newFailures
+
+                                        ( screenNameFailures, nonUiFailures ) =
+                                            List.partition
+                                                (\failure ->
+                                                    maybeContains "screenName" failure.context
+                                                )
+                                                remaining1
+
+                                        newGameCodeInput =
+                                            withFailures gameCodeInput gameCodeFailures
+
+                                        newScreenNameInput =
+                                            withFailures screenNameInput screenNameFailures
+                                    in
+                                    ( nonUiFailures, JoinGameScreen external newGameCodeInput newScreenNameInput )
+
+                                _ ->
+                                    ( newFailures, model.ui )
+
+                        modelWithFailures =
+                            displayFailures model globalFailures
                     in
-                    ( updatedModel, Cmd.none )
+                    ( { modelWithFailures | ui = newUi }
+                    , Cmd.none
+                    )
 
                 Err error ->
                     ( displayFailure
@@ -491,7 +502,7 @@ update msg model =
                 HelpScreen ->
                     ( newModel, Cmd.none )
 
-                CreateGameScreen gameName screenName ->
+                CreateGameScreen gameNameInput screenNameInput ->
                     ( newModel, Cmd.none )
 
                 JoinGameScreen external gameCode screenName ->
@@ -611,14 +622,29 @@ update msg model =
             )
 
         NavigateCreateGame ->
-            ( { model | ui = CreateGameScreen "" "" }
+            ( { model | ui = CreateGameScreen emptyInput emptyInput }
             , navigate model.navKey True CreateRoute
             )
 
-        InputCreateGame gameName screenName ->
-            ( { model | ui = CreateGameScreen gameName screenName }
-            , Cmd.none
-            )
+        CreateGameInputGameName gameName ->
+            case model.ui of
+                CreateGameScreen _ screenNameInput ->
+                    ( { model | ui = CreateGameScreen (inputValue gameName) screenNameInput }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        CreateGameInputScreenName screenName ->
+            case model.ui of
+                CreateGameScreen gameNameInput _ ->
+                    ( { model | ui = CreateGameScreen gameNameInput (inputValue screenName) }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
 
         SubmitCreateGame gameName screenName ->
             let
@@ -632,14 +658,29 @@ update msg model =
             )
 
         NavigateJoinGame ->
-            ( { model | ui = JoinGameScreen False "" "" }
+            ( { model | ui = JoinGameScreen False emptyInput emptyInput }
             , navigate model.navKey True (JoinRoute Nothing)
             )
 
-        InputJoinGame external gameCode screenName ->
-            ( { model | ui = JoinGameScreen external gameCode screenName }
-            , Cmd.none
-            )
+        JoinGameInputGameCode gameCode ->
+            case model.ui of
+                JoinGameScreen external _ screenNameInput ->
+                    ( { model | ui = JoinGameScreen external (inputValue gameCode) screenNameInput }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        JoinGameInputScreenName screenName ->
+            case model.ui of
+                JoinGameScreen external gameCodeInput _ ->
+                    ( { model | ui = JoinGameScreen external gameCodeInput (inputValue screenName) }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
 
         SubmitJoinGame gameCode screenName ->
             let
@@ -1156,6 +1197,32 @@ failureMessage message =
     }
 
 
+emptyInput : TextInput
+emptyInput =
+    { value = ""
+    , failures = []
+    }
+
+
+inputValue : String -> TextInput
+inputValue value =
+    { value = value
+    , failures = []
+    }
+
+
+withFailures : TextInput -> List Failure -> TextInput
+withFailures input failures =
+    let
+        allFailures =
+            List.append failures input.failures
+
+        uniqueFailures =
+            List.Extra.uniqueBy .message allFailures
+    in
+    { input | failures = uniqueFailures }
+
+
 displayFailure : Failure -> Model -> Model
 displayFailure failure model =
     let
@@ -1296,10 +1363,10 @@ routeFromUi ui =
         CreateGameScreen _ _ ->
             CreateRoute
 
-        JoinGameScreen external gameCode _ ->
+        JoinGameScreen external gameCodeInput _ ->
             -- it should be possible to link to a game with the gameCode
             if external then
-                JoinRoute <| Just gameCode
+                JoinRoute <| Just gameCodeInput.value
 
             else
                 JoinRoute Nothing
@@ -1412,13 +1479,13 @@ uiFromRoute route library =
             HelpScreen
 
         CreateRoute ->
-            CreateGameScreen "" ""
+            CreateGameScreen emptyInput emptyInput
 
         JoinRoute Nothing ->
-            JoinGameScreen False "" ""
+            JoinGameScreen False emptyInput emptyInput
 
         JoinRoute (Just gameCode) ->
-            JoinGameScreen True gameCode ""
+            JoinGameScreen True (inputValue gameCode) emptyInput
 
         GameRoute gameCode playerCode ->
             -- check for matching welcome in library

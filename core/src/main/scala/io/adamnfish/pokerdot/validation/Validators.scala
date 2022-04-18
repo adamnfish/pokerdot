@@ -10,7 +10,7 @@ object Validators {
   def nonEmpty: Validator[String] = { (str, context, friendlyContext) =>
     if (str.isEmpty) {
       List(
-        Failure("Validation failure: empty", s"$friendlyContext is required", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext is required.", Some(context))
       )
     } else Nil
   }
@@ -18,7 +18,7 @@ object Validators {
   def nonEmptyList[A]: Validator[List[A]] = { (as, context, friendlyContext) =>
     if (as.isEmpty) {
       List(
-        Failure("Validation failure: empty", s"$friendlyContext is required", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext is required.", Some(context))
       )
     } else Nil
   }
@@ -31,7 +31,7 @@ object Validators {
         None
       } else {
         Some(
-          Failure(s"Validation failure: $str not UUID", s"$friendlyContext was not in the correct format", Some(context))
+          Failure(s"Validation failure: $str not UUID", s"$friendlyContext was not in the correct format.", Some(context))
         )
       }
     wasEmpty.orElse(wasUUID).toList
@@ -40,7 +40,7 @@ object Validators {
   val positiveInteger: Validator[Int] = { (i, context, friendlyContext) =>
     if (i < 0) {
       List(
-        Failure("Validation failure: empty", s"$friendlyContext must be a positive number", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext must be a positive number.", Some(context))
       )
     } else Nil
   }
@@ -48,7 +48,7 @@ object Validators {
   val greaterThanZero: Validator[Int] = { (i, context, friendlyContext) =>
     if (i <= 0) {
       List(
-        Failure("Validation failure: empty", s"$friendlyContext must be a positive number", Some(context))
+        Failure("Validation failure: empty", s"$friendlyContext must be a positive number.", Some(context))
       )
     } else Nil
   }
@@ -78,7 +78,7 @@ object Validators {
   def minLength(min: Int): Validator[String] = { (str, context, friendlyContext) =>
     if (str.length < min)
       List(
-        Failure("Failed min length", s"$friendlyContext must be at least $min characters", Some(context))
+        Failure("Failed min length", s"$friendlyContext must be at least $min characters.", Some(context))
       )
     else Nil
   }
@@ -86,7 +86,7 @@ object Validators {
   def maxLength(max: Int): Validator[String] = { (str, context, friendlyContext) =>
     if (str.length > max)
       List(
-        Failure("Failed max length", s"$friendlyContext must be no more than $max characters", Some(context))
+        Failure("Failed max length", s"$friendlyContext must be no more than $max characters.", Some(context))
       )
     else Nil
   }
@@ -99,7 +99,7 @@ object Validators {
     val twoWeeksInSeconds = 86400 * 14
     if (timestamp > twoWeeksInSeconds)
       List(
-        Failure("Failed sensible duration validation", s"$friendlyContext is too large to be a timer duration", Some(context))
+        Failure("Failed sensible duration validation", s"$friendlyContext is too large to be a timer duration.", Some(context))
       )
     else Nil
   }

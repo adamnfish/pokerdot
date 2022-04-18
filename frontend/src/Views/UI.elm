@@ -16,31 +16,7 @@ import List.Extra
 import Logic exposing (gameIsFinished, winner)
 import Maybe.Extra
 import Messages exposing (lookupPlayer)
-import Model
-    exposing
-        ( ActSelection(..)
-        , Action(..)
-        , Card
-        , ChipsSettings(..)
-        , EditBlindsSettings(..)
-        , Game
-        , Hand(..)
-        , LoadingStatus(..)
-        , Model
-        , Msg(..)
-        , OverlayUI(..)
-        , Player
-        , PlayerId
-        , PlayerWinnings
-        , PlayingState(..)
-        , PotResult
-        , Round(..)
-        , Self
-        , TimerLevel(..)
-        , TimerStatus
-        , UI(..)
-        , Welcome
-        )
+import Model exposing (ActSelection(..), Action(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), LoadingStatus(..), Model, Msg(..), OverlayUI(..), Player, PlayerId, PlayerWinnings, PlayingState(..), PotResult, Round(..), Self, TextInput, TimerLevel(..), TimerStatus, UI(..), Welcome)
 import Timers exposing (CurrentTimerLevel(..), defaultStack, defaultTimerLevels)
 import Utils exposing (swapDown, swapUp)
 import Views.Elements
@@ -854,21 +830,21 @@ helpScreen model =
     Element.none
 
 
-createGameScreen : Model -> String -> String -> Element Msg
-createGameScreen model gameName screenName =
+createGameScreen : Model -> TextInput -> TextInput -> Element Msg
+createGameScreen model gameNameInput screenNameInput =
     container model.viewport <|
         column
             [ width fill
             , spacing 16
             , paddingEach { zWidths | top = 50 }
             ]
-            [ pdText (\newGameName -> InputCreateGame newGameName screenName) gameName "game name"
-            , pdText (InputCreateGame gameName) screenName "your name"
+            [ pdText CreateGameInputGameName gameNameInput "game name"
+            , pdText CreateGameInputScreenName screenNameInput "your name"
             , el
                 [ alignRight
                 ]
               <|
-                controlsButton Theme.scheme3 (SubmitCreateGame gameName screenName) <|
+                controlsButton Theme.scheme3 (SubmitCreateGame gameNameInput.value screenNameInput.value) <|
                     column
                         [ width fill ]
                         [ el
@@ -891,8 +867,8 @@ createGameScreen model gameName screenName =
             ]
 
 
-joinGameScreen : Model -> Bool -> String -> String -> Element Msg
-joinGameScreen model isExternal gameCode screenName =
+joinGameScreen : Model -> Bool -> TextInput -> TextInput -> Element Msg
+joinGameScreen model isExternal gameCodeInput screenNameInput =
     container model.viewport <|
         column
             [ width fill
@@ -903,12 +879,12 @@ joinGameScreen model isExternal gameCode screenName =
                 Element.none
 
               else
-                pdText (\newGameCode -> InputJoinGame isExternal newGameCode screenName) gameCode "game code"
-            , pdText (InputJoinGame isExternal gameCode) screenName "your name"
+                pdText JoinGameInputGameCode gameCodeInput "game code"
+            , pdText JoinGameInputScreenName screenNameInput "your name"
             , el
                 [ alignRight ]
               <|
-                controlsButton Theme.scheme3 (SubmitJoinGame gameCode screenName) <|
+                controlsButton Theme.scheme3 (SubmitJoinGame gameCodeInput.value screenNameInput.value) <|
                     column
                         [ width fill ]
                         [ el

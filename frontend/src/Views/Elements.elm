@@ -15,26 +15,7 @@ import Html.Attributes
 import List.Extra
 import Logic exposing (isBusted)
 import Maybe.Extra
-import Model
-    exposing
-        ( ActSelection(..)
-        , Card
-        , ChipsSettings(..)
-        , EditBlindsSettings(..)
-        , Game
-        , Hand(..)
-        , Model
-        , Msg(..)
-        , Player
-        , PlayerId(..)
-        , PlayerWinnings
-        , Rank(..)
-        , Round(..)
-        , Self
-        , TimerLevel(..)
-        , TimerStatus
-        , Welcome
-        )
+import Model exposing (ActSelection(..), Card, ChipsSettings(..), EditBlindsSettings(..), Game, Hand(..), Model, Msg(..), Player, PlayerId(..), PlayerWinnings, Rank(..), Round(..), Self, TextInput, TimerLevel(..), TimerStatus, Welcome)
 import Random
 import Random.Extra
 import Svg
@@ -245,34 +226,81 @@ pdTab tabColour active msg label =
             }
 
 
-pdText : (String -> msg) -> String -> String -> Element msg
-pdText msg value labelStr =
-    Input.text
-        [ Font.alignLeft
-        , paddingXY 10 8
-        , Border.solid
-        , Border.width 2
-        , Border.color Theme.colours.black
-        , Border.widthEach { zWidths | bottom = 2 }
-        , Border.rounded 0
-        , Background.color Theme.colours.white
-        , focused
-            [ Background.color Theme.colours.highlightPrimary
-            , Border.color Theme.colours.white
-            ]
-        ]
-        { onChange = msg
-        , text = value
-        , placeholder = Nothing
-        , label =
-            Input.labelAbove
-                [ alignLeft ]
-            <|
+pdText : (String -> msg) -> TextInput -> String -> Element msg
+pdText msg input labelStr =
+    column
+        [ width fill
+        , inFront <|
+            if List.isEmpty input.failures then
+                Element.none
+
+            else
                 el
-                    [ Font.color Theme.colours.white ]
+                    [ alignRight
+                    , alignTop
+                    , moveDown 11
+                    , moveRight 8
+                    , Font.color Theme.colours.error
+                    , Background.color Theme.colours.white
+                    , Border.rounded 14
+                    , Border.width 1
+                    , Border.color Theme.colours.white
+                    ]
                 <|
-                    text labelStr
-        }
+                    html <|
+                        (FontAwesome.Regular.timesCircle
+                            |> FontAwesome.Icon.present
+                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.lg ]
+                            |> FontAwesome.Icon.view
+                        )
+        ]
+        [ Input.text
+            [ Font.alignLeft
+            , paddingXY 10 8
+            , Border.solid
+            , Border.width 2
+            , Border.color Theme.colours.black
+            , Border.widthEach { zWidths | bottom = 2 }
+            , Border.rounded 0
+            , Background.color Theme.colours.white
+            , focused
+                [ Background.color Theme.colours.highlightPrimary
+                , Border.color Theme.colours.white
+                ]
+            ]
+            { onChange = msg
+            , text = input.value
+            , placeholder = Nothing
+            , label =
+                Input.labelAbove
+                    [ alignLeft ]
+                <|
+                    el
+                        [ Font.color Theme.colours.white ]
+                    <|
+                        text labelStr
+            }
+        , if List.isEmpty input.failures then
+            el
+                [ height <| px 22 ]
+            <|
+                Element.none
+
+          else
+            let
+                message =
+                    List.map .message input.failures
+                        |> String.join ", "
+            in
+            paragraph
+                [ width fill
+                , height <| px 22
+                , Font.alignRight
+                , Font.color <| Theme.textColour Theme.colours.shadow
+                , Background.color Theme.colours.primary
+                ]
+                [ text message ]
+        ]
 
 
 zWidths : { bottom : Int, left : Int, right : Int, top : Int }

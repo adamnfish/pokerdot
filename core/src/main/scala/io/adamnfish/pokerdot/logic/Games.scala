@@ -303,7 +303,8 @@ object Games {
       Left {
         Failures(
           "Duplicate screen name, joining game failed",
-          "someone else already has the same name!",
+          "someone else already has the same name.",
+          context = Some("screenName"),
         )
       }
     else
