@@ -282,7 +282,7 @@ pdText msg input labelStr =
             }
         , if List.isEmpty input.failures then
             el
-                [ height <| px 22 ]
+                [ height <| px 21 ]
             <|
                 Element.none
 
@@ -290,11 +290,10 @@ pdText msg input labelStr =
             let
                 message =
                     List.map .message input.failures
-                        |> String.join ", "
+                        |> String.join " "
             in
             paragraph
                 [ width fill
-                , height <| px 22
                 , Font.alignRight
                 , Font.color <| Theme.textColour Theme.colours.shadow
                 , Background.color Theme.colours.primary

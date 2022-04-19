@@ -699,7 +699,8 @@ view model =
                     )
                     page.body
                 , el
-                    [ height <| px 10 ]
+                    [ height <| px 10
+                    ]
                     Element.none
                 ]
         ]

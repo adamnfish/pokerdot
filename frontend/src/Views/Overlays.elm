@@ -135,7 +135,7 @@ helpOverlay =
         , paragraph paragraphStyles
             [ text "If you would like to use "
             , pokerdotInText
-            , text " or its source-code for your business, or expect to make any money from its use, "
+            , text " or its source-code for your business or expect to make any money from its use, "
             , text " you must get in touch with me to discuss your use. "
             , text " If you will be using "
             , pokerdotInText
