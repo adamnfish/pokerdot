@@ -1,5 +1,7 @@
 # Distribution
-build/
+dist/
+
+.parcel-cache
 
 # elm-package generated files
 elm-stuff

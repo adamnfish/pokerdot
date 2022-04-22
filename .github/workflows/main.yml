@@ -27,15 +27,12 @@ jobs:
       uses: actions/setup-node@v2.1.5
       with:
         node-version: 12.x
-    - name: Install toolchain dependencies
-      run: npm install -g create-elm-app@5.22.0
-      working-directory: frontend
     - name: Install project dependencies
-      run: npm install
+      run: yarn install
       working-directory: frontend
     - name: Test frontend
-      run: elm-app test
+      run: yarn test
       working-directory: frontend
     - name: build frontend
-      run: elm-app build
+      run: yarn build
       working-directory: frontend

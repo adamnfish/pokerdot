@@ -6,7 +6,7 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 12
+      nodejs: 14
       java: openjdk8
 
   pre_build:
@@ -25,9 +25,8 @@ phases:
       - unzip sbt.zip
 
       # Install software for frontend build
-      - npm install -g create-elm-app@5.22.0 --unsafe-perm=true --allow-root
       - cd frontend
-      - npm install
+      - yarn install
       - cd ..
 
       - echo "[STATUS] pre build step finished"
@@ -40,8 +39,8 @@ phases:
       - sbt/bin/sbt -no-colors test "project lambda" universal:packageBin
       # frontend
       - cd frontend
-      - elm-app test
-      - elm-app build
+      - yarn test
+      - yarn build
       - cd ..
 
       - echo "[STATUS] Build finished"
@@ -54,7 +53,7 @@ phases:
       - aws lambda update-function-code --function-name $FUNCTION_NAME --s3-bucket $DIST_BUCKET --s3-key $DIST_KEY
 
       - echo Uploading static site to $WWW_BUCKET_NAME
-      - cd frontend/build
+      - cd frontend/dist
       - aws s3 sync . s3://$WWW_BUCKET_NAME
       - cd ../..
       - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DIST_ID --paths "/*"
@@ -64,4 +63,4 @@ phases:
 artifacts:
   files:
     - lambda/target/universal/pokerdot-lambda.zip
-    - frontend/build/*
+    - frontend/dist/**/*
