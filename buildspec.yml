@@ -1,5 +1,6 @@
 version: 0.2
 
+# build env is set to ubuntu v5
 env:
   shell: bash
 
