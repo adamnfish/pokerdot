@@ -10,7 +10,7 @@
   "scripts": {
     "start": "parcel --port 3000",
     "build": "parcel build",
-    "test": "elm-app test"
+    "test": "elm-test"
   },
   "devDependencies": {
     "@parcel/packager-raw-url": "2.4.1",
@@ -19,6 +19,7 @@
     "@parcel/transformer-webmanifest": "2.4.1",
     "@parcel/transformer-xml": "2.4.1",
     "elm": "^0.19.1-5",
+    "elm-test": "^0.19.1-revision7",
     "parcel": "^2.4.1",
     "parcel-plugin-browserconfig": "^1.0.5"
   },
