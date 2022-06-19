@@ -73,6 +73,10 @@ object Serialisation {
     extractJson[AdvancePhase](json, "Could not understand the advance phase request")
   }
 
+  def parseAbandonRoundRequest(json: Json): Either[Failures, AbandonRound] = {
+    extractJson[AbandonRound](json, "Could not understand the request to abandon the round")
+  }
+
   def parsePingRequest(json: Json): Either[Failures, Ping] = {
     extractJson[Ping](json, "Could not understand the ping request")
   }
@@ -273,6 +277,7 @@ object Serialisation {
   private implicit val timerStatusSummaryEncoder: Encoder[TimerStatusSummary] = deriveEncoder[TimerStatusSummary]
   private implicit val editTimerSummaryEncoder: Encoder[EditTimerSummary] = deriveEncoder[EditTimerSummary]
   private implicit val editBlindSummaryEncoder: Encoder[EditBlindSummary] = deriveEncoder[EditBlindSummary]
+  private implicit val abandonRoundSummaryEncoder: Encoder[AbandonRoundSummary] = deriveEncoder[AbandonRoundSummary]
   private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
   private[models] implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
     case gameStartedSummary: GameStartedSummary =>
@@ -305,6 +310,9 @@ object Serialisation {
     case editBlindSummary: EditBlindSummary =>
       editBlindSummaryEncoder.apply(editBlindSummary)
         .mapObject(o => o.add("action", Json.fromString("edit-blind")))
+    case abandonRoundSummary: AbandonRoundSummary =>
+      abandonRoundSummaryEncoder.apply(abandonRoundSummary)
+        .mapObject(o => o.add("action", Json.fromString("abandon-round")))
     case noActionSummary: NoActionSummary =>
       noActionSummaryEncoder.apply(noActionSummary)
         .mapObject(o => o.add("action", Json.fromString("no-action")))
@@ -348,6 +356,7 @@ object Serialisation {
   private implicit val checkDecoder: Decoder[Check] = deriveDecoder[Check]
   private implicit val foldDecoder: Decoder[Fold] = deriveDecoder[Fold]
   private implicit val advancePhaseDecoder: Decoder[AdvancePhase] = deriveDecoder[AdvancePhase]
+  private implicit val abandonRoundDecoder: Decoder[AbandonRound] = deriveDecoder[AbandonRound]
   private implicit val pingDecoder: Decoder[Ping] = deriveDecoder[Ping]
 
   // FAILURE
@@ -377,6 +386,7 @@ object Serialisation {
     private implicit val checkEncoder: Encoder[Check] = deriveEncoder[Check]
     private implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
     private implicit val advancePhaseEncoder: Encoder[AdvancePhase] = deriveEncoder[AdvancePhase]
+    private implicit val abandonRoundEncoder: Encoder[AbandonRound] = deriveEncoder[AbandonRound]
     private implicit val pingEncoder: Encoder[Ping] = deriveEncoder[Ping]
     private implicit val wakeEncoder: Encoder[Wake] = deriveEncoder[Wake]
 
@@ -405,6 +415,9 @@ object Serialisation {
       case advancePhase: AdvancePhase =>
         advancePhaseEncoder.apply(advancePhase)
           .mapObject(o => o.add("operation", Json.fromString("advance-phase")))
+      case abandonRound: AbandonRound =>
+        abandonRoundEncoder.apply(abandonRound)
+          .mapObject(o => o.add("operation", Json.fromString("abandon-round")))
       case ping: Ping =>
         pingEncoder.apply(ping)
           .mapObject(o => o.add("operation", Json.fromString("ping")))

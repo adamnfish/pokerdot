@@ -254,6 +254,20 @@ object PlayerActions {
     } yield newGame
   }
 
+  /**
+   * Re-starts the current round with new cards.
+   *
+   * Everything that happened in this round so far gets rolled back, and the cards are re-dealt.
+   */
+  def abandonRound(game: Game, rng: Rng): Game = {
+    val nextState = rng.nextState(game.seed)
+    game.copy(
+      players = game.players.map(resetPlayerForAbandonedRound),
+      round = Play.generateRound(PreFlop, game.round.smallBlind, nextState),
+      seed = nextState,
+    )
+  }
+
   private def updateBlindTimer(currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], maybeProgress: Option[Int], newLevels: Option[List[TimerLevel]]): Either[Failures, TimerStatus] = {
     (currentTimerStatus.pausedTime, maybeSetPlayingStatus) match {
       case (Some(_), Some(false)) =>
@@ -457,7 +471,6 @@ object PlayerActions {
         "you can't start a new round because the game has finished",
       ))
     } else {
-      // TODO: check whether blind amounts should change based on timer
       Play.blindForNextRound(game.round.smallBlind, clock.now(), game.timer).map { newSmallBlind =>
         val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, newSmallBlind)
         game.copy(

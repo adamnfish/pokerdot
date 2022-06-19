@@ -1129,6 +1129,77 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
     }
   }
 
+  "abandonRound" - {
+    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+      .copy(started = true)
+    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock)
+      .copy(stack = 1000)
+    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock)
+      .copy(stack = 1000)
+    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock)
+      .copy(stack = 1000)
+    val game = rawGame.copy(
+      players = List(
+        p1.copy(
+          stack = 950,
+          pot = 20,
+          bet = 30,
+          checked = true,
+          blind = NoBlind,
+        ),
+        p2.copy(
+          stack = 980,
+          pot = 20,
+          bet = 0,
+          folded = true,
+          blind = SmallBlind,
+        ),
+        p3.copy(
+          stack = 970,
+          pot = 20,
+          bet = 10,
+          blind = BigBlind,
+        ),
+      )
+    )
+
+    "players are reset" - {
+      "all players have their stacks (and contributions) reset" in {
+        val result = abandonRound(game, TestRng).players.map(p => (p.stack, p.pot, p.bet))
+        result shouldEqual List((1000, 0, 0), (1000, 0, 0), (1000, 0, 0))
+      }
+
+      "all players are unfolded" in {
+        val result = abandonRound(game, TestRng).players.map(_.folded)
+        result shouldEqual List(false, false, false)
+      }
+
+      "all players are unchecked" in {
+        val result = abandonRound(game, TestRng).players.map(_.checked)
+        result shouldEqual List(false, false, false)
+      }
+
+      "players have the same blind as they did before" in {
+        val result = abandonRound(game, TestRng).players.map(_.blind)
+        result shouldEqual List(NoBlind, SmallBlind, BigBlind)
+      }
+    }
+
+    "the game is reset to a new round" - {
+      "the dealer does not move" in {
+        forAll(Gen.choose(0, 2)) { button =>
+          abandonRound(game.copy(button = button), TestRng).button shouldEqual button
+        }
+      }
+
+      "game's RNG is advanced so the new round has different cards" in {
+        forAll { (seed: Long) =>
+          abandonRound(game.copy(seed = seed), TestRng).seed should not equal seed
+        }
+      }
+    }
+  }
+
   "ensurePlayersHaveFinishedActing" - {
     val game = newGame("Game name", trackStacks = true, TestClock, 1L)
     val p1 = newPlayer(game.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock).copy(

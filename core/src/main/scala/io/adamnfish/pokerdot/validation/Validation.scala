@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.models.Serialisation.{parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateBlindRequest}
+import io.adamnfish.pokerdot.models.Serialisation.{parseAbandonRoundRequest, parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateBlindRequest}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.validation.Validators._
 import io.circe.Json
@@ -192,6 +192,21 @@ object Validation {
       validate(ping.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(ping.playerId.pid, "playerId", "player's id", isUUID) ++
         validate(ping.playerKey.key, "playerId", "player's id", isUUID)
+    )
+  }
+
+  def extractAbandonRound(json: Json): Either[Failures, AbandonRound] = {
+    for {
+      raw <- parseAbandonRoundRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(abandonRound: AbandonRound): Either[Failures, AbandonRound] = {
+    asResult(abandonRound,
+      validate(abandonRound.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(abandonRound.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(abandonRound.playerKey.key, "playerId", "player's id", isUUID)
     )
   }
 

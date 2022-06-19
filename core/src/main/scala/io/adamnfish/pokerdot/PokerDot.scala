@@ -4,7 +4,7 @@ import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
 import io.adamnfish.pokerdot.logic.{Games, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
-import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind}
+import io.adamnfish.pokerdot.validation.Validation.{extractAbandonRound, extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind}
 import io.circe.Json
 import zio._
 
@@ -34,6 +34,8 @@ object PokerDot {
           advancePhase(requestJson, appContext)
         case "update-blind" =>
           updateBlind(requestJson, appContext)
+        case "abandon-round" =>
+          abandonRound(requestJson, appContext)
         // TODO: include admin endpoint to allow manual correction of game state
         case "ping" =>
           ping(requestJson, appContext)
@@ -286,6 +288,30 @@ object PokerDot {
       _ <- appContext.db.writeGame(newGameDb)
       // this endpoint won't update players so there's no need to save them
     } yield Responses.gameStatuses(updatedGame, action, updateBlind.playerId, appContext.playerAddress)
+  }
+
+  /**
+   * Abandon the current round. Returns all pots and bets and ends the round.
+   *
+   * This is useful if, for example, a mistake has happened with the dealing.
+   */
+  def abandonRound(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    for {
+      abandonRound <- extractAbandonRound(requestJson).attempt
+      maybeGame <- appContext.db.getGame(abandonRound.gameId)
+      rawGameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot abandon round, game ID not found", "couldn't find the game",
+      ))
+      playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
+      game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
+      _ <- Games.ensureStarted(game).attempt
+      _ <- Games.ensureAdmin(game.players, abandonRound.playerKey).attempt
+      updatedGame = PlayerActions.abandonRound(game, appContext.rng)
+      updatedPlayerDbs = Representations.allPlayerDbs(game.players)
+      updatedGameDb = Representations.gameToDb(updatedGame)
+      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      _ <- appContext.db.writeGame(updatedGameDb)
+    } yield Responses.gameStatuses(updatedGame, AbandonRoundSummary(), abandonRound.playerId, appContext.playerAddress)
   }
 
   /**
