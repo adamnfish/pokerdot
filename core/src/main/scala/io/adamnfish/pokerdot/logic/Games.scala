@@ -264,6 +264,19 @@ object Games {
     } else resetPlayer
   }
 
+  /**
+   * When a round is abandoned, everything a player has put into the round is returned.
+   */
+  def resetPlayerForAbandonedRound(player: Player): Player = {
+    player.copy(
+      bet = 0,
+      pot = 0,
+      stack = player.stack + player.bet + player.pot,
+      folded = false,
+      checked = false,
+    )
+  }
+
   def requireGame(gameDbOpt: Option[GameDb], gid: String): Either[Failures, GameDb] = {
     gameDbOpt match {
       case Some(gameDb) =>

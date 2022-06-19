@@ -111,6 +111,8 @@ case class EditTimerSummary(
 ) extends ActionSummary
 case class EditBlindSummary(
 ) extends ActionSummary
+case class AbandonRoundSummary(
+) extends ActionSummary
 case class NoActionSummary(
 ) extends ActionSummary
 
@@ -166,6 +168,11 @@ case class AdvancePhase(
   playerKey: PlayerKey,
   playerId: PlayerId,
   // TODO: option to deal all cards and advance straight to showdown
+) extends Request
+case class AbandonRound(
+  gameId: GameId,
+  playerKey: PlayerKey,
+  playerId: PlayerId,
 ) extends Request
 // implementation detail requests
 case class Ping(

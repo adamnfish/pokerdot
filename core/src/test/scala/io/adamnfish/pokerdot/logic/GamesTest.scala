@@ -658,6 +658,49 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
   }
 
+  "resetPlayerForAbandonedRound" - {
+    val gameId = GameId("game-id")
+    val player = newPlayer(gameId, "player", false, PlayerAddress("address"), TestClock)
+
+    "player's bet and pot are added to their stack" in {
+      forAll(Gen.choose(0, 100), Gen.choose(0, 100), Gen.choose(0, 100)) { (stack, pot, bet) =>
+        resetPlayerForAbandonedRound(
+          player.copy(stack = stack, pot = pot, bet = bet)
+        ).stack shouldEqual (stack + pot + bet)
+      }
+    }
+
+    "zeroes the player's pot contribution" in {
+      forAll(Gen.choose(0, 100)) { pot =>
+        resetPlayerForAbandonedRound(
+          player.copy(pot = pot)
+        ).pot shouldEqual 0
+      }
+    }
+
+    "zeroes the player's bet contribution" in {
+      forAll(Gen.choose(0, 100)) { bet =>
+        resetPlayerForAbandonedRound(
+          player.copy(bet = bet)
+        ).pot shouldEqual 0
+      }
+    }
+
+    "unfolds a folded player" in {
+      resetPlayerForAbandonedRound(player.copy(folded = true)).folded shouldEqual false
+    }
+
+    "unchecks a checked player" in {
+      resetPlayerForAbandonedRound(player.copy(checked = true)).checked shouldEqual false
+    }
+
+    "does not change the player's blind" in {
+      forAll(Gen.oneOf(NoBlind, SmallBlind, BigBlind)) { blind =>
+        resetPlayerForAbandonedRound(player.copy(blind = blind)).blind shouldEqual blind
+      }
+    }
+  }
+
   "requireGame" - {
     "returns the gameDb if present" in {
       val gameDb = Representations.gameToDb(
