@@ -68,4 +68,9 @@ object IntegrationComponents {
     val request = AdvancePhase(welcome.gameId, welcome.playerKey, welcome.playerId)
     encodeRequest(request).noSpaces
   }
+
+  def abandonRoundRequest(welcome: Welcome): String = {
+    val request = AbandonRound(welcome.gameId, welcome.playerKey, welcome.playerId)
+    encodeRequest(request).noSpaces
+  }
 }
