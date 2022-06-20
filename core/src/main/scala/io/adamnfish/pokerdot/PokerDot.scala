@@ -307,7 +307,7 @@ object PokerDot {
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, abandonRound.playerKey).attempt
       updatedGame = PlayerActions.abandonRound(game, appContext.rng)
-      updatedPlayerDbs = Representations.allPlayerDbs(game.players)
+      updatedPlayerDbs = Representations.allPlayerDbs(updatedGame.players)
       updatedGameDb = Representations.gameToDb(updatedGame)
       _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
       _ <- appContext.db.writeGame(updatedGameDb)
