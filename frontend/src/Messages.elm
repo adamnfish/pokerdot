@@ -8,7 +8,7 @@ import Keyboard exposing (Key(..))
 import KeyboardShortcuts exposing (..)
 import List.Extra
 import Maybe.Extra
-import Model exposing (ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), OverlayUI(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, TextInput, UI(..), UpdateBlindRequest, Welcome, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, editBlindsSettingsFromSmallBlindAndTimerStatus, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, persistedWelcomeDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeEncoder)
+import Model exposing (AbandonRoundRequest, ActSelection(..), Action(..), AdvancePhaseRequest, BetRequest, CheckRequest, ChipsSettings(..), CreateGameRequest, EditBlindsSettings(..), Event, Failure, FoldRequest, Game, JoinGameRequest, LoadingStatus(..), Message(..), Model, Msg(..), OverlayUI(..), PingRequest, Player, PlayerId(..), Route(..), Self, StartGameRequest, TextInput, UI(..), UpdateBlindRequest, Welcome, abandonRoundRequestEncoder, advancePhaseRequestEncoder, betRequestEncoder, checkRequestEncoder, createGameRequestEncoder, defaultChipSettings, editBlindsSettingsFromSmallBlindAndTimerStatus, foldRequestEncoder, getPlayerCode, joinGameRequestEncoder, messageDecoder, persistedWelcomeDecoder, pingRequestEncoder, startGameRequestEncoder, updateBlindRequestEncoder, wakeRequestEncoder, welcomeEncoder)
 import Ports
     exposing
         ( deletePersistedGame
@@ -909,6 +909,39 @@ update msg model =
                     , Cmd.none
                     )
 
+        AbandonRound ->
+            case model.ui of
+                GameScreen _ _ _ welcome ->
+                    ( { model
+                        | loadingStatus = AwaitingMessage
+                        , overlayUi = NoOverlay
+                      }
+                    , sendAbandonRoundRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        }
+                    )
+
+                RoundResultScreen _ _ _ _ welcome _ ->
+                    ( { model
+                        | loadingStatus = AwaitingMessage
+                        , overlayUi = NoOverlay
+                      }
+                    , sendAbandonRoundRequest
+                        { gameId = welcome.gameId
+                        , playerKey = welcome.playerKey
+                        , playerId = welcome.playerId
+                        }
+                    )
+
+                _ ->
+                    ( displayFailure
+                        (failureMessage "you can only restart the round from in the game")
+                        model
+                    , Cmd.none
+                    )
+
         ToggleTimerPlayingOverlay ->
             let
                 modelWithClosedOverlay =
@@ -1183,6 +1216,41 @@ update msg model =
 
                 _ ->
                     ( updatedModel, Cmd.none )
+
+        OpenAdminOverlay ->
+            case model.ui of
+                GameScreen actSelection self game welcome ->
+                    if self.isAdmin then
+                        ( { model
+                            | overlayUi =
+                                AdminOverlay
+                          }
+                        , scrollToTop ()
+                        )
+
+                    else
+                        ( model
+                        , reportError "Cannot open admin overlay when player is not a game admin"
+                        )
+
+                RoundResultScreen potResults playerWinnings self game welcome editBlindsSettings ->
+                    if self.isAdmin then
+                        ( { model
+                            | overlayUi =
+                                AdminOverlay
+                          }
+                        , scrollToTop ()
+                        )
+
+                    else
+                        ( model
+                        , reportError "Cannot open admin overlay when player is not a game admin"
+                        )
+
+                _ ->
+                    ( model
+                    , reportError "Cannot open admin overlay when no game is running"
+                    )
 
         CloseOverlay ->
             ( { model | overlayUi = NoOverlay }
@@ -1599,6 +1667,11 @@ sendFoldRequest foldRequest =
 sendAdvancePhaseRequest : AdvancePhaseRequest -> Cmd Msg
 sendAdvancePhaseRequest advancePhaseRequest =
     sendMessage <| advancePhaseRequestEncoder advancePhaseRequest
+
+
+sendAbandonRoundRequest : AbandonRoundRequest -> Cmd Msg
+sendAbandonRoundRequest abandonRoundRequest =
+    sendMessage <| abandonRoundRequestEncoder abandonRoundRequest
 
 
 sendPing : Welcome -> Cmd Msg

@@ -243,6 +243,7 @@ object Games {
       // no player interaction is required in the showdown, so mark players as checked
       checked = true,
       stack = player.stack + playersWinnings.find(_.playerId == player.playerId).map(_.winnings).getOrElse(0)
+      // TODO: think about holeVisible here
     )
   }
 
@@ -257,6 +258,7 @@ object Games {
       pot = 0,
       folded = false,
       checked = false,
+      holeVisible = false,
       // the next blind position(s) will be calculated elsewhere - must not be touched here
     )
     if (resetPlayer.stack <= 0) {
@@ -274,6 +276,7 @@ object Games {
       stack = player.stack + player.bet + player.pot,
       folded = false,
       checked = false,
+      holeVisible = false,
     )
   }
 

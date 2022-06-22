@@ -141,11 +141,11 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
         List(
           newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
+          newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
+          newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestClock)
+          newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestClock)
             .copy(stack = 1000),
         ),
         Play.deckOrder(game.seed),
@@ -664,7 +664,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       val game = rawGame.copy(
         round = round,
         players = List(
-          p1.copy(pot = 200, stack = 0),  // this player is about to bust because their stack is empty
+          p1.copy(pot = 200, stack = 0), // this player is about to bust because their stack is empty
           p2.copy(pot = 200, stack = 20, blind = BigBlind),
           p3.copy(stack = 0, busted = true)
         )
@@ -1138,29 +1138,35 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       .copy(stack = 1000)
     val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock)
       .copy(stack = 1000)
+
+    val deck = Play.deckOrder(rawGame.seed)
     val game = rawGame.copy(
-      players = List(
-        p1.copy(
-          stack = 950,
-          pot = 20,
-          bet = 30,
-          checked = true,
-          blind = NoBlind,
-        ),
-        p2.copy(
-          stack = 980,
-          pot = 20,
-          bet = 0,
-          folded = true,
-          blind = SmallBlind,
-        ),
-        p3.copy(
-          stack = 970,
-          pot = 20,
-          bet = 10,
-          blind = BigBlind,
-        ),
-      )
+      players =
+        Play.dealHoles(
+          List(
+            p1.copy(
+              stack = 950,
+              pot = 20,
+              bet = 30,
+              checked = true,
+              blind = NoBlind,
+            ),
+            p2.copy(
+              stack = 980,
+              pot = 20,
+              bet = 0,
+              folded = true,
+              blind = SmallBlind,
+            ),
+            p3.copy(
+              stack = 970,
+              pot = 20,
+              bet = 10,
+              blind = BigBlind,
+            ),
+          ),
+          deck
+        )
     )
 
     "players are reset" - {
@@ -1182,6 +1188,14 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       "players have the same blind as they did before" in {
         val result = abandonRound(game, TestRng).players.map(_.blind)
         result shouldEqual List(NoBlind, SmallBlind, BigBlind)
+      }
+
+      "player holes change" in {
+        val preHoles = game.players.map(_.hole)
+        val postHoles = abandonRound(game, TestRng).players.map(_.hole)
+        preHoles.zip(postHoles).foreach { case (preHole, postHole) =>
+          preHole should not equal postHole
+        }
       }
     }
 

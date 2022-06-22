@@ -56,6 +56,8 @@ type Msg
     | Bet Int
     | Fold
     | AdvancePhase
+      -- admin
+    | AbandonRound
       -- debugging / development
     | NavigateUIElements Int
       -- overlays
@@ -65,6 +67,7 @@ type Msg
     | InputUpdateBlindOverlay EditBlindsSettings
     | UpdateBlindOverlay EditBlindsSettings
     | UpdateTimerProgressOverlay Int
+    | OpenAdminOverlay
     | CloseOverlay
 
 
@@ -105,7 +108,7 @@ type UI
 type OverlayUI
     = NoOverlay
     | EditBlindOverlay EditBlindsSettings
-      -- | AdminOverlay <- ? or use admin screen?
+    | AdminOverlay
       -- | PokerHandsOverlay
     | HelpOverlay
 
@@ -290,6 +293,7 @@ type Action
     | TimerStatusAction Bool
     | EditTimerAction
     | EditBlindAction
+    | AbandonRoundAction
     | NoAction
 
 
@@ -447,6 +451,13 @@ type alias AdvancePhaseRequest =
     }
 
 
+type alias AbandonRoundRequest =
+    { gameId : GameId
+    , playerId : PlayerId
+    , playerKey : PlayerKey
+    }
+
+
 type alias PingRequest =
     { gameId : GameId
     , playerId : PlayerId
@@ -584,6 +595,9 @@ actionDecoder =
 
                 "edit-blind" ->
                     Json.Decode.succeed EditBlindAction
+
+                "abandon-round" ->
+                    Json.Decode.succeed AbandonRoundAction
 
                 "no-action" ->
                     Json.Decode.succeed NoAction
@@ -1114,6 +1128,16 @@ advancePhaseRequestEncoder advancePhaseRequest =
         , ( "gameId", encodeGameId advancePhaseRequest.gameId )
         , ( "playerKey", encodePlayerKey advancePhaseRequest.playerKey )
         , ( "playerId", encodePlayerId advancePhaseRequest.playerId )
+        ]
+
+
+abandonRoundRequestEncoder : AbandonRoundRequest -> Json.Encode.Value
+abandonRoundRequestEncoder abandonRoundRequest =
+    Json.Encode.object <|
+        [ ( "operation", Json.Encode.string "abandon-round" )
+        , ( "gameId", encodeGameId abandonRoundRequest.gameId )
+        , ( "playerId", encodePlayerId abandonRoundRequest.playerId )
+        , ( "playerKey", encodePlayerKey abandonRoundRequest.playerKey )
         ]
 
 

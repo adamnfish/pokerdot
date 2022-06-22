@@ -9,6 +9,7 @@ import Element.Font as Font
 import Element.Input as Input
 import FontAwesome.Attributes
 import FontAwesome.Icon
+import FontAwesome.Regular
 import FontAwesome.Solid
 import FontAwesome.Styles
 import Html.Attributes
@@ -40,7 +41,7 @@ import Views.Elements
         , uiElements
         , zWidths
         )
-import Views.Overlays exposing (editBlindsOverlay, helpOverlay, overlayTemplate)
+import Views.Overlays exposing (adminOverlay, editBlindsOverlay, helpOverlay, overlayTemplate)
 import Views.Theme as Theme
 
 
@@ -216,6 +217,21 @@ view model =
                                 overlayTemplate model.viewport "edit blinds" <|
                                     paragraph []
                                         [ text "you cannot edit blinds when you are not playing a game"
+                                        ]
+
+                AdminOverlay ->
+                    case model.ui of
+                        GameScreen actSelection self game welcome ->
+                            Just <| overlayTemplate model.viewport "game admin" <| adminOverlay
+
+                        RoundResultScreen potResults playerWinnings self game welcome _ ->
+                            Just <| overlayTemplate model.viewport "game admin" <| adminOverlay
+
+                        _ ->
+                            Just <|
+                                overlayTemplate model.viewport "game admin" <|
+                                    paragraph []
+                                        [ text "you cannot do game admin from outside the game"
                                         ]
     in
     { title = page.title
@@ -445,6 +461,9 @@ view model =
                                                       <|
                                                         text newBlindAmount
                                                     ]
+
+                                    AbandonRoundAction ->
+                                        Just <| container <| text "round reset"
 
                                     NoAction ->
                                         Nothing
@@ -1463,7 +1482,58 @@ gameScreen model playingState currentAct self game welcome =
                 [ width fill
                 , spacing 4
                 ]
-                [ el
+                [ if self.isAdmin then
+                    row
+                        [ alignBottom ]
+                        [ Input.button
+                            [ height <| px 25
+                            , width <| px 25
+                            , Font.color <| Theme.textColour Theme.colours.white
+                            , Font.size 16
+                            , Background.color Theme.scheme3.highlight
+                            , Border.rounded 2
+                            , Border.width 2
+                            , Border.color Theme.colours.black
+                            , Border.shadow
+                                { offset = ( 5, 5 )
+                                , size = 0
+                                , blur = 0
+                                , color = Theme.glow Theme.scheme3.highlight
+                                }
+                            , focused
+                                [ Background.color <| Theme.focusColour Theme.scheme3.highlight
+                                , Border.color Theme.colours.white
+                                , Border.shadow
+                                    { offset = ( 5, 5 )
+                                    , size = 0
+                                    , blur = 0
+                                    , color = Theme.glow <| Theme.focusColour Theme.scheme3.highlight
+                                    }
+                                ]
+                            , mouseOver
+                                [ Background.color <| Theme.focusColour Theme.scheme3.highlight ]
+                            ]
+                            { onPress = Just OpenAdminOverlay
+                            , label =
+                                row
+                                    [ centerX
+                                    , centerY
+                                    , spacing 4
+                                    ]
+                                    [ html <|
+                                        (FontAwesome.Solid.cog
+                                            |> FontAwesome.Icon.present
+                                            |> FontAwesome.Icon.styled [ FontAwesome.Attributes.sm ]
+                                            |> FontAwesome.Icon.view
+                                        )
+                                    ]
+                            }
+                        , text " "
+                        ]
+
+                  else
+                    Element.none
+                , el
                     [ width fill
                     , alignBottom
                     ]
@@ -1476,7 +1546,8 @@ gameScreen model playingState currentAct self game welcome =
                         , Font.color <| Theme.textColour Theme.colours.lowlight
                         , Font.bold
                         ]
-                        [ text game.gameName ]
+                        [ text game.gameName
+                        ]
                 , el
                     [ width shrink
                     ]
