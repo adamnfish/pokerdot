@@ -694,6 +694,10 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       resetPlayerForAbandonedRound(player.copy(checked = true)).checked shouldEqual false
     }
 
+    "hides the player's hole" in {
+      resetPlayerForAbandonedRound(player.copy(holeVisible = true)).holeVisible shouldEqual false
+    }
+
     "does not change the player's blind" in {
       forAll(Gen.oneOf(NoBlind, SmallBlind, BigBlind)) { blind =>
         resetPlayerForAbandonedRound(player.copy(blind = blind)).blind shouldEqual blind

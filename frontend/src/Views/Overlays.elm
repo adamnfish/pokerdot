@@ -31,7 +31,7 @@ overlayTemplate viewport title overlayBody =
             [ width fill
             , height fill
             , padding 12
-            , spacing 8
+            , spacing 16
             , Background.color Theme.colours.primary
             , Border.color Theme.colours.night
             , Border.width 8
@@ -44,7 +44,15 @@ overlayTemplate viewport title overlayBody =
             ]
             [ row
                 [ width fill ]
-                [ text title
+                [ el
+                    [ paddingXY 8 2
+                    , Background.color Theme.colours.highlightPrimary
+                    , Font.alignLeft
+                    , Font.color <| Theme.textColour Theme.colours.lowlight
+                    , Font.bold
+                    ]
+                  <|
+                    text title
                 , el
                     [ alignRight ]
                   <|
@@ -496,6 +504,54 @@ editBlindsOverlay now chipTotal playerCount gameSmallBlind maybeGameTimerStatus 
                 -- unsupported
                 Element.none
         , text ""
+        ]
+
+
+adminOverlay : Element Msg
+adminOverlay =
+    -- TODO: only show abandon round button when a round is active?
+    --       (i.e. not on results screens)
+    column
+        [ width fill
+        , spacing 10
+        ]
+        [ column
+            [ width fill
+            ]
+            [ row
+                [ width fill
+                , spacing 8
+                ]
+                [ column
+                    [ width fill
+                    , spacing 8
+                    ]
+                    [ paragraph
+                        [ width fill
+                        , Font.alignRight
+                        ]
+                        [ text "abandon and restart the current round" ]
+                    , paragraph
+                        [ width fill
+                        , Font.alignRight
+                        , Font.size 15
+                        ]
+                        [ text "returns all bets, resets the dealer, and deals new cards" ]
+                    ]
+                , el
+                    [ alignTop
+                    , alignRight
+                    ]
+                  <|
+                    controlsButton Theme.scheme1 AbandonRound <|
+                        column
+                            [ width fill
+                            ]
+                            [ el [ centerX ] <| text "restart"
+                            , el [ centerX ] <| text "round"
+                            ]
+                ]
+            ]
         ]
 
 

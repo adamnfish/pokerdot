@@ -31,6 +31,7 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
     PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).value()
 
     val preAbandonGameDb = db.getGame(hostWelcome.gameId).value().value
+    val prePlayerDbs = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
 
     // host issues an abandon round request
     PokerDot.pokerdot(abandonRoundRequest(hostWelcome), context(hostAddress)).value()
@@ -43,8 +44,9 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
     // phase is reset to the start of the round
     postAbandonGameDb.phase shouldEqual PreFlop
 
-    val playerDbsShowdown = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
-    playerDbsShowdown.get(hostWelcome.playerId).value should have(
+    // check players were reset
+    val postPlayerDbs = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
+    postPlayerDbs.get(hostWelcome.playerId).value should have(
       "stack" as 1000,
       "bet" as 0,
       "pot" as 0,
@@ -52,7 +54,7 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
       "folded" as false,
       "blind" as 0,
     )
-    playerDbsShowdown.get(p1Welcome.playerId).value should have(
+    postPlayerDbs.get(p1Welcome.playerId).value should have(
       "stack" as 1000,
       "bet" as 0,
       "pot" as 0,
@@ -60,7 +62,7 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
       "folded" as false,
       "blind" as 1,
     )
-    playerDbsShowdown.get(p2Welcome.playerId).value should have(
+    postPlayerDbs.get(p2Welcome.playerId).value should have(
       "stack" as 1000,
       "bet" as 0,
       "pot" as 0,
@@ -68,6 +70,11 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
       "folded" as false,
       "blind" as 2,
     )
+
+    // check player holes changed
+    postPlayerDbs.get(hostWelcome.playerId).value.hole should not equal prePlayerDbs.get(hostWelcome.playerId).value.hole
+    postPlayerDbs.get(p1Welcome.playerId).value.hole should not equal prePlayerDbs.get(p1Welcome.playerId).value.hole
+    postPlayerDbs.get(p2Welcome.playerId).value.hole should not equal prePlayerDbs.get(p2Welcome.playerId).value.hole
   }
 
   "can reset a later round" ignore {}
