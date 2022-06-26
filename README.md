@@ -1,12 +1,16 @@
 Poker Dot
 =========
 
-![Build status](https://github.com/adamnfish/pokerdot/actions/workflows/main.yml/badge.svg)
+<a href="https://github.com/adamnfish/pokerdot/actions">
+  <img src="https://github.com/adamnfish/pokerdot/actions/workflows/main.yml/badge.svg" alt="Build status" style="max-width: 100%;">
+</a>
 
 Play No Limit Texas Hold'em Poker online. It is still a
 work-in-progress, but should be playable.
 
-<img src="frontend/assets/logo.svg" width="100px">
+<a href="https://pokerdot.adamnfish.io/">
+  <img src="frontend/assets/logo.svg" width="100px">
+</a>
 
 [https://pokerdot.adamnfish.io/](https://pokerdot.adamnfish.io/)
 
@@ -17,7 +21,7 @@ is not licensed for commercial use.
 
 If you would like to use pokerdot or its source-code for your business
 or expect to make any money from its use, you must get in touch with
-me to discuss your use.  If you will be using pokerdot for any
+me to discuss your use. If you will be using pokerdot for any
 virtuous purpose (in particular education and community support,
 charity, the climate crisis) please make sure to mention this when you
 contact me.
@@ -31,12 +35,16 @@ The application is made of a static Elm frontend and a Scala API.
 #### Frontend
 
 The [`frontend`](frontend) directory contains an Elm application for
-pokerdot's web-ui.  The application is built using
+pokerdot's web-ui. The application is built using
 [parcel](https://parceljs.org/).
 
 #### API
 
-The Scala API is split into multiple sub-projects.
+The Scala API is split into multiple sub-projects:
+* [core](core)
+* [lambda](lambda)
+* [devserver](devserver)
+* [integration](integration)
 
 The pokerdot API is designed to be run as a serverless lambda function
 to keep running costs to a minumum.
@@ -60,9 +68,9 @@ Provides a program that wraps the core application in a local
 development server.
 
 Data is only persisted in-memory, so server restarts will lose all
-application data.  The devserver does not provide hot reloading on
-code changes.  Iterating on the Scala API is easier to do with tests
-than by running the application and manually running it.
+application data. The devserver does not provide hot reloading on
+code changes. Iterating on the Scala API is easier to do with tests
+than by running the application and manually exercising it.
 
 ##### integration
 
@@ -122,12 +130,12 @@ for non-commercial use, it is not licencsed for commercial use.*
 * Create the [application cloudformation stack](cloudformation/pokerdot.template.yaml)
 
 After creating these two cloudformation stacks pokerdot will be
-running on your account.
+running in your AWS account.
 
 #### DNS + certificates
 
 You will need to set up a domain in Route53 before deploying
-pokerdot's cloudformation stacks.  Subdomains will be created for the
+pokerdot's cloudformation stacks. Subdomains will be created for the
 static application (`pokerdot.[domain]`) and the API
 (`pokerdot-api.[domain]`).
 
@@ -157,11 +165,19 @@ template, so it must be created first.
 
 The application's cloudformation stack is also parameterised on Stage,
 but needs to also be told:
-
 * the application's domain name
 * the HTTPS certificates to use for tho two application subdomains
 * a "dist bucket" that is used to store application artifacts
 * the outputs from the persistent resources cloudformation stack
 
-**Note:** This cloudformation stack creates a CloudFront distribution to serve the static application.
-AWS is very slow to make changes to CloudFront resources, so be patient. This may take tens of minutes to complete.
+The cloudformation stack will create all the resources needed for
+running pokerdot:
+* DNS entries for the application and API
+* a CloudFront distribution to serve the static application
+* a Lambda Function for the API
+* API Gateway to handle API connections
+
+**Note:** This cloudformation stack creates a CloudFront distribution
+to serve the static application. AWS is very slow to make changes to
+CloudFront resources, so be patient. This may take tens of minutes to
+complete.
