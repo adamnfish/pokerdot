@@ -34,6 +34,8 @@ class Lambda {
         .toRight("games table name not configured")
       playersTableName <- Properties.envOrNone("PLAYERS_TABLE")
         .toRight("players table name not configured")
+      gameLogsTableName <- Properties.envOrNone("GAME_LOGS_TABLE")
+        .toRight("game logs table name not configured")
       // create SDK clients
       apiGatewayManagementClient = ApiGatewayManagementApiClient.builder()
         .endpointOverride(apiGatewayEndpointUri)
@@ -46,7 +48,7 @@ class Lambda {
         .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
         .httpClientBuilder(UrlConnectionHttpClient.builder())
         .build()
-      db = new DynamoDbDatabase(dynamoDbClient, gamesTableName, playersTableName)
+      db = new DynamoDbDatabase(dynamoDbClient, gamesTableName, playersTableName, gameLogsTableName)
       rng = new RandomRng
     } yield { (playerAddress: PlayerAddress, awsContext: AwsContext) =>
       val messaging = new AwsMessaging(apiGatewayManagementClient, awsContext.getLogger)

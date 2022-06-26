@@ -39,3 +39,39 @@ case class PlayerDb(
   blind: Int,
   isSpectator: Boolean,
 )
+
+// this table is persisted, so let's use more compact keys
+case class GameLogEntryDb(
+  g: String,   // partition
+  t: Long, // sort
+  e: GameEventDb,
+)
+sealed trait GameEventDb extends Product with Serializable
+case class GS(
+  ps: List[String],
+) extends Product
+case class NR(
+  s: Long,
+  b: Int,
+  sb: Option[Int],
+  sp: Option[PlayerId],
+  bp: PlayerId,
+) extends GameEventDb
+case class EP(
+  p: String
+) extends GameEventDb
+case class C(
+  p: String,
+) extends GameEventDb
+case class B(
+  p: String,
+  b: Int,
+) extends GameEventDb
+case class F(
+  p: String,
+) extends GameEventDb
+case class AR(
+) extends GameEventDb
+case class GE(
+  w: String,
+) extends GameEventDb

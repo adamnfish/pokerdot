@@ -3,7 +3,7 @@ package io.adamnfish.pokerdot.persistence
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import io.adamnfish.pokerdot.logic.Games
 import io.adamnfish.pokerdot.logic.Utils.{EitherUtils, RichList}
-import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.{AR, Attempt, EP, Failure, Failures, GameDb, GameId, GameLogEntryDb, NR, PlayerDb}
 import io.adamnfish.pokerdot.services.Database
 import org.scanamo._
 import org.scanamo.syntax._
@@ -11,12 +11,13 @@ import org.scanamo.generic.auto._
 import zio.IO
 
 
-class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
+class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String, gameLogTableName: String) extends Database {
   // TODO: switch DB models to use PlayerId?
   //  provide implicit to allow Scanamo to use those wrapper types
 
   private val games = Table[GameDb](gameTableName)
   private val players = Table[PlayerDb](playerTableName)
+  private val gameLogs = Table[GameLogEntryDb](gameLogTableName)
 
   // TODO: consider whether this should just derive a gameCode and call lookup
   override def getGame(gameId: GameId): Attempt[Option[GameDb]] = {
@@ -49,7 +50,6 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
     } yield maybeGameDb
   }
 
-
   override def searchGameCode(gameCode: String): Attempt[List[GameDb]] = {
     for {
       results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
@@ -65,15 +65,38 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
   }
 
   override def writeGame(gameDB: GameDb): Attempt[Unit] = {
-    for {
-      result <- execAsAttempt(games.put(gameDB))
-    } yield result
+    execAsAttempt(games.put(gameDB))
   }
 
   override def writePlayer(playerDB: PlayerDb): Attempt[Unit] = {
+    execAsAttempt(players.put(playerDB))
+  }
+
+  override def getPhaseGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
+    // TODO: think about order of records
+    // TODO: start by querying smaller number of records, get more if needed
     for {
-      result <- execAsAttempt(players.put(playerDB))
-    } yield result
+      results <- execAsAttempt(gameLogs.query("gameId" === gameId.gid))
+      gameLogs <- results.ioTraverse(resultToAttempt)
+    } yield gameLogs.takeWhile {
+      _.e match {
+        case _: EP => false
+        case _: AR => false
+        case _: NR => false
+        case _ => true
+      }
+    }
+  }
+
+  override def getFullGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
+    for {
+      results <- execAsAttempt(gameLogs.query("gameId" === gameId.gid))
+      gameLogs <- results.ioTraverse(resultToAttempt)
+    } yield gameLogs
+  }
+
+  override def writeGameEvent(gameLogEntryDb: GameLogEntryDb): Attempt[Unit] = {
+    execAsAttempt(gameLogs.put(gameLogEntryDb))
   }
 
   def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {

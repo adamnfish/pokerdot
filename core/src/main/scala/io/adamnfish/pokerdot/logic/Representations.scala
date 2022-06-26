@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{ActionSummary, BigBlind, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, NoBlind, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, SmallBlind, Spectator, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.models.{AR, AbandonRoundEvent, ActionSummary, B, BetEvent, BigBlind, C, CheckEvent, EP, EndPhaseEvent, F, Failures, Flop, FlopSummary, FoldEvent, GE, Game, GameDb, GameEndEvent, GameEvent, GameEventDb, GameId, GameLogEntry, GameLogEntryDb, GameStatus, GameSummary, NR, NewRoundEvent, NoBlind, Phase, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, SmallBlind, Spectator, SpectatorSummary, Turn, TurnSummary}
 
 
 object Representations {
@@ -308,5 +308,85 @@ object Representations {
       isHost = spectator.isHost,
       isAdmin = spectator.isAdmin,
     )
+  }
+
+  def gameLogEntryToDb(gameLogEntry: GameLogEntry): GameLogEntryDb = {
+    GameLogEntryDb(
+      gameLogEntry.gameId.gid,
+      gameLogEntry.eventTime,
+      gameEventToDb(gameLogEntry.event),
+    )
+  }
+
+  def gameLogEntryFromDb(gameLogEntryDb: GameLogEntryDb): Either[Failures, GameLogEntry] = {
+    for {
+      gameLogEvent <- gameEventFromDb(gameLogEntryDb.e)
+    } yield
+      GameLogEntry(
+        GameId(gameLogEntryDb.g),
+        gameLogEntryDb.t,
+        gameLogEvent,
+      )
+  }
+
+  def gameEventToDb(gameEvent: GameEvent): GameEventDb = {
+    gameEvent match {
+      case NewRoundEvent(seed, button, smallBlind, sbPlayer, bbPlayer) =>
+        NR(seed, button, smallBlind, sbPlayer, bbPlayer)
+      case EndPhaseEvent(phase) =>
+        EP(phaseAsLogString(phase))
+      case CheckEvent(playerId) =>
+        C(playerId)
+      case BetEvent(playerId, bet) =>
+        B(playerId, bet)
+      case FoldEvent(playerId) =>
+        F(playerId)
+      case AbandonRoundEvent() =>
+        AR()
+      case GameEndEvent(winner) =>
+        GE(winner.pid)
+    }
+  }
+
+  def gameEventFromDb(gameEventDb: GameEventDb): Either[Failures, GameEvent] = {
+    gameEventDb match {
+      case NR(s, b, sb, sp, bp) =>
+        Right(NewRoundEvent(s, b, sb, sp, bp))
+      case EP(p) =>
+        phaseFromLogString(p).map(EndPhaseEvent)
+      case C(p) =>
+        Right(CheckEvent(p))
+      case B(p, b) =>
+        Right(BetEvent(p, b))
+      case F(p) =>
+        Right(FoldEvent(p))
+      case AR() =>
+        Right(AbandonRoundEvent())
+      case GE(w) =>
+        Right(GameEndEvent(PlayerId(w)))
+    }
+  }
+
+  def phaseAsLogString(phase: Phase): String = {
+    phase match {
+      case PreFlop => "pf"
+      case Flop => "f"
+      case Turn => "t"
+      case River => "r"
+      case Showdown => "s"
+    }
+  }
+
+  def phaseFromLogString(phaseStr: String): Either[Failures, Phase] = {
+    phaseStr match {
+      case "pf" => Right(PreFlop)
+      case "f" => Right(Flop)
+      case "t" => Right(Turn)
+      case "r" => Right(River)
+      case "s" => Right(Showdown)
+      case str => Left(
+        Failures(s"Invalid phase log string $str", "couldn't understand game log")
+      )
+    }
   }
 }

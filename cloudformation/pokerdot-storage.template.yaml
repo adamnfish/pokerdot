@@ -95,6 +95,32 @@ Resources:
         - Key: "table"
           Value: "games"
 
+  GameLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "pokerdot-game-logs-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: True
+      # no expiry for this table, we want to persist the logs
+      AttributeDefinitions:
+        - AttributeName: "g"
+          AttributeType: "S"
+        - AttributeName: "t"
+          AttributeType: "N"
+      KeySchema:
+        - AttributeName: "g"
+          KeyType: "HASH"
+        - AttributeName: "p"
+          KeyType: "RANGE"
+      Tags:
+        - Key: "app"
+          Value: "pokerdot"
+        - Key: "stage"
+          Value: !Ref Stage
+        - Key: "table"
+          Value: "game-logs"
+
 
 Outputs:
   WebrootAccessIdentityID:
