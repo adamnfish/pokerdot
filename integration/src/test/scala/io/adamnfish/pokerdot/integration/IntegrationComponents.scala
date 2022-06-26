@@ -20,7 +20,8 @@ trait IntegrationComponents {
     val randomSuffix = randomUUID().toString
     val gameTableName = s"games-$randomSuffix"
     val playerTableName = s"players-$randomSuffix"
-    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName)
+    val gameLogTableName = s"game-logs-$randomSuffix"
+    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName, gameLogTableName)
     val testRng = new Rng {
       override def randomState(): Long = 0
       override def nextState(state: Long): Long = new Random(state).nextLong()
@@ -28,22 +29,24 @@ trait IntegrationComponents {
 
     LocalDynamoDB.withTable(client)(gameTableName)("gameCode" -> S, "gameId" -> S) {
       LocalDynamoDB.withTable(client)(playerTableName)("gameId" -> S, "playerId" -> S) {
-        val addressToContext = AppContext(
-          _,
-          testDb,
-          new Messaging {
-            override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
-              IO.unit
-            }
+        LocalDynamoDB.withTable(client)(gameLogTableName)("g" -> S, "t" -> N) {
+          val addressToContext = AppContext(
+            _,
+            testDb,
+            new Messaging {
+              override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
+                IO.unit
+              }
 
-            override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = {
-              IO.unit
-            }
-          },
-          TestClock,
-          testRng,
-        )
-        f(addressToContext, testDb)
+              override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = {
+                IO.unit
+              }
+            },
+            TestClock,
+            testRng,
+          )
+          f(addressToContext, testDb)
+        }
       }
     }
   }

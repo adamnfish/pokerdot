@@ -13,7 +13,7 @@ import java.security.SecureRandom
 
 object DevServer {
   val client = LocalDynamoDB.syncClient()
-  val db = new DynamoDbDatabase(client, "games", "players")
+  val db = new DynamoDbDatabase(client, "games", "players", "gameLogs")
   DevServerDB.createGamesTable(client)
   DevServerDB.createPlayersTable(client)
 

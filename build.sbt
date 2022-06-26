@@ -22,6 +22,7 @@ val commonDeps = Seq(
   "org.scalatest" %% "scalatest" % "3.2.2" % Test,
   "org.scalacheck" %% "scalacheck" % "1.14.1" % Test,
   "org.scalatestplus" %% "scalacheck-1-14" % "3.1.1.1" % Test,
+  "com.github.alexarchambault" %% "scalacheck-shapeless_1.15" % "1.3.0" % Test,
 )
 
 // https://aws.amazon.com/blogs/developer/tuning-the-aws-java-sdk-2-x-to-reduce-startup-time/
