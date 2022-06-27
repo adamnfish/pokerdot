@@ -323,8 +323,8 @@ object Representations {
       gameLogEvent <- gameEventFromDb(gameLogEntryDb.e)
     } yield
       GameLogEntry(
-        GameId(gameLogEntryDb.g),
-        gameLogEntryDb.t,
+        GameId(gameLogEntryDb.gid),
+        gameLogEntryDb.ctd,
         gameLogEvent,
       )
   }

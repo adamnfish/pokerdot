@@ -104,14 +104,14 @@ Resources:
         SSEEnabled: True
       # no expiry for this table, we want to persist the logs
       AttributeDefinitions:
-        - AttributeName: "g"
+        - AttributeName: "gid"
           AttributeType: "S"
-        - AttributeName: "t"
+        - AttributeName: "ctd"
           AttributeType: "N"
       KeySchema:
-        - AttributeName: "g"
+        - AttributeName: "gid"
           KeyType: "HASH"
-        - AttributeName: "p"
+        - AttributeName: "ctd"
           KeyType: "RANGE"
       Tags:
         - Key: "app"

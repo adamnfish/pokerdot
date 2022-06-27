@@ -17,35 +17,39 @@ trait IntegrationComponents {
   private val client = LocalDynamoDB.syncClient()
 
   def withAppContext(f: (PlayerAddress => AppContext, Database) => Any /* Assertion */): Any /* Assertion */ = {
-    val randomSuffix = randomUUID().toString
-    val gameTableName = s"games-$randomSuffix"
-    val playerTableName = s"players-$randomSuffix"
-    val gameLogTableName = s"game-logs-$randomSuffix"
-    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName, gameLogTableName)
     val testRng = new Rng {
       override def randomState(): Long = 0
       override def nextState(state: Long): Long = new Random(state).nextLong()
     }
+    val testMessaging = new Messaging {
+      override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = IO.unit
+      override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = IO.unit
+    }
+
+    withDb { testDb =>
+      val addressToContext = AppContext(
+        _,
+        testDb,
+        testMessaging,
+        TestClock,
+        testRng,
+      )
+      f(addressToContext, testDb)
+    }
+  }
+
+  def withDb(f: Database => Any /* Assertion */): Any /* Assertion */ = {
+    val randomSuffix = randomUUID().toString
+    val gameTableName = s"games-$randomSuffix"
+    val playerTableName = s"players-$randomSuffix"
+    val gameLogTableName = s"game-logs-$randomSuffix"
+
+    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName, gameLogTableName)
 
     LocalDynamoDB.withTable(client)(gameTableName)("gameCode" -> S, "gameId" -> S) {
       LocalDynamoDB.withTable(client)(playerTableName)("gameId" -> S, "playerId" -> S) {
-        LocalDynamoDB.withTable(client)(gameLogTableName)("g" -> S, "t" -> N) {
-          val addressToContext = AppContext(
-            _,
-            testDb,
-            new Messaging {
-              override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
-                IO.unit
-              }
-
-              override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = {
-                IO.unit
-              }
-            },
-            TestClock,
-            testRng,
-          )
-          f(addressToContext, testDb)
+        LocalDynamoDB.withTable(client)(gameLogTableName)("gid" -> S, "ctd" -> N) {
+          f(testDb)
         }
       }
     }

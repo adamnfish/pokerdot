@@ -76,7 +76,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
     // TODO: think about order of records
     // TODO: start by querying smaller number of records, get more if needed
     for {
-      results <- execAsAttempt(gameLogs.query("gameId" === gameId.gid))
+      results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
       gameLogs <- results.ioTraverse(resultToAttempt)
     } yield gameLogs.takeWhile {
       _.e match {
@@ -90,7 +90,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
 
   override def getFullGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
     for {
-      results <- execAsAttempt(gameLogs.query("gameId" === gameId.gid))
+      results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
       gameLogs <- results.ioTraverse(resultToAttempt)
     } yield gameLogs
   }
