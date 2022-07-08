@@ -1,13 +1,13 @@
 package io.adamnfish.pokerdot.persistence
 
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import io.adamnfish.pokerdot.logic.Games
-import io.adamnfish.pokerdot.logic.Utils.{EitherUtils, RichList}
-import io.adamnfish.pokerdot.models.{AR, Attempt, EP, Failure, Failures, GameDb, GameId, GameLogEntryDb, NR, PlayerDb}
+import io.adamnfish.pokerdot.logic.Utils.RichList
+import io.adamnfish.pokerdot.logic.{Games, Logs}
+import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
 import org.scanamo._
-import org.scanamo.syntax._
 import org.scanamo.generic.auto._
+import org.scanamo.syntax._
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import zio.IO
 
 
@@ -72,20 +72,18 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
     execAsAttempt(players.put(playerDB))
   }
 
+  override def writePlayers(playerDBs: Set[PlayerDb]): Attempt[Unit] = {
+    execAsAttempt(players.putAll(playerDBs))
+  }
+
   override def getPhaseGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
     // TODO: think about order of records
     // TODO: start by querying smaller number of records, get more if needed
     for {
       results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
       gameLogs <- results.ioTraverse(resultToAttempt)
-    } yield gameLogs.takeWhile {
-      _.e match {
-        case _: EP => false
-        case _: AR => false
-        case _: NR => false
-        case _ => true
-      }
-    }
+      (phaseEvents, finished) = Logs.tryToGetAllPhaseEvents(gameLogs)
+    } yield phaseEvents
   }
 
   override def getFullGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
@@ -97,6 +95,10 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
 
   override def writeGameEvent(gameLogEntryDb: GameLogEntryDb): Attempt[Unit] = {
     execAsAttempt(gameLogs.put(gameLogEntryDb))
+  }
+
+  override def writeGameEvents(gameLogEntryDbs: Set[GameLogEntryDb]): Attempt[Unit] = {
+    execAsAttempt(gameLogs.putAll(gameLogEntryDbs))
   }
 
   def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {

@@ -14,13 +14,13 @@ import java.util.UUID
  * Game implementation functionality.
  */
 object Games {
-  def newGame(gameName: String, trackStacks: Boolean, clock: Clock, initialState: Long): Game = {
+  def newGame(gameName: String, trackStacks: Boolean, now: Long, initialState: Long): Game = {
     val round = Play.generateRound(PreFlop, 0, initialState)
     val gameId = GameId(UUID.randomUUID().toString)
     Game(
       gameId = gameId,
       gameCode = gameCode(gameId), // try this, we can replace it with a longer unique prefix if required
-      expiry = expiryTime(clock.now()),
+      expiry = expiryTime(now),
       gameName = gameName,
       players = Nil,
       spectators = Nil,
@@ -29,19 +29,19 @@ object Games {
       inTurn = None,
       button = 0,
       started = false,
-      startTime = clock.now(),
+      startTime = now,
       trackStacks = trackStacks,
       timer = None,
     )
   }
 
-  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, clock: Clock): Player = {
+  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, now: Long): Player = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Player(
       gameId = gameId,
       playerId = playerId,
-      expiry = expiryTime(clock.now()),
+      expiry = expiryTime(now),
       screenName = screenName,
       playerAddress = playerAddress,
       playerKey = playerKey,
@@ -59,13 +59,13 @@ object Games {
     )
   }
 
-  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, clock: Clock): Spectator = {
+  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, now: Long): Spectator = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Spectator(
       gameId = gameId,
       playerId = playerId,
-      expiry = expiryTime(clock.now()),
+      expiry = expiryTime(now),
       playerAddress = playerAddress,
       playerKey = playerKey,
       screenName = screenName,

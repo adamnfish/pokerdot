@@ -1,8 +1,8 @@
 package io.adamnfish.pokerdot.integration
 
-import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
+import io.adamnfish.pokerdot.{PokerDot, RunningTestClock, TestHelpers}
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
-import io.adamnfish.pokerdot.models.{AppContext, Attempt, GameStatus, PlayerAddress, PlayerId, TimerLevel, Welcome}
+import io.adamnfish.pokerdot.models.{AppContext, Attempt, B, C, GameStatus, PlayerAddress, PlayerId, TimerLevel, Welcome}
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -16,13 +16,15 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
   val hostAddress = PlayerAddress("host-address")
   val player1Address = PlayerAddress("player-1-address")
 
-  "example heads-up game" in withAppContext { (context, db) =>
+  "example heads-up game" in withAppContext { (context, db, testClock) =>
+    implicit val clock: RunningTestClock = testClock
+
     val (_, hostWelcome, p1Welcome) = gameFixture(context,
       initialSeed = 0L, // determines deck order
       startingStack = Some(1000),
       initialSmallBlind = Some(5),
       timerConfig = None,
-    ).value()
+    ).tick().value()
 
     // check initial state
     db.getGame(hostWelcome.gameId).value().value should have(
@@ -35,12 +37,12 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     // host is dealer and small blind, p1 big blind
     // host is initial player
     // host gas Q♦  7♣ and folds
-    PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).value()
+    PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).tick().value()
     // no more actions required
     // advances straight to showdown (since there is only a winner left in the round)
-    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
     // advance to next round
-    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
 
     // players should be reset for the new round correctly
     val playerDbsNewRound = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
@@ -66,10 +68,19 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
 
     // new round
     // player 1 is first to act, and folds
-    PokerDot.pokerdot(foldRequest(p1Welcome), context(player1Address)).value()
+    PokerDot.pokerdot(foldRequest(p1Welcome), context(player1Address)).tick().value()
+
+    // check the log has all the events we'd expect, without getting into too much detail
+    val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+    val gameEvents = gameLog.map(_.e.getClass.getSimpleName)
+    gameEvents shouldEqual List(
+      "F", "NP", "NR", "NP", "F", "NP", "NR", "GS"
+    )
   }
 
-  "checking on big blind should end the phase" in withAppContext { (context, db) =>
+  "checking on big blind should end the phase" in withAppContext { (context, db, testClock) =>
+    implicit val clock: RunningTestClock = testClock
+
     val (_, hostWelcome, p1Welcome) = gameFixture(context,
       initialSeed = 0L, // determines deck order
       startingStack = Some(1000),
@@ -82,6 +93,7 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     // host is dealer and small blind, p1 big blind
     // host is initial player, and calls
     PokerDot.pokerdot(betRequest(5, hostWelcome), context(hostAddress)).value()
+
     // p1 checks as big blind
     PokerDot.pokerdot(checkRequest(p1Welcome), context(player1Address)).value()
 
@@ -102,7 +114,9 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     )
   }
 
-  "calling a bet should end the phase" in withAppContext { (context, db) =>
+  "calling a bet should end the phase" in withAppContext { (context, db, testClock) =>
+    implicit val clock: RunningTestClock = testClock
+
     val (_, hostWelcome, p1Welcome) = gameFixture(context,
       initialSeed = 0L, // determines deck order
       startingStack = Some(1000),
@@ -140,19 +154,22 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     startingStack: Option[Int],
     initialSmallBlind: Option[Int],
     timerConfig: Option[List[TimerLevel]],
-  )(implicit pos: Position): Attempt[(GameStatus, Welcome, Welcome)] = {
+  )(implicit pos: Position, testClock: RunningTestClock): Attempt[(GameStatus, Welcome, Welcome)] = {
     for {
       hostResponse <- performCreateGame(createGameRequest, contextBuilder(hostAddress), initialSeed)
+      _ <- testClock.tick()
       hostWelcome = hostResponse.messages.find { case (address, _) =>
         address == hostAddress
       }.map(_._2).value
       gameCode = hostWelcome.gameCode
       p1JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-1"), contextBuilder(player1Address))
+      _ <- testClock.tick()
       p1Welcome = p1JoinResponse.messages.get(player1Address).value
       startRequest = startGameRequest(hostWelcome, startingStack, initialSmallBlind, timerConfig,
         List(hostWelcome.playerId, p1Welcome.playerId)
       )
       startResponse <- performStartGame(startRequest, contextBuilder(hostAddress))
+      _ <- testClock.tick()
       gameStatus = startResponse.statuses.get(hostAddress).value
     } yield (gameStatus, hostWelcome, p1Welcome)
   }

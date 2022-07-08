@@ -13,9 +13,10 @@ import java.security.SecureRandom
 
 object DevServer {
   val client = LocalDynamoDB.syncClient()
-  val db = new DynamoDbDatabase(client, "games", "players", "gameLogs")
+  val db = new DynamoDbDatabase(client, "games", "players", "gamelogs")
   DevServerDB.createGamesTable(client)
   DevServerDB.createPlayersTable(client)
+  DevServerDB.createGameLogsTable(client)
 
   def main(args: Array[String]): Unit = {
     val runtime = zio.Runtime.default

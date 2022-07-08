@@ -15,16 +15,16 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
   val initialSeed = 1L
 
   "for a valid request" - {
-    "is successful" in withAppContext { (context, _) =>
+    "is successful" in withAppContext { (context, _, _) =>
       performCreateGame(createGameRequest, context(hostAddress), initialSeed) is ASuccess
     }
 
-    "sends a status message out to the host" in withAppContext { (context, _) =>
+    "sends a status message out to the host" in withAppContext { (context, _, _) =>
       val response = performCreateGame(createGameRequest, context(hostAddress), initialSeed).value()
       response.messages.size shouldEqual 1
     }
 
-    "returns a correct welcome message" in withAppContext { (context, _) =>
+    "returns a correct welcome message" in withAppContext { (context, _, _) =>
       val response = performCreateGame(createGameRequest, context(hostAddress), initialSeed).value()
 
       response.messages.get(hostAddress).value should have(
@@ -33,7 +33,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
       )
     }
 
-    "returns a correct game summary" in withAppContext { (context, _) =>
+    "returns a correct game summary" in withAppContext { (context, _, _) =>
       val response = performCreateGame(createGameRequest, context(hostAddress), initialSeed).value()
       val gameSummary = response.messages.get(hostAddress).value.game
       gameSummary should have(
@@ -45,7 +45,7 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
     }
 
     "persists the saved game to the database" - {
-      "with key fields" in withAppContext { (context, db) =>
+      "with key fields" in withAppContext { (context, db, _) =>
         val response = performCreateGame(createGameRequest, context(hostAddress), initialSeed).value()
         val welcomeMessage = response.messages.get(hostAddress).value
         val gameDb = db.getGame(welcomeMessage.gameId).value().value
@@ -56,18 +56,19 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
         )
       }
 
-      "with an appropriate expiry" in withAppContext { (context, db) =>
+      "with an appropriate expiry" in withAppContext { (context, db, _) =>
         val appContext = context(hostAddress)
         val response = performCreateGame(createGameRequest, appContext, initialSeed).value()
         val welcomeMessage = response.messages.get(hostAddress).value
         val gameDb = db.getGame(welcomeMessage.gameId).value().value
+        val gameNow = appContext.clock.now.value()
 
-        gameDb.expiry should be > appContext.clock.now()
+        gameDb.expiry should be > gameNow
       }
     }
 
     "persists the saved host to the database" - {
-      "with some key fields" in withAppContext { (context, db) =>
+      "with some key fields" in withAppContext { (context, db, _) =>
         val response = performCreateGame(createGameRequest, context(hostAddress), initialSeed).value()
         val welcomeMessage = response.messages.get(hostAddress).value
         val hostDb = db.getPlayers(welcomeMessage.gameId).value().head
@@ -78,31 +79,32 @@ class CreateGameIntegrationTest extends AnyFreeSpec with Matchers with Integrati
         )
       }
 
-      "with an appropriate expiry" in withAppContext { (context, db) =>
+      "with an appropriate expiry" in withAppContext { (context, db, _) =>
         val appContext = context(hostAddress)
         val response = performCreateGame(createGameRequest, appContext, initialSeed).value()
         val welcomeMessage = response.messages.get(hostAddress).value
         val hostDb = db.getPlayers(welcomeMessage.gameId).value().head
+        val gameNow = appContext.clock.now.value()
 
-        hostDb.expiry should be > appContext.clock.now()
+        hostDb.expiry should be > gameNow
       }
     }
   }
 
   "for invalid submissions" - {
-    "fails if the game name is empty" in withAppContext { (context, _) =>
+    "fails if the game name is empty" in withAppContext { (context, _, _) =>
       val appContext = context(hostAddress)
       val result = performCreateGame("""{"gameName": "", "screenName": "player"}""", appContext, initialSeed)
       result is AFailure
     }
 
-    "fails if the player's screen name is empty" in withAppContext { (context, _) =>
+    "fails if the player's screen name is empty" in withAppContext { (context, _, _) =>
       val appContext = context(hostAddress)
       val result = performCreateGame("""{"gameName": "game name", "screenName": ""}""", appContext, initialSeed)
       result is AFailure
     }
 
-    "fails if the JSON is not a valid create game request" in withAppContext { (context, _) =>
+    "fails if the JSON is not a valid create game request" in withAppContext { (context, _, _) =>
       val appContext = context(hostAddress)
       val result = performCreateGame("""{}""", appContext, initialSeed)
       result is AFailure

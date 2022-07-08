@@ -6,9 +6,8 @@ import io.adamnfish.pokerdot.integration.IntegrationComponents.{advancePhaseRequ
 import io.adamnfish.pokerdot.integration.JoinGameIntegrationTest.{joinGameRequest, performJoinGame}
 import io.adamnfish.pokerdot.integration.StartGameIntegrationTest.{performStartGame, startGameRequest}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
+import io.adamnfish.pokerdot.{PokerDot, RunningTestClock, TestHelpers}
 import org.scalactic.source.Position
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -22,13 +21,27 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
   val player3Address = PlayerAddress("player-3-address")
 
   "poker gameplay works" - {
-    "for an example game" in withAppContext { (context, db) =>
+    "for an example game" in withAppContext { (context, db, testClock) =>
+      implicit val clock: RunningTestClock = testClock
+
       val (_, hostWelcome, p1Welcome, p2Welcome, p3Welcome) = gameFixture(context,
         initialSeed = 0L, // determines deck order
         startingStack = Some(1000),
         initialSmallBlind = Some(5),
         timerConfig = None,
       ).value()
+
+      val startGameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      startGameLog.head should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NP("p"),
+      )
+      startGameLog(1).e shouldBe a[NR]
+      startGameLog(2) should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as GS(List(hostWelcome.playerId.pid, p1Welcome.playerId.pid, p2Welcome.playerId.pid, p3Welcome.playerId.pid)),
+      )
+
       // community: K♦  A♦  Q♠  6♥  J♣
       //   host:    Q♦  7♣
       //   p1:      10♠ 7♦
@@ -37,15 +50,20 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       // host is dealer, p1 small blind, p2 big blind, p3 first to act
       // p3 is initial player (left of dealer small blind and big blind)
       // p3 gas 7♠ 6♠ and folds
-      PokerDot.pokerdot(foldRequest(p3Welcome), context(player3Address)).value()
+      PokerDot.pokerdot(foldRequest(p3Welcome), context(player3Address)).tick().value()
+      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual F(p3Welcome.playerId.pid)
       // host has Q♦ 7♣ and calls
-      PokerDot.pokerdot(betRequest(10, hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(betRequest(10, hostWelcome), context(hostAddress)).tick().value()
+      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual B(hostWelcome.playerId.pid, 10)
       // p1 has 10♠ 7♦ and calls from small blind
-      PokerDot.pokerdot(betRequest(5, p1Welcome), context(player1Address)).value()
+      PokerDot.pokerdot(betRequest(5, p1Welcome), context(player1Address)).tick().value()
+      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual B(p1Welcome.playerId.pid, 5)
       // p2 has J♥ Q♣ and checks from big blind
-      PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).value()
+      PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).tick().value()
+      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual C(p2Welcome.playerId.pid)
+
       // phase is now complete
-      // TODO: check database for player states here
+
       val playerDbsPreFlop = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
       playerDbsPreFlop.get(hostWelcome.playerId).value should have(
         "checked" as true,
@@ -67,18 +85,19 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         "bet" as 0,
         "pot" as 0,
       )
-      PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual NP("f")
 
       // community cards K♦ A♦ Q♠ are now visible
       // p1 is first to act, and checks
-      PokerDot.pokerdot(checkRequest(p1Welcome), context(player1Address)).value()
+      PokerDot.pokerdot(checkRequest(p1Welcome), context(player1Address)).tick().value()
       // p2 bets
-      PokerDot.pokerdot(betRequest(10, p2Welcome), context(player2Address)).value()
+      PokerDot.pokerdot(betRequest(10, p2Welcome), context(player2Address)).tick().value()
       // p3 has folded
       // host calls
-      PokerDot.pokerdot(betRequest(10, hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(betRequest(10, hostWelcome), context(hostAddress)).tick().value()
       // p1 needs to react to the bet, and calls with a straight draw
-      PokerDot.pokerdot(betRequest(10, p1Welcome), context(player1Address)).value()
+      PokerDot.pokerdot(betRequest(10, p1Welcome), context(player1Address)).tick().value()
       // phase is complete
       val playerDbsFlop = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
       playerDbsFlop.get(hostWelcome.playerId).value should have(
@@ -101,13 +120,13 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         "bet" as 0,
         "bet" as 0,
       )
-      PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
 
       // community cards K♦ A♦ Q♠ 6♥ are now visible
       // players are cautious about overcards and all check
-      PokerDot.pokerdot(checkRequest(p1Welcome), context(player1Address)).value()
-      PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).value()
-      PokerDot.pokerdot(checkRequest(hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(checkRequest(p1Welcome), context(player1Address)).tick().value()
+      PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).tick().value()
+      PokerDot.pokerdot(checkRequest(hostWelcome), context(hostAddress)).tick().value()
       // phase is complete
       val playerDbsTurn = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
       playerDbsTurn.get(hostWelcome.playerId).value should have(
@@ -130,15 +149,15 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         "bet" as 0,
         "bet" as 0,
       )
-      PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
 
       // all community cards now visible K♦ A♦ Q♠ 6♥ J♣
       // p1 has lucked a straight, and bets
-      PokerDot.pokerdot(betRequest(50, p1Welcome), context(player1Address)).value()
+      PokerDot.pokerdot(betRequest(50, p1Welcome), context(player1Address)).tick().value()
       // p2 has two-pair, decides to call
-      PokerDot.pokerdot(betRequest(50, p2Welcome), context(player2Address)).value()
+      PokerDot.pokerdot(betRequest(50, p2Welcome), context(player2Address)).tick().value()
       // host only has pair of queens and will let these two fight it out
-      PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).value()
+      PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).tick().value()
       // phase is complete
       val playerDbsRiver = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
       playerDbsRiver.get(hostWelcome.playerId).value should have(
@@ -162,7 +181,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         "pot" as 0,
       )
 
-      val response = PokerDot.advancePhase(parseReq(advancePhaseRequest(hostWelcome)), context(hostAddress)).value()
+      val response = PokerDot.advancePhase(parseReq(advancePhaseRequest(hostWelcome)), context(hostAddress)).tick().value()
 
       // pots are preserved at this stage to help the UI show how the game is changed by the result
       val playerDbsShowdown = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
@@ -201,7 +220,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       )
 
       // advance to next round
-      PokerDot.advancePhase(parseReq(advancePhaseRequest(hostWelcome)), context(hostAddress)).value()
+      PokerDot.advancePhase(parseReq(advancePhaseRequest(hostWelcome)), context(hostAddress)).tick().value()
 
       // players should be reset for the new round
       val playerDbsNewRound = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
@@ -238,9 +257,41 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         "blind" as 2,
       )
       // dealer and active player should have moved correctly
-      db.getGame(hostWelcome.gameId).value().value should have(
+      val gameDb = db.getGame(hostWelcome.gameId).value().value
+      gameDb should have(
         "button" as 1,
         "inTurn" as Some(hostWelcome.playerId.pid),
+      )
+
+      // check the game log has been persisted correctly
+      val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      gameLog.head should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NP("p"),
+      )
+      gameLog.tail.head should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NR(
+          gameDb.seed, gameDb.button, Some(gameDb.smallBlind),
+          Some(p2Welcome.playerId.pid), p3Welcome.playerId.pid,
+          List(980, 1090, 930, 1000) // Note: this is total player stacks (including blinds)
+        )
+      )
+
+      // the phase game log should only contain the new phase event, after the new round
+      val phaseLog = db.getPhaseGameLog(hostWelcome.gameId).value()
+      phaseLog.length shouldEqual 1
+      phaseLog.head should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NP("p"), // pre-flop
+      )
+
+      // TODO: check the full game log has been persisted here?
+      // check the log has all the events we'd expect, without getting into too much detail
+      val finalGameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      val allGameEvents = finalGameLog.map(_.e.getClass.getSimpleName)
+      allGameEvents shouldEqual List(
+        "NP", "NR", "NP", "F", "B", "B", "NP", "C", "C", "C", "NP", "B", "B", "B", "C", "NP", "C", "B", "B", "F", "NP", "NR", "GS"
       )
     }
   }
@@ -261,7 +312,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
     startingStack: Option[Int],
     initialSmallBlind: Option[Int],
     timerConfig: Option[List[TimerLevel]],
-  )(implicit pos: Position): Attempt[(GameStatus, Welcome, Welcome, Welcome, Welcome)] = {
+  )(implicit pos: Position, testClock: RunningTestClock): Attempt[(GameStatus, Welcome, Welcome, Welcome, Welcome)] = {
     for {
       hostResponse <- performCreateGame(createGameRequest, contextBuilder(hostAddress), initialSeed)
       hostWelcome = hostResponse.messages.find { case (address, _) =>
@@ -269,15 +320,19 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       }.map(_._2).value
       gameCode = hostWelcome.gameCode
       p1JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-1"), contextBuilder(player1Address))
+      _ <- testClock.tick()
       p1Welcome = p1JoinResponse.messages.get(player1Address).value
       p2JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-2"), contextBuilder(player2Address))
+      _ <- testClock.tick()
       p2Welcome = p2JoinResponse.messages.get(player2Address).value
       p3JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-3"), contextBuilder(player3Address))
+      _ <- testClock.tick()
       p3Welcome = p3JoinResponse.messages.get(player3Address).value
       startRequest = startGameRequest(hostWelcome, startingStack, initialSmallBlind, timerConfig,
         List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId, p3Welcome.playerId)
       )
       startResponse <- performStartGame(startRequest, contextBuilder(hostAddress))
+      _ <- testClock.tick()
       gameStatus = startResponse.statuses.get(hostAddress).value
     } yield (gameStatus, hostWelcome, p1Welcome, p2Welcome, p3Welcome)
   }

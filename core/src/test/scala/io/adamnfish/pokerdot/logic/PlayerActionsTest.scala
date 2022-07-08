@@ -53,12 +53,12 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "fold" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestClock)
+    val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), 0L)
       .copy(stack = 1000)
-    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
+    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), 0L)
       .copy(stack = 1000)
-    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
+    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), 0L)
       .copy(stack = 1000)
 
     "updates player's folded status" in {
@@ -136,16 +136,16 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "advancePhase" - {
     "for the simple phases" - {
-      val game = newGame("Game name", trackStacks = true, TestClock, 1L)
+      val game = newGame("Game name", trackStacks = true, 0L, 1L)
       val p1 :: p2 :: p3 :: p4 :: Nil = Play.dealHoles(
         List(
-          newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestClock)
+          newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), 0L)
             .copy(stack = 1000),
-          newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
+          newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), 0L)
             .copy(stack = 1000),
-          newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
+          newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), 0L)
             .copy(stack = 1000),
-          newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestClock)
+          newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), 0L)
             .copy(stack = 1000),
         ),
         Play.deckOrder(game.seed),
@@ -158,10 +158,10 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           Turn -> River,
         )
         forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
-          val (newGame, _, _) = advancePhase(
+          val (newGame, _, _, _) = advancePhase(
             game.copy(
               round = game.round.copy(phase = phase),
-            ), TestClock, TestRng
+            ), 0L, TestRng
           ).value
           val nextPhase = newGame.round.phase
           nextPhase shouldEqual expected.get(phase).value
@@ -191,7 +191,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+          val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
           newGame.players.map(_.pot) shouldEqual List(
             25, 5, 25, 25
           )
@@ -221,7 +221,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+          val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
           newGame.players.map(_.bet) shouldEqual List(
             0, 0, 0, 0
           )
@@ -252,7 +252,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+          val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
           newGame.players.map(_.checked) shouldEqual List(
             false, false, false, false
           )
@@ -283,7 +283,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+          val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
           newGame.players.map(_.folded) shouldEqual List(
             false, true, false, false
           )
@@ -313,7 +313,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+          val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
           newGame.players.map(_.busted) shouldEqual List(
             false, true, false, false
           )
@@ -343,7 +343,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          advancePhase(testGame, TestClock, TestRng).isLeft shouldEqual true
+          advancePhase(testGame, 0L, TestRng).isLeft shouldEqual true
         }
       }
 
@@ -373,7 +373,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 ),
               )
             )
-            val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+            val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
             newGame.inTurn shouldEqual Some(p2.playerId)
           }
         }
@@ -402,7 +402,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
                 ),
               )
             )
-            val (newGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+            val (newGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
             newGame.inTurn shouldEqual Some(p3.playerId)
           }
         }
@@ -432,7 +432,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
               ),
             )
           )
-          val (updatedGame, _, _) = advancePhase(testGame, TestClock, TestRng).value
+          val (updatedGame, _, _, _) = advancePhase(testGame, 0L, TestRng).value
           updatedGame.round.phase shouldEqual Showdown
         }
       }
@@ -516,10 +516,10 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "advanceFromRiver" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock)
-    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock)
-    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock)
+    val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
+    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), 0L)
+    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), 0L)
+    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), 0L)
     val round = Play.generateRound(River, 5, rawGame.seed)
 
     "excludes folded players from the player hands" in {
@@ -548,12 +548,12 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "advanceFromFoldedFinish" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
     val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
       List(
-        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock),
-        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock),
-        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock),
+        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), 0L),
+        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), 0L),
+        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), 0L),
       ),
       Play.deckOrder(rawGame.seed),
     )
@@ -595,12 +595,12 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "startNewRound" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
     val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
       List(
-        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock),
-        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock),
-        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock),
+        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), 0L),
+        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), 0L),
+        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), 0L),
       ),
       Play.deckOrder(rawGame.seed),
     )
@@ -617,22 +617,22 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
       )
 
       "round is now PreFlop" in {
-        val resultingGame = startNewRound(game, TestClock, TestRng).value
+        val resultingGame = startNewRound(game, 0L, TestRng).value
         resultingGame.round.phase shouldEqual PreFlop
       }
 
       "deals new holes to all players non-busted" in {
-        val resultingGame = startNewRound(game, TestClock, TestRng).value
+        val resultingGame = startNewRound(game, 0L, TestRng).value
         resultingGame.players.map(_.hole.isDefined) shouldEqual List(true, true, false)
       }
 
       "new cards are dealt" in {
-        val resultingGame = startNewRound(game, TestClock, TestRng).value
+        val resultingGame = startNewRound(game, 0L, TestRng).value
         resultingGame.seed should not equal game.seed
       }
 
       "all players have empty pots after new round starts" in {
-        val resultingGame = startNewRound(game, TestClock, TestRng).value
+        val resultingGame = startNewRound(game, 0L, TestRng).value
         resultingGame.players.map(_.pot) shouldEqual List(0, 0, 0)
       }
 
@@ -654,7 +654,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
             ))
           ),
         )
-        val updatedGame = startNewRound(game, new ConfigurableTestClock(150 * 1000), TestRng).value
+        val updatedGame = startNewRound(game, 150 * 1000, TestRng).value
         updatedGame.round.smallBlind shouldEqual 20
       }
     }
@@ -669,7 +669,7 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           p3.copy(stack = 0, busted = true)
         )
       )
-      startNewRound(game, TestClock, TestRng).isLeft shouldEqual true
+      startNewRound(game, 0L, TestRng).isLeft shouldEqual true
     }
 
     "fails if there is a paused timer" in {
@@ -690,16 +690,16 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           ))
         ),
       )
-      val result = startNewRound(game, new ConfigurableTestClock(250), TestRng)
+      val result = startNewRound(game, 250, TestRng)
       result.isLeft shouldEqual true
     }
   }
 
   "updateBlind" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
-    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock)
-    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock)
-    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock)
+    val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
+    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), 0L)
+    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), 0L)
+    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), 0L)
     val game = rawGame.copy(
       players = List(p1, p2, p3),
       started = true,
@@ -1130,13 +1130,13 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "abandonRound" - {
-    val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
+    val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
       .copy(started = true)
-    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock)
+    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), 0L)
       .copy(stack = 1000)
-    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock)
+    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), 0L)
       .copy(stack = 1000)
-    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock)
+    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), 0L)
       .copy(stack = 1000)
 
     val deck = Play.deckOrder(rawGame.seed)
@@ -1215,14 +1215,14 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   }
 
   "ensurePlayersHaveFinishedActing" - {
-    val game = newGame("Game name", trackStacks = true, TestClock, 1L)
-    val p1 = newPlayer(game.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), TestClock).copy(
+    val game = newGame("Game name", trackStacks = true, 0L, 1L)
+    val p1 = newPlayer(game.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), 0L).copy(
       stack = 1000
     )
-    val p3 = newPlayer(game.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), TestClock).copy(
+    val p3 = newPlayer(game.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), 0L).copy(
       stack = 1000
     )
-    val p2 = newPlayer(game.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), TestClock).copy(
+    val p2 = newPlayer(game.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), 0L).copy(
       stack = 1000
     )
 

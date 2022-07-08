@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.integration
 
-import io.adamnfish.pokerdot.TestClock
+import io.adamnfish.pokerdot.{RunningTestClock, TestClock}
 import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
@@ -16,7 +16,7 @@ import scala.util.Random
 trait IntegrationComponents {
   private val client = LocalDynamoDB.syncClient()
 
-  def withAppContext(f: (PlayerAddress => AppContext, Database) => Any /* Assertion */): Any /* Assertion */ = {
+  def withAppContext(f: (PlayerAddress => AppContext, Database, RunningTestClock) => Any /* Assertion */): Any /* Assertion */ = {
     val testRng = new Rng {
       override def randomState(): Long = 0
       override def nextState(state: Long): Long = new Random(state).nextLong()
@@ -25,16 +25,18 @@ trait IntegrationComponents {
       override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = IO.unit
       override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = IO.unit
     }
+    val testClock =
+      new RunningTestClock
 
     withDb { testDb =>
       val addressToContext = AppContext(
         _,
         testDb,
         testMessaging,
-        TestClock,
+        testClock,
         testRng,
       )
-      f(addressToContext, testDb)
+      f(addressToContext, testDb, testClock)
     }
   }
 

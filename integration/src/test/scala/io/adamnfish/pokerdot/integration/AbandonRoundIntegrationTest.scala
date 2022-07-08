@@ -1,11 +1,11 @@
 package io.adamnfish.pokerdot.integration
 
-import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
+import io.adamnfish.pokerdot.{PokerDot, RunningTestClock, TestHelpers}
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
 import io.adamnfish.pokerdot.integration.IntegrationComponents.{abandonRoundRequest, betRequest, checkRequest, foldRequest}
 import io.adamnfish.pokerdot.integration.JoinGameIntegrationTest.{joinGameRequest, performJoinGame}
 import io.adamnfish.pokerdot.integration.StartGameIntegrationTest.{performStartGame, startGameRequest}
-import io.adamnfish.pokerdot.models.{AppContext, Attempt, GameStatus, PlayerAddress, PlayerId, PreFlop, TimerLevel, Welcome}
+import io.adamnfish.pokerdot.models.{AR, AppContext, Attempt, B, C, F, GS, GameStatus, NP, NR, PlayerAddress, PlayerId, PreFlop, TimerLevel, Welcome}
 import org.scalactic.source.Position
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -17,7 +17,9 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
   val player1Address = PlayerAddress("player-1-address")
   val player2Address = PlayerAddress("player-2-address")
 
-  "can reset the first round of a game"  in withAppContext { (context, db) =>
+  "can reset the first round of a game"  in withAppContext { (context, db, testClock) =>
+    implicit val clock: RunningTestClock = testClock
+
     val (_, hostWelcome, p1Welcome, p2Welcome) = gameFixture(context,
       initialSeed = 10L, // determines deck order
       startingStack = Some(1000),
@@ -26,15 +28,15 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
     ).value()
 
     // perform some actions
-    PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).value()
-    PokerDot.pokerdot(betRequest(5, p1Welcome), context(player1Address)).value()
-    PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).value()
+    PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress)).tick().value()
+    PokerDot.pokerdot(betRequest(5, p1Welcome), context(player1Address)).tick().value()
+    PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).tick().value()
 
     val preAbandonGameDb = db.getGame(hostWelcome.gameId).value().value
     val prePlayerDbs = db.getPlayers(hostWelcome.gameId).value().map(pdb => (PlayerId(pdb.playerId), pdb)).toMap
 
     // host issues an abandon round request
-    PokerDot.pokerdot(abandonRoundRequest(hostWelcome), context(hostAddress)).value()
+    PokerDot.pokerdot(abandonRoundRequest(hostWelcome), context(hostAddress)).tick().value()
 
     val postAbandonGameDb = db.getGame(hostWelcome.gameId).value().value
     // changing the seed causes new cards to be dealt
@@ -75,11 +77,35 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
     postPlayerDbs.get(hostWelcome.playerId).value.hole should not equal prePlayerDbs.get(hostWelcome.playerId).value.hole
     postPlayerDbs.get(p1Welcome.playerId).value.hole should not equal prePlayerDbs.get(p1Welcome.playerId).value.hole
     postPlayerDbs.get(p2Welcome.playerId).value.hole should not equal prePlayerDbs.get(p2Welcome.playerId).value.hole
+
+    // check the game log has been persisted correctly
+    val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+    gameLog.head should have(
+      "gid" as hostWelcome.gameId.gid,
+      "e" as NP("p")
+    )
+    gameLog(1) should have(
+      "gid" as hostWelcome.gameId.gid,
+      "e" as NR(postAbandonGameDb.seed, postAbandonGameDb.button, Some(5), Some(p1Welcome.playerId.pid), p2Welcome.playerId.pid, List(1000, 1000, 1000))
+    )
+    gameLog(2) should have(
+      "gid" as hostWelcome.gameId.gid,
+      "e" as AR()
+    )
+    // the phase game log should now be empty, since abandon round also resets the phase
+    val phaseLog = db.getPhaseGameLog(hostWelcome.gameId).value()
+    phaseLog.length shouldEqual 1
+    phaseLog.head should have(
+      "gid" as hostWelcome.gameId.gid,
+      "e" as NP("p")
+    )
   }
 
   "can reset a later round" ignore {}
 
-  "a round can be abandoned even if players haven't acted"  in withAppContext { (context, db) =>
+  "a round can be abandoned even if players haven't acted"  in withAppContext { (context, db, testClock) =>
+    implicit val clock: RunningTestClock = testClock
+
     // mostly this makes sure the -ve integration tests below are working
     val (_, hostWelcome, p1Welcome, p2Welcome) = gameFixture(context,
       initialSeed = 10L, // determines deck order
@@ -97,7 +123,9 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
   }
 
   "invalid requests" - {
-    "an otherwise valid request fails if the player is not an admin" in withAppContext { (context, _) =>
+    "an otherwise valid request fails if the player is not an admin" in withAppContext { (context, _, testClock) =>
+      implicit val clock: RunningTestClock = testClock
+
       val (_, hostWelcome, p1Welcome, p2Welcome) = gameFixture(context,
         initialSeed = 10L, // determines deck order
         startingStack = Some(1000),
@@ -121,7 +149,7 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
     startingStack: Option[Int],
     initialSmallBlind: Option[Int],
     timerConfig: Option[List[TimerLevel]],
-  )(implicit pos: Position): Attempt[(GameStatus, Welcome, Welcome, Welcome)] = {
+  )(implicit pos: Position, testClock: RunningTestClock): Attempt[(GameStatus, Welcome, Welcome, Welcome)] = {
     for {
       hostResponse <- performCreateGame(createGameRequest, contextBuilder(hostAddress), initialSeed)
       hostWelcome = hostResponse.messages.find { case (address, _) =>
@@ -129,15 +157,18 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
       }.map(_._2).value
       gameCode = hostWelcome.gameCode
       p1JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-1"), contextBuilder(player1Address))
+      _ <- testClock.tick()
       p1Welcome = p1JoinResponse.messages.get(player1Address).value
       p2JoinResponse <- performJoinGame(joinGameRequest(gameCode, "player-2"), contextBuilder(player2Address))
+      _ <- testClock.tick()
       p2Welcome = p2JoinResponse.messages.get(player2Address).value
       startRequest = startGameRequest(hostWelcome, startingStack, initialSmallBlind, timerConfig,
         List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
       )
+      _ <- testClock.tick()
       startResponse <- performStartGame(startRequest, contextBuilder(hostAddress))
+      _ <- testClock.tick()
       gameStatus = startResponse.statuses.get(hostAddress).value
     } yield (gameStatus, hostWelcome, p1Welcome, p2Welcome)
   }
-
 }

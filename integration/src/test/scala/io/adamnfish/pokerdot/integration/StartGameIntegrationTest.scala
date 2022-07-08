@@ -22,21 +22,21 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
   val player2Address = PlayerAddress("player-2-address")
 
   "for a basic start game call" - {
-    "is successful" in withAppContext { (context, _) =>
+    "is successful" in withAppContext { (context, _, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
       performStartGame(startGameRequest(hostWelcome, None, None, None, playerOrder), context(hostAddress)) is ASuccess
     }
 
     "sends status messages" - {
-      "to every player" in withAppContext { (context, _) =>
+      "to every player" in withAppContext { (context, _, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         val response = performStartGame(startGameRequest(hostWelcome, None, None, None, playerOrder), context(hostAddress)).value()
         response.statuses.keys should(contain.allOf(hostAddress, player1Address, player2Address))
       }
 
-      "with the game started action" in withAppContext { (context, _) =>
+      "with the game started action" in withAppContext { (context, _, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         val response = performStartGame(startGameRequest(hostWelcome, None, None, None, playerOrder), context(hostAddress)).value()
@@ -45,7 +45,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
     }
 
     "the player order" - {
-      "is reflected in the status message's game" in withAppContext { (context, _) =>
+      "is reflected in the status message's game" in withAppContext { (context, _, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(
           p2Welcome.playerId, p1Welcome.playerId, hostWelcome.playerId
@@ -55,7 +55,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         gameStatusMessage.game.players.map(_.playerId) shouldEqual playerOrder
       }
 
-      "is persisted to the database" in withAppContext { (context, db) =>
+      "is persisted to the database" in withAppContext { (context, db, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(
           p2Welcome.playerId, p1Welcome.playerId, hostWelcome.playerId
@@ -65,7 +65,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         gameDb.playerIds shouldEqual playerOrder.map(_.pid)
       }
 
-      "determines the initial `inTurn` player - player after dealer and blinds" in withAppContext { (context, _) =>
+      "determines the initial `inTurn` player - player after dealer and blinds" in withAppContext { (context, _, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(
           p2Welcome.playerId, p1Welcome.playerId, hostWelcome.playerId
@@ -76,22 +76,23 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
       }
     }
 
-    "persists the game to the database" in withAppContext { (context, db) =>
+    "persists the game to the database" in withAppContext { (context, db, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(
         p2Welcome.playerId, p1Welcome.playerId, hostWelcome.playerId
       )
+      val gameNow = context(hostAddress).clock.now.value()
       performStartGame(startGameRequest(hostWelcome, None, None, None, playerOrder), context(hostAddress)).value()
       val gameDb = db.getGame(hostWelcome.gameId).value().value
       gameDb should have(
         "started" as true,
-        "startTime" as TestClock.now(),
-        "expiry" as Games.expiryTime(TestClock.now()),
+        "startTime" as gameNow,
+        "expiry" as Games.expiryTime(gameNow),
         "button" as 0,
       )
     }
 
-    "persists the players to the database" in withAppContext { (context, db) =>
+    "persists the players to the database" in withAppContext { (context, db, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(
         p2Welcome.playerId, p1Welcome.playerId, hostWelcome.playerId
@@ -99,6 +100,40 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
       performStartGame(startGameRequest(hostWelcome, None, None, None, playerOrder), context(hostAddress)).value()
       val playerDbs = db.getPlayers(hostWelcome.gameId).value()
       playerDbs.map(_.playerId).toSet shouldEqual playerOrder.map(_.pid).toSet
+    }
+
+    "persists event log messages to the database" in withAppContext { (context, db, _) =>
+      val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
+      val playerOrder = List(
+        p2Welcome.playerId, p1Welcome.playerId, hostWelcome.playerId
+      )
+      performStartGame(startGameRequest(hostWelcome, Some(1000), Some(5), None, playerOrder), context(hostAddress)).value()
+
+      val newGameDb = db.getGame(hostWelcome.gameId).value().value
+      val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      gameLog.head should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NP("p"),
+      )
+      gameLog(1) should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NR(
+          newGameDb.seed, newGameDb.button, Some(newGameDb.smallBlind),
+          Some(p1Welcome.playerId.pid), hostWelcome.playerId.pid, // these blinds match the player order above
+          List(1000, 1000, 1000) // Note: total player stacks (including paid blinds)
+        ),
+      )
+      gameLog(2) should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as GS(playerOrder.map(_.pid)),
+      )
+
+      val phaseLog = db.getPhaseGameLog(hostWelcome.gameId).value()
+      phaseLog.length shouldEqual 1
+      phaseLog.head should have(
+        "gid" as hostWelcome.gameId.gid,
+        "e" as NP("p"),
+      )
     }
   }
 
@@ -108,7 +143,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
     "if initial small blind is provided" - {
       val initialSmallBlind = 5
 
-      "sends game status messages with the correct game state" in withAppContext { (context, _) =>
+      "sends game status messages with the correct game state" in withAppContext { (context, _, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         val response = performStartGame(startGameRequest(hostWelcome, Some(initialStack), Some(initialSmallBlind), None, playerOrder), context(hostAddress)).value()
@@ -120,7 +155,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         )
       }
 
-      "persists the correct game state" in withAppContext { (context, db) =>
+      "persists the correct game state" in withAppContext { (context, db, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         performStartGame(startGameRequest(hostWelcome, Some(initialStack), Some(initialSmallBlind), None, playerOrder), context(hostAddress)).value()
@@ -133,7 +168,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         )
       }
 
-      "saves the initial stack config to each player" in withAppContext { (context, db) =>
+      "saves the initial stack config to each player" in withAppContext { (context, db, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         performStartGame(startGameRequest(hostWelcome, Some(initialStack), Some(initialSmallBlind), None, playerOrder), context(hostAddress)).value()
@@ -151,7 +186,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         RoundLevel(450, 50),
       )
 
-      "sends game status messages with the correct game state" in withAppContext { (context, _) =>
+      "sends game status messages with the correct game state" in withAppContext { (context, _, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         val response = performStartGame(startGameRequest(hostWelcome, Some(initialStack), None, Some(timerConfig), playerOrder), context(hostAddress)).value()
@@ -163,7 +198,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         )
       }
 
-      "persists the game information, including the time config"  in withAppContext { (context, db) =>
+      "persists the game information, including the time config"  in withAppContext { (context, db, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         performStartGame(startGameRequest(hostWelcome, Some(initialStack), None, Some(timerConfig), playerOrder), context(hostAddress)).value()
@@ -180,7 +215,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         )
       }
 
-      "saves the initial stack config to each player" in withAppContext { (context, db) =>
+      "saves the initial stack config to each player" in withAppContext { (context, db, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         performStartGame(startGameRequest(hostWelcome, Some(initialStack), None, Some(timerConfig), playerOrder), context(hostAddress)).value()
@@ -188,7 +223,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         playerDbs.map(pdb => pdb.stack + pdb.bet).distinct shouldEqual List(initialStack)
       }
 
-      "player blind payments should be persisted" in withAppContext { (context, db) =>
+      "player blind payments should be persisted" in withAppContext { (context, db, _) =>
         val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
         val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
         performStartGame(startGameRequest(hostWelcome, Some(initialStack), None, Some(timerConfig), playerOrder), context(hostAddress)).value()
@@ -199,7 +234,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
       }
     }
 
-    "fails if neither timer config nor initial small blind are provided"  in withAppContext { (context, _) =>
+    "fails if neither timer config nor initial small blind are provided"  in withAppContext { (context, _, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
       val result = performStartGame(startGameRequest(hostWelcome, Some(initialStack), None, None, playerOrder), context(hostAddress))
@@ -208,7 +243,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
   }
 
   "fails, when" - {
-    "the game has already started" in withAppContext { (context, _) =>
+    "the game has already started" in withAppContext { (context, _, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
       performStartGame(startGameRequest(hostWelcome, None, None, None, playerOrder), context(hostAddress)).value()
@@ -217,20 +252,20 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
       result is AFailure
     }
 
-    "the request is not a valid start game request" in withAppContext { (context, _) =>
+    "the request is not a valid start game request" in withAppContext { (context, _, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val result = performStartGame("""{"foo":"bar"}""", context(hostAddress))
       result is AFailure
     }
 
-    "the player making the call is not the host" in withAppContext { (context, _) =>
+    "the player making the call is not the host" in withAppContext { (context, _, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
       val result = performStartGame(startGameRequest(p1Welcome, None, None, None, playerOrder), context(player1Address))
       result is AFailure
     }
 
-    "this player has not joined this game" in withAppContext { (context, _) =>
+    "this player has not joined this game" in withAppContext { (context, _, _) =>
       val (hostWelcome, p1Welcome, p2Welcome) = gameFixture(context).value()
       val playerOrder = List(hostWelcome.playerId, p1Welcome.playerId, p2Welcome.playerId)
       val playerAddress = PlayerAddress("another-address")

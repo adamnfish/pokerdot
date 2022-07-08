@@ -298,7 +298,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -317,7 +317,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -336,7 +336,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)

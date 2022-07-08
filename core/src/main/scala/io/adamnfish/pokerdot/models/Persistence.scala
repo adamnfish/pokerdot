@@ -42,23 +42,26 @@ case class PlayerDb(
 
 // this table is persisted, so let's use more compact keys
 case class GameLogEntryDb(
-  gid: String,   // partition
-  ctd: Long, // sort
+  gid: String,  // partition
+  ctd: Long,    // sort
   e: GameEventDb,
 )
 sealed trait GameEventDb extends Product with Serializable
 case class GS(
   ps: List[String],
-) extends Product
+) extends GameEventDb
 case class NR(
   s: Long,
   b: Int,
   sb: Option[Int],
-  sp: Option[PlayerId],
-  bp: PlayerId,
+  sp: Option[String],
+  bp: String,
+  ps: List[Int],
 ) extends GameEventDb
-case class EP(
-  p: String
+case class AR(
+) extends GameEventDb
+case class NP(
+  p: String,
 ) extends GameEventDb
 case class C(
   p: String,
@@ -69,8 +72,6 @@ case class B(
 ) extends GameEventDb
 case class F(
   p: String,
-) extends GameEventDb
-case class AR(
 ) extends GameEventDb
 case class GE(
   w: String,
