@@ -14,6 +14,7 @@ trait Database {
   def writeGame(gameDB: GameDb): Attempt[Unit]
 
   def writePlayer(playerDB: PlayerDb): Attempt[Unit]
+  def writePlayers(playerDBs: Set[PlayerDb]): Attempt[Unit]
 
   // get log entries only back as far as the start of this phase
   // this can use a smaller query on the assumption there won't be millions of matching entries
@@ -24,6 +25,7 @@ trait Database {
   def getFullGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]]
 
   def writeGameEvent(gameLogEntryDb: GameLogEntryDb): Attempt[Unit]
+  def writeGameEvents(gameLogEntryDbs: Set[GameLogEntryDb]): Attempt[Unit]
 }
 
 object Database {

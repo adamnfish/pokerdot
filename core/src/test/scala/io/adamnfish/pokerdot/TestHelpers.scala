@@ -89,6 +89,10 @@ trait TestHelpers extends Matchers {
           else Failed(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}").toSucceeded
       }
     }
+
+    def tick()(implicit testClock: RunningTestClock): Attempt[A] = {
+      aa <* testClock.tick()
+    }
   }
 
   sealed trait AttemptStatus

@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{Games, PlayerActions, Representations, Responses}
+import io.adamnfish.pokerdot.logic.{Games, Logs, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
 import io.adamnfish.pokerdot.validation.Validation.{extractAbandonRound, extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind}
@@ -73,10 +73,11 @@ object PokerDot {
   def createGame(requestJson: Json, appContext: AppContext, initialSeed: Long): Attempt[Response[Welcome]] = {
     for {
       createGame <- extractCreateGame(requestJson).attempt
-      rawGame = Games.newGame(createGame.gameName, trackStacks = false, appContext.clock, initialSeed)
+      now <- appContext.clock.now
+      rawGame = Games.newGame(createGame.gameName, trackStacks = false, now, initialSeed)
       uniqueGameCode <- Games.makeUniquePrefix(rawGame.gameId, appContext.db, Database.checkUniquePrefix)
       game = rawGame.copy(gameCode = uniqueGameCode)
-      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, appContext.clock)
+      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, now)
       gameWithHost = Games.addPlayer(game, host)
       gameDb = Representations.gameToDb(gameWithHost)
       hostDb = Representations.playerToDb(host)
@@ -109,7 +110,8 @@ object PokerDot {
       _ <- Games.ensureNotAlreadyPlaying(game.players, appContext.playerAddress).attempt
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName).attempt
       _ <- Games.ensurePlayerCount(game.players.length).attempt
-      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, appContext.clock)
+      now <- appContext.clock.now
+      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, now)
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player, appContext.playerAddress)
       playerDb = Representations.playerToDb(player)
@@ -139,14 +141,18 @@ object PokerDot {
       _ <- Games.ensureNotStarted(rawGame).attempt
       _ <- Games.ensureHost(rawGame.players, startGame.playerKey).attempt
       _ <- Games.ensureStartingPlayerCount(rawGame.players.length).attempt
-      now = appContext.clock.now()
+      now <- appContext.clock.now
       startedGame = Games.start(rawGame, now, startGame.initialSmallBlind, startGame.timerConfig, startGame.startingStack, startGame.playerOrder)
       startedGameDb = Representations.gameToDb(startedGame)
       playerDbs = Representations.allPlayerDbs(startedGame.players)
+      logEvents <- Logs.gameStartEvents(now, startedGame).attempt
+      logEventDbs = logEvents.map(Representations.gameLogEntryToDb)
       // update all players with dealt cards, stack size etc
-      _ <- playerDbs.ioTraverse(appContext.db.writePlayer)
+      _ <- appContext.db.writePlayers(playerDbs.toSet)
       // persist started game
       _ <- appContext.db.writeGame(startedGameDb)
+      // write game log
+      _ <- appContext.db.writeGameEvents(logEventDbs.toSet)
     } yield Responses.gameStatuses(startedGame, GameStartedSummary(), startGame.playerId, appContext.playerAddress)
   }
 
@@ -162,15 +168,20 @@ object PokerDot {
       _ <- Games.ensureStarted(rawGame).attempt
       rawPlayer <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey).attempt
       _ <- Games.ensureActive(rawGame.inTurn, bet.playerId).attempt
+      now <- appContext.clock.now
       betResult <- PlayerActions.bet(rawGame, bet.betAmount, rawPlayer).attempt
       (newGame, action) = betResult
       // obtain DB representations for persistence
       updatedPlayerDbs = Representations.activePlayerDbs(newGame.players)
       newGameDb = Representations.gameToDb(newGame)
+      logEvent = Logs.betEvent(now, bet)
+      logEventDb = Representations.gameLogEntryToDb(logEvent)
       // save this player
-      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
+      // write game log
+      _ <- appContext.db.writeGameEvent(logEventDb)
     } yield Responses.gameStatuses(newGame, action, bet.playerId, appContext.playerAddress)
   }
 
@@ -186,14 +197,19 @@ object PokerDot {
       _ <- Games.ensureStarted(rawGame).attempt
       player <- Games.ensurePlayerKey(rawGame.players, check.playerId, check.playerKey).attempt
       _ <- Games.ensureActive(rawGame.inTurn, check.playerId).attempt // TODO: allow off-turn checks?
+      now <- appContext.clock.now
       newGame <- PlayerActions.check(rawGame, player).attempt
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(check.playerId)).attempt
       newGameDb = Representations.gameToDb(newGame)
+      logEvent = Logs.checkEvent(now, check)
+      logEventDb = Representations.gameLogEntryToDb(logEvent)
       // save this player
-      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
+      // write game log
+      _ <- appContext.db.writeGameEvent(logEventDb)
     } yield Responses.gameStatuses(newGame, CheckSummary(check.playerId), check.playerId, appContext.playerAddress)
   }
 
@@ -209,14 +225,19 @@ object PokerDot {
       _ <- Games.ensureStarted(rawGame).attempt
       player <- Games.ensurePlayerKey(rawGame.players, fold.playerId, fold.playerKey).attempt
       _ <- Games.ensureActive(rawGame.inTurn, fold.playerId).attempt // TODO: allow off-turn folds?
+      now <- appContext.clock.now
       newGame = PlayerActions.fold(rawGame, player)
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(fold.playerId)).attempt
       newGameDb = Representations.gameToDb(newGame)
+      logEvent = Logs.foldEvent(now, fold)
+      logEventDb = Representations.gameLogEntryToDb(logEvent)
       // save this player
-      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
+      // write game log
+      _ <- appContext.db.writeGameEvent(logEventDb)
     } yield Responses.gameStatuses(newGame, FoldSummary(fold.playerId), fold.playerId, appContext.playerAddress)
   }
 
@@ -244,13 +265,16 @@ object PokerDot {
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
       // TODO: recursively call this operation if we are auto-advancing?
-      advanceResult <- PlayerActions.advancePhase(game, appContext.clock, appContext.rng).attempt
-      (updatedGame, updatedPlayers, winnings) = advanceResult
+      now <- appContext.clock.now
+      advanceResult <- PlayerActions.advancePhase(game, now, appContext.rng).attempt
+      (updatedGame, updatedPlayers, winnings, logEvents) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)
       // only do DB updates for players that have changed
       updatedPlayerDbs <- Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers).attempt
-      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      logEventDbs = logEvents.map(Representations.gameLogEntryToDb)
+      _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       _ <- appContext.db.writeGame(newGameDb)
+      _ <- appContext.db.writeGameEvents(logEventDbs.toSet)
     } yield {
       // TODO: this is too much logic for the controller
       winnings match {
@@ -281,7 +305,7 @@ object PokerDot {
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, updateBlind.playerKey).attempt
-      now = appContext.clock.now()
+      now <- appContext.clock.now
       updatedGame <- PlayerActions.updateBlind(game, updateBlind, now).attempt
       newGameDb = Representations.gameToDb(updatedGame)
       action <- Games.updateBlindAction(updateBlind).attempt
@@ -306,11 +330,15 @@ object PokerDot {
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, abandonRound.playerKey).attempt
+      now <- appContext.clock.now
       updatedGame = PlayerActions.abandonRound(game, appContext.rng)
       updatedPlayerDbs = Representations.allPlayerDbs(updatedGame.players)
       updatedGameDb = Representations.gameToDb(updatedGame)
-      _ <- updatedPlayerDbs.ioTraverse(appContext.db.writePlayer)
+      logEvents <- Logs.abandonRoundEvents(now, updatedGame).attempt
+      logEventDbs = logEvents.map(Representations.gameLogEntryToDb)
+      _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       _ <- appContext.db.writeGame(updatedGameDb)
+      _ <- appContext.db.writeGameEvents(logEventDbs.toSet)
     } yield Responses.gameStatuses(updatedGame, AbandonRoundSummary(), abandonRound.playerId, appContext.playerAddress)
   }
 

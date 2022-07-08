@@ -117,42 +117,40 @@ case class NoActionSummary(
 ) extends ActionSummary
 
 
-case class GameLogEntry(
-  gameId: GameId,
+case class GameLogEntrySummary(
   eventTime: Long,
-  event: GameEvent,
+  event: GameEventSummary,
 )
 
-sealed trait GameEvent extends Product
-case class GameStartEvent(
+sealed trait GameEventSummary extends Product
+case class GameStartEventSummary(
   playerIds: List[PlayerId],
-) extends Product
-case class NewRoundEvent(
-  seed: Long,
-  button: Int,
+) extends GameEventSummary
+case class NewRoundEventSummary(
   smallBlind: Option[Int],
+  button: Int,
   sbPlayer: Option[PlayerId],
   bbPlayer: PlayerId,
-) extends GameEvent
-case class EndPhaseEvent(
-  phase: Phase
-) extends GameEvent
-case class CheckEvent(
-  playerId: String,
-) extends GameEvent
-case class BetEvent(
-  playerId: String,
+  stacks: List[Int],
+) extends GameEventSummary
+case class AbandonRoundEventSummary(
+) extends GameEventSummary
+case class NewPhaseEventSummary(
+  phase: Phase,
+) extends GameEventSummary
+case class CheckEventSummary(
+  playerId: PlayerId,
+) extends GameEventSummary
+case class BetEventSummary(
+  playerId: PlayerId,
   bet: Int,
-) extends GameEvent
-case class FoldEvent(
-  playerId: String,
-) extends GameEvent
-case class AbandonRoundEvent(
-) extends GameEvent
-case class GameEndEvent(
+) extends GameEventSummary
+case class FoldEventSummary(
+  playerId: PlayerId,
+) extends GameEventSummary
+case class GameEndEventSummary(
   winner: PlayerId,
-) extends GameEvent
-
+) extends GameEventSummary
 
 // Data received from clients
 sealed trait Request extends Product

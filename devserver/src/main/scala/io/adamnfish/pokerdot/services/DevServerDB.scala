@@ -19,4 +19,11 @@ object DevServerDB {
       "playerId" -> S,
     )
   }
+
+  def createGameLogsTable(client: DynamoDbClient): Unit = {
+    LocalDynamoDB.createTable(client)("gamelogs")(
+      "gid" -> S,
+      "ctd" -> N,
+    )
+  }
 }

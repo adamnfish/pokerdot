@@ -17,14 +17,14 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
   val playerAddress = PlayerAddress("player-address")
 
   "for a valid request" - {
-    "is successful" in withAppContext { (context, _) =>
+    "is successful" in withAppContext { (context, _, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
       performJoinGame(joinGameRequest(gameCode), context(playerAddress)) is ASuccess
     }
 
-    "informs the host that this player has joined" in withAppContext { (context, _) =>
+    "informs the host that this player has joined" in withAppContext { (context, _, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -35,7 +35,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       hostStatusMessage.action shouldEqual PlayerJoinedSummary(playerWelcomeMessage.playerId)
     }
 
-    "includes the correct players in a status message sent to the host" in withAppContext { (context, _) =>
+    "includes the correct players in a status message sent to the host" in withAppContext { (context, _, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -47,7 +47,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       hostStatusMessage.game.players.map(_.playerId) shouldEqual List(welcomeMessage.playerId, hostWelcomeMessage.playerId)
     }
 
-    "does not send a game status message to the new player" in withAppContext { (context, db) =>
+    "does not send a game status message to the new player" in withAppContext { (context, db, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -55,7 +55,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       response.statuses.keys should not contain playerAddress
     }
 
-    "persists the new player to the database" in withAppContext { (context, db) =>
+    "persists the new player to the database" in withAppContext { (context, db, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -73,7 +73,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       )
     }
 
-    "does not persist player to the game's database entry" in withAppContext { (context, db) =>
+    "does not persist player to the game's database entry" in withAppContext { (context, db, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -84,7 +84,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       gameDb.playerIds should not contain welcomeMessage.playerId.pid
     }
 
-    "can join a second player to a game" in withAppContext { (context, _) =>
+    "can join a second player to a game" in withAppContext { (context, _, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -92,7 +92,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       performJoinGame(joinGameRequest(gameCode, "player 2"), context(PlayerAddress("player-2-addr"))).value()
     }
 
-    "can join a third player to a game" in withAppContext { (context, _) =>
+    "can join a third player to a game" in withAppContext { (context, _, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -101,7 +101,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       performJoinGame(joinGameRequest(gameCode, "player 3"), context(PlayerAddress("player-3-addr"))).value()
     }
 
-    "can join loads of players to a game" in withAppContext { (context, _) =>
+    "can join loads of players to a game" in withAppContext { (context, _, _) =>
       val hostWelcomeMessage = createGameFixture(context).value()
       val gameCode = hostWelcomeMessage.gameCode
 
@@ -128,14 +128,14 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
   }
 
   "for an invalid request" - {
-    "fails if the screen name is already in use" in withAppContext { (context, _) =>
+    "fails if the screen name is already in use" in withAppContext { (context, _, _) =>
       val hostWelcome = createGameFixture(context).value()
       val result = performJoinGame(s"""{"gameCode": "${hostWelcome.gameCode}", "screenName": "${hostWelcome.screenName}"}""", context(playerAddress))
 
       result is AFailure
     }
 
-    "fails if this is a duplicate address" in withAppContext { (context, _) =>
+    "fails if this is a duplicate address" in withAppContext { (context, _, _) =>
       val hostWelcome = createGameFixture(context).value()
       performJoinGame(s"""{"gameCode": "${hostWelcome.gameCode}", "screenName": "player 1"}""", context(playerAddress)).value()
       val result = performJoinGame(s"""{"gameCode": "${hostWelcome.gameCode}", "screenName": "player 2"}""", context(playerAddress))
@@ -143,7 +143,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       result is AFailure
     }
 
-    "fails (with field context) if the game code is empty" in withAppContext { (context, _) =>
+    "fails (with field context) if the game code is empty" in withAppContext { (context, _, _) =>
       createGameFixture(context).value()
       val result = performJoinGame("""{"gameCode": "", "screenName": "player name"}""", context(playerAddress))
 
@@ -151,7 +151,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       failureContexts should contain("gameCode")
     }
 
-    "fails (with field context) if the player's screen name is empty" in withAppContext { (context, _) =>
+    "fails (with field context) if the player's screen name is empty" in withAppContext { (context, _, _) =>
       val hostWelcome = createGameFixture(context).value()
       val gameCode = hostWelcome.gameCode
       val result = performJoinGame(s"""{"gameCode": "$gameCode", "screenName": ""}""", context(playerAddress))
@@ -160,7 +160,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       failureContexts should contain("screenName")
     }
 
-    "fails if the game code is wrong" in withAppContext { (context, _) =>
+    "fails if the game code is wrong" in withAppContext { (context, _, _) =>
       val hostWelcome = createGameFixture(context).value()
       val incorrectGameCode =
         if (hostWelcome.gameId.gid.toLowerCase.startsWith("aaaaa"))
@@ -173,7 +173,7 @@ class JoinGameIntegrationTest extends AnyFreeSpec with Matchers with Integration
       result is AFailure
     }
 
-    "fails if the JSON is not a valid join game request" in withAppContext { (context, _) =>
+    "fails if the JSON is not a valid join game request" in withAppContext { (context, _, _) =>
       val result = performJoinGame(s"""{"foo": 1}""", context(playerAddress))
 
       result is AFailure

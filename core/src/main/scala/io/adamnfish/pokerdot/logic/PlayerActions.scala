@@ -142,7 +142,7 @@ object PlayerActions {
    * Checks the round is ready to be advanced, then delegates
    * to the current round's advancement logic.
    */
-  def advancePhase(game: Game, clock: Clock, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
+  def advancePhase(game: Game, now: Long, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])], List[GameLogEntry])] = {
     for {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
@@ -152,26 +152,29 @@ object PlayerActions {
         // only progress through standard phases while players are still playing
         case (false, PreFlop) =>
           val newGame = advanceFromPreFlop(game)
-          Right((newGame, nonBustedPlayerIds, None))
+          Right((newGame, nonBustedPlayerIds, None, List(Logs.newPhaseEvent(now, newGame))))
         case (false, Flop) =>
           val newGame = advanceFromFlop(game)
-          Right((newGame, nonBustedPlayerIds, None))
+          Right((newGame, nonBustedPlayerIds, None, List(Logs.newPhaseEvent(now, newGame))))
         case (false, Turn) =>
           val newGame = advanceFromTurn(game)
-          Right((newGame, nonBustedPlayerIds, None))
+          Right((newGame, nonBustedPlayerIds, None, List(Logs.newPhaseEvent(now, newGame))))
         case (false, River) =>
           val (newGame, playerWinnings, potWinnings) = advanceFromRiver(game)
-          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings)))
+          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings), List(Logs.newPhaseEvent(now, newGame))))
         case (_, Showdown) =>
           // we can proceed from showdown whenever 2 or more players are still in the game
-          startNewRound(game, clock, rng).map { newGame =>
+          for {
+            newGame <- startNewRound(game, now, rng)
+            events <- Logs.newRoundEvents(now, newGame)
+          } yield {
             val allPlayerIds = game.players.map(_.playerId).toSet
-            (newGame, allPlayerIds, None)
+            (newGame, allPlayerIds, None, events)
           }
         case (true, _) =>
           // skip straight to showdown from any phase if everyone else has folded
           val (newGame, playerWinning, potWinning) = advanceFromFoldedFinish(game)
-          Right((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning))))
+          Right((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning)), List(Logs.newPhaseEvent(now, newGame))))
       }
     } yield result
   }
@@ -461,7 +464,7 @@ object PlayerActions {
    *
    * If fewer than 2 players remain, the game is finished and we should not proceed.
    */
-  private[logic] def startNewRound(game: Game, clock: Clock, rng: Rng): Either[Failures, Game] = {
+  private[logic] def startNewRound(game: Game, now: Long, rng: Rng): Either[Failures, Game] = {
     // finalise player payments, reset (and bust) players
     // shuffle, deal new cards, set up new round
     val nextState = rng.nextState(game.seed)
@@ -473,7 +476,7 @@ object PlayerActions {
         "you can't start a new round because the game has finished",
       ))
     } else {
-      Play.blindForNextRound(game.round.smallBlind, clock.now(), game.timer).map { newSmallBlind =>
+      Play.blindForNextRound(game.round.smallBlind, now, game.timer).map { newSmallBlind =>
         val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, newSmallBlind)
         game.copy(
           round = game.round.copy(

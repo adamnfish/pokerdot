@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.models.{AR, AbandonRoundEvent, ActionSummary, B, BetEvent, BigBlind, C, CheckEvent, EP, EndPhaseEvent, F, Failures, Flop, FlopSummary, FoldEvent, GE, Game, GameDb, GameEndEvent, GameEvent, GameEventDb, GameId, GameLogEntry, GameLogEntryDb, GameStatus, GameSummary, NR, NewRoundEvent, NoBlind, Phase, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, SmallBlind, Spectator, SpectatorSummary, Turn, TurnSummary}
+import io.adamnfish.pokerdot.models._
 
 
 object Representations {
@@ -331,16 +331,18 @@ object Representations {
 
   def gameEventToDb(gameEvent: GameEvent): GameEventDb = {
     gameEvent match {
-      case NewRoundEvent(seed, button, smallBlind, sbPlayer, bbPlayer) =>
-        NR(seed, button, smallBlind, sbPlayer, bbPlayer)
-      case EndPhaseEvent(phase) =>
-        EP(phaseAsLogString(phase))
+      case GameStartEvent(playerIds) =>
+        GS(playerIds.map(_.pid))
+      case NewRoundEvent(seed, button, smallBlind, sbPlayer, bbPlayer, playerStacks) =>
+        NR(seed, button, smallBlind, sbPlayer.map(_.pid), bbPlayer.pid, playerStacks)
+      case NewPhaseEvent(phase) =>
+        NP(phaseAsLogString(phase))
       case CheckEvent(playerId) =>
-        C(playerId)
+        C(playerId.pid)
       case BetEvent(playerId, bet) =>
-        B(playerId, bet)
+        B(playerId.pid, bet)
       case FoldEvent(playerId) =>
-        F(playerId)
+        F(playerId.pid)
       case AbandonRoundEvent() =>
         AR()
       case GameEndEvent(winner) =>
@@ -350,26 +352,28 @@ object Representations {
 
   def gameEventFromDb(gameEventDb: GameEventDb): Either[Failures, GameEvent] = {
     gameEventDb match {
-      case NR(s, b, sb, sp, bp) =>
-        Right(NewRoundEvent(s, b, sb, sp, bp))
-      case EP(p) =>
-        phaseFromLogString(p).map(EndPhaseEvent)
-      case C(p) =>
-        Right(CheckEvent(p))
-      case B(p, b) =>
-        Right(BetEvent(p, b))
-      case F(p) =>
-        Right(FoldEvent(p))
+      case GS(playerIds) =>
+        Right(GameStartEvent(playerIds.map(PlayerId)))
+      case NR(seed, button, smallBlind, smallBlindPlayer, bigBlindPlayer, playerStacks) =>
+        Right(NewRoundEvent(seed, button, smallBlind, smallBlindPlayer.map(PlayerId), PlayerId(bigBlindPlayer), playerStacks))
+      case NP(phase) =>
+        phaseFromLogString(phase).map(NewPhaseEvent)
+      case C(pid) =>
+        Right(CheckEvent(PlayerId(pid)))
+      case B(pid, bet) =>
+        Right(BetEvent(PlayerId(pid), bet))
+      case F(pid) =>
+        Right(FoldEvent(PlayerId(pid)))
       case AR() =>
         Right(AbandonRoundEvent())
-      case GE(w) =>
-        Right(GameEndEvent(PlayerId(w)))
+      case GE(winner) =>
+        Right(GameEndEvent(PlayerId(winner)))
     }
   }
 
   def phaseAsLogString(phase: Phase): String = {
     phase match {
-      case PreFlop => "pf"
+      case PreFlop => "p"
       case Flop => "f"
       case Turn => "t"
       case River => "r"
@@ -379,7 +383,7 @@ object Representations {
 
   def phaseFromLogString(phaseStr: String): Either[Failures, Phase] = {
     phaseStr match {
-      case "pf" => Right(PreFlop)
+      case "p" => Right(PreFlop)
       case "f" => Right(Flop)
       case "t" => Right(Turn)
       case "r" => Right(River)

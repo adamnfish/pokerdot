@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{TestClock, TestHelpers}
+import io.adamnfish.pokerdot.TestHelpers
 import org.scalatest.freespec.AnyFreeSpec
 import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
@@ -82,12 +82,12 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
   "dealHoles" - {
     val gameId = GameId("game-id")
     val players = List(
-      newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestClock),
-      newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestClock),
-      newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestClock),
-      newPlayer(gameId, "player-4", false, PlayerAddress("player-address-4"), TestClock),
-      newPlayer(gameId, "player-5", false, PlayerAddress("player-address-5"), TestClock),
-      newPlayer(gameId, "player-6", false, PlayerAddress("player-address-6"), TestClock),
+      newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), 0),
+      newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), 0),
+      newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), 0),
+      newPlayer(gameId, "player-4", false, PlayerAddress("player-address-4"), 0),
+      newPlayer(gameId, "player-5", false, PlayerAddress("player-address-5"), 0),
+      newPlayer(gameId, "player-6", false, PlayerAddress("player-address-6"), 0),
     )
 
     "deals the same cards to each player each time, with the same seed" in {
@@ -143,13 +143,13 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "lookupHoles" - {
     val player1 =
-      Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"), TestClock)
+      Games.newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("address-1"), 0)
         .copy(hole = Some(Hole(Ace of Clubs, Ace of Diamonds)))
     val player2 =
-      Games.newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("address-2"), TestClock)
+      Games.newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("address-2"), 0)
         .copy(hole = Some(Hole(Two of Clubs, Two of Diamonds)))
     val player3 =
-      Games.newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("address-3"), TestClock)
+      Games.newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("address-3"), 0)
         .copy(hole = Some(Hole(Three of Clubs, Three of Diamonds)))
 
     "returns player IDs with their cards" in {
@@ -186,14 +186,14 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "playerIsActive" - {
     "true for an active player" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsActive(player.copy(
         stack = 1000,
       )) shouldEqual true
     }
 
     "false for a folded player" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsActive(player.copy(
         stack = 1000,
         folded = true,
@@ -201,7 +201,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "false for a busted player" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsActive(player.copy(
         stack = 1000,
         busted = true,
@@ -209,7 +209,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "all-in players can no longer act, and are not active" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsActive(player.copy(
         stack = 0,
       )) shouldEqual false
@@ -218,7 +218,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "playerIsInvolved" - {
     "true for an active player" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsInvolved(player.copy(
         stack = 1000,
         bet = 10,
@@ -227,7 +227,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "an all-in player is still involved" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsInvolved(player.copy(
         stack = 0,
         bet = 990,
@@ -236,7 +236,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "folded players are not involved" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsInvolved(player.copy(
         stack = 1000,
         bet = 10,
@@ -246,7 +246,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "busted players are not involved" in {
-      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
       playerIsInvolved(player.copy(
         stack = 0,
         bet = 990,
@@ -258,14 +258,14 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "playerIsYetToAct" - {
     val player =
-      newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), TestClock)
+      newPlayer(GameId("game-id"), "player-name", false, PlayerAddress("player-address"), 0)
         .copy(
           hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
           bet = 100,
           stack = 1000,
         )
     val otherPlayer =
-      newPlayer(GameId("game-id"), "other-player-name", false, PlayerAddress("other-player-address"), TestClock)
+      newPlayer(GameId("game-id"), "other-player-name", false, PlayerAddress("other-player-address"), 0)
         .copy(
           hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
           bet = 100,
@@ -300,21 +300,21 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
       "if all other players are all-in" - {
         val player2 =
-          newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("player-2-address"), TestClock)
+          newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("player-2-address"), 0)
             .copy(
               hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
               bet = 100,
               stack = 0,
             )
         val player3 =
-          newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("player-3-address"), TestClock)
+          newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("player-3-address"), 0)
             .copy(
               hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
               bet = 90,
               stack = 0,
             )
         val player4 =
-          newPlayer(GameId("game-id"), "player-4", false, PlayerAddress("player-4-address"), TestClock)
+          newPlayer(GameId("game-id"), "player-4", false, PlayerAddress("player-4-address"), 0)
             .copy(
               hole = Some(Hole(Ace of Clubs, Ace of Diamonds)),
               bet = 90,
@@ -368,11 +368,11 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     "returns the highest bet amount of all players" in {
       forAll { (b1: Int, b2: Int, b3: Int) =>
         val players = List(
-          newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestClock)
+          newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0)
             .copy(bet = b1),
-          newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestClock)
+          newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0)
             .copy(bet = b2),
-          newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestClock)
+          newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0)
             .copy(bet = b3),
         )
         val result = currentBetAmount(players)
@@ -382,11 +382,11 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "excludes folded players from this calculation" in {
       val players = List(
-        newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestClock)
+        newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0)
           .copy(bet = 10),
-        newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestClock)
+        newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0)
           .copy(bet = 20),
-        newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestClock)
+        newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0)
           .copy(
             bet = 30,
             folded = true,
@@ -397,9 +397,9 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
   }
 
   "currentRaiseAmount" - {
-    val player1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestClock)
-    val player2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestClock)
-    val player3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestClock)
+    val player1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0)
+    val player2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0)
+    val player3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0)
 
     "returns 0 if there are no bets" in {
       currentRaiseAmount(Nil) shouldEqual 0
@@ -439,13 +439,13 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
   }
 
   "nextPlayer" - {
-    val p1 = newPlayer(GameId("game-id"), "p1", false, PlayerAddress("p1-address"), TestClock)
+    val p1 = newPlayer(GameId("game-id"), "p1", false, PlayerAddress("p1-address"), 0)
       .copy(stack = 1000, playerId = PlayerId("p1-id"))
-    val p2 = newPlayer(GameId("game-id"), "p2", false, PlayerAddress("p2-address"), TestClock)
+    val p2 = newPlayer(GameId("game-id"), "p2", false, PlayerAddress("p2-address"), 0)
       .copy(stack = 1000, playerId = PlayerId("p2-id"))
-    val p3 = newPlayer(GameId("game-id"), "p3", false, PlayerAddress("p3-address"), TestClock)
+    val p3 = newPlayer(GameId("game-id"), "p3", false, PlayerAddress("p3-address"), 0)
       .copy(stack = 1000, playerId = PlayerId("p3-id"))
-    val p4 = newPlayer(GameId("game-id"), "p4", false, PlayerAddress("p4-address"), TestClock)
+    val p4 = newPlayer(GameId("game-id"), "p4", false, PlayerAddress("p4-address"), 0)
       .copy(stack = 1000, playerId = PlayerId("p4-id"))
 
     "when a player is already active" - {
@@ -717,12 +717,12 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "nextDealerAndBlinds" - {
     val gameId = GameId("game-id")
-    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestClock)
-    val player2 = newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestClock)
-    val player3 = newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestClock)
-    val player4 = newPlayer(gameId, "player-4", false, PlayerAddress("player-address-4"), TestClock)
-    val player5 = newPlayer(gameId, "player-5", false, PlayerAddress("player-address-5"), TestClock)
-    val player6 = newPlayer(gameId, "player-6", false, PlayerAddress("player-address-6"), TestClock)
+    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), 0)
+    val player2 = newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), 0)
+    val player3 = newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), 0)
+    val player4 = newPlayer(gameId, "player-4", false, PlayerAddress("player-address-4"), 0)
+    val player5 = newPlayer(gameId, "player-5", false, PlayerAddress("player-address-5"), 0)
+    val player6 = newPlayer(gameId, "player-6", false, PlayerAddress("player-address-6"), 0)
     val smallBlind = 5
 
     "for a typical case" - {
@@ -1143,11 +1143,11 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     "if there is only one active player (game is over)" - {
       val gameId = GameId("game-id")
       val players = List(
-        newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestClock)
+        newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), 0)
           .copy(busted = true),
-        newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestClock)
+        newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), 0)
           .copy(busted = true, blind = SmallBlind),
-        newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestClock)
+        newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), 0)
           .copy(blind = BigBlind),
       ).map(_.copy(busted = true))
       val smallBlind = 5
@@ -1321,9 +1321,9 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "nextAliveAfterIndex" - {
     val gameId = GameId("game-id")
-    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), TestClock)
-    val player2 = newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), TestClock)
-    val player3 = newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), TestClock)
+    val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-address-1"), 0)
+    val player2 = newPlayer(gameId, "player-2", false, PlayerAddress("player-address-2"), 0)
+    val player3 = newPlayer(gameId, "player-3", false, PlayerAddress("player-address-3"), 0)
 
     "returns the other alive player with 2 players" - {
       "gets second from first" in {

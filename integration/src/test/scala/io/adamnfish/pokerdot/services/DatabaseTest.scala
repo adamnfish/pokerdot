@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.services
 
 import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.integration.IntegrationComponents
-import io.adamnfish.pokerdot.models.{AR, B, C, EP, F, GS, GameEventDb, GameId, GameLogEntryDb, NR}
+import io.adamnfish.pokerdot.models.{AR, B, C, F, GS, GameEventDb, GameId, GameLogEntryDb, NP, NR}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalacheck.ScalacheckShapeless.derivedArbitrary
 import org.scalatest.freespec.AnyFreeSpec
@@ -21,10 +21,18 @@ class DatabaseTest extends AnyFreeSpec with TestHelpers with IntegrationComponen
           val gid = UUID.randomUUID().toString
           val events = genEvents
             .map(_.copy(gid = gid))
+            .map {
+              // empty optional strings don't get round-tripped properly
+              // but this doesn't matter because these IDs are never empty, so we patch it here
+              case gle @ GameLogEntryDb(_, _, nr @ NR(_, _, _, Some(""), _, _)) =>
+                gle.copy(e = nr.copy(sp = None))
+              case gle =>
+                gle
+            }
             .distinctBy(_.ctd)
             .sortBy(_.ctd)
           val result = for {
-            _ <- IO.foreach_(events)(db.writeGameEvent)
+            _ <- db.writeGameEvents(events.toSet)
             logs <- db.getFullGameLog(GameId(gid))
           } yield logs
           result.value() shouldEqual events.reverse
@@ -39,29 +47,25 @@ class DatabaseTest extends AnyFreeSpec with TestHelpers with IntegrationComponen
   }
 
   "getPhaseGameLog" - {
-    "returns events back to the previous round break (without the round break)" in withDb { db =>
+    "returns events back to the start of the phase (inclusive)" in withDb { db =>
       val eventsGen = Gen.containerOf[List, GameEventDb](Arbitrary.arbitrary[GameEventDb])
-      val phaseEndEventGen = Gen.oneOf(
-        Arbitrary.arbitrary[NR],
-        Arbitrary.arbitrary[EP],
-        Arbitrary.arbitrary[AR],
-      )
+      val newPhaseEventGen = Arbitrary.arbitrary[NP]
       val phaseEventsGen = Gen.containerOf[List, GameEventDb](Gen.oneOf(
         Arbitrary.arbitrary[C],
         Arbitrary.arbitrary[B],
         Arbitrary.arbitrary[F],
       ))
 
-      forAll(eventsGen, phaseEndEventGen, phaseEventsGen) { (events, phaseEndEvent, phaseEvents) =>
+      forAll(eventsGen, newPhaseEventGen, phaseEventsGen) { (events, newPhaseEvent, phaseEvents) =>
         val gid = UUID.randomUUID().toString
-        val allEvents = (events ::: List(phaseEndEvent) ::: phaseEvents)
+        val allEvents = (events ::: List(newPhaseEvent) ::: phaseEvents)
           .zipWithIndex
           .map { case (ge, i) => GameLogEntryDb(gid, i, ge) }
         val result = for {
           _ <- IO.foreach_(allEvents)(db.writeGameEvent)
           logs <- db.getPhaseGameLog(GameId(gid))
         } yield logs
-        result.value().map(_.e) shouldEqual phaseEvents.reverse
+        result.value().map(_.e) shouldEqual (phaseEvents.reverse :+ newPhaseEvent)
       }
     }
   }
