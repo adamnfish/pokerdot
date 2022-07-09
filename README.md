@@ -156,7 +156,11 @@ This template sets up:
 * S3 bucket that contains the static application
 * The game's database tables
   * Games table
+    (holds the game state)
   * Players table
+    (holds state specific to each player)
+  * Game events table
+    (keeps a log of game events)
 
 The outputs of this template are used as inputs for the application
 template, so it must be created first.
