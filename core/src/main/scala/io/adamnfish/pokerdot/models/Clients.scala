@@ -117,7 +117,7 @@ case class NoActionSummary(
 ) extends ActionSummary
 
 
-case class GameLogEntrySummary(
+case class EventRecordSummary(
   eventTime: Long,
   event: GameEventSummary,
 )

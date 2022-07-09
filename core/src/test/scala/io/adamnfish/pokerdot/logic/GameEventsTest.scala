@@ -1,20 +1,20 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.TestHelpers
-import io.adamnfish.pokerdot.logic.Logs.tryToGetAllPhaseEvents
-import io.adamnfish.pokerdot.models.{B, C, GS, GameLogEntryDb, NP, NR}
+import io.adamnfish.pokerdot.logic.GameEvents.tryToGetAllPhaseEvents
+import io.adamnfish.pokerdot.models.{B, C, GS, EventRecordDb, NP, NR}
 import org.scalatest.freespec.AnyFreeSpec
 
 
-class LogsTest extends AnyFreeSpec with TestHelpers {
+class GameEventsTest extends AnyFreeSpec with TestHelpers {
   "tryToGetAllPhaseEvents" - {
     "if a phase has just started" - {
       val phaseEvents = List(
-        GameLogEntryDb("gid", 1000, NP("p"))
+        EventRecordDb("gid", 1000, NP("p"))
       )
       val previousEvents = List(
-        GameLogEntryDb("gid", 1000, NR(1, 0, Some(5), Some("p2id"), "p3id", List(1000, 1000, 1000))),
-        GameLogEntryDb("gid", 1000, GS(List("p1id", "p2id", "p3id"))),
+        EventRecordDb("gid", 1000, NR(1, 0, Some(5), Some("p2id"), "p3id", List(1000, 1000, 1000))),
+        EventRecordDb("gid", 1000, GS(List("p1id", "p2id", "p3id"))),
       )
 
       "returns the new phase event" in {
@@ -30,13 +30,13 @@ class LogsTest extends AnyFreeSpec with TestHelpers {
 
     "if a phase is in progress" - {
       val phaseEvents = List(
-        GameLogEntryDb("gid", 1000, B("p2id", 10)),
-        GameLogEntryDb("gid", 1000, C("p2id")),
-        GameLogEntryDb("gid", 1000, NP("p"))
+        EventRecordDb("gid", 1000, B("p2id", 10)),
+        EventRecordDb("gid", 1000, C("p2id")),
+        EventRecordDb("gid", 1000, NP("p"))
       )
       val previousEvents = List(
-        GameLogEntryDb("gid", 1000, NR(1, 0, Some(5), Some("p2id"), "p3id", List(1000, 1000, 1000))),
-        GameLogEntryDb("gid", 1000, GS(List("p1id", "p2id", "p3id"))),
+        EventRecordDb("gid", 1000, NR(1, 0, Some(5), Some("p2id"), "p3id", List(1000, 1000, 1000))),
+        EventRecordDb("gid", 1000, GS(List("p1id", "p2id", "p3id"))),
       )
 
       "returns the phase events so far" in {
@@ -63,8 +63,8 @@ class LogsTest extends AnyFreeSpec with TestHelpers {
 
       "returns nothing if the game is just getting started" in {
         val events = List(
-          GameLogEntryDb("gid", 1000, NR(1, 0, Some(5), Some("p2id"), "p3id", List(1000, 1000, 1000))),
-          GameLogEntryDb("gid", 1000, GS(List("p1id", "p2id", "p3id"))),
+          EventRecordDb("gid", 1000, NR(1, 0, Some(5), Some("p2id"), "p3id", List(1000, 1000, 1000))),
+          EventRecordDb("gid", 1000, GS(List("p1id", "p2id", "p3id"))),
         )
         val (result, _) = tryToGetAllPhaseEvents(events)
         result shouldEqual Nil
@@ -73,9 +73,9 @@ class LogsTest extends AnyFreeSpec with TestHelpers {
 
     "if the results don't go far enough back" - {
       val events = List.fill(10)(List(
-        GameLogEntryDb("gid", 1000, B("p1id", 5)),
-        GameLogEntryDb("gid", 1000, B("p2id", 5)),
-        GameLogEntryDb("gid", 1000, B("p3id", 5)),
+        EventRecordDb("gid", 1000, B("p1id", 5)),
+        EventRecordDb("gid", 1000, B("p2id", 5)),
+        EventRecordDb("gid", 1000, B("p3id", 5)),
       )).flatten
 
       "return everything we have" in {

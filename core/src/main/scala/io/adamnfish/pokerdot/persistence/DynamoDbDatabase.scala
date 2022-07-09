@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.persistence
 
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.logic.{Games, Logs}
+import io.adamnfish.pokerdot.logic.{Games, GameEvents}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
 import org.scanamo._
@@ -17,7 +17,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
 
   private val games = Table[GameDb](gameTableName)
   private val players = Table[PlayerDb](playerTableName)
-  private val gameLogs = Table[GameLogEntryDb](gameLogTableName)
+  private val gameLogs = Table[EventRecordDb](gameLogTableName)
 
   // TODO: consider whether this should just derive a gameCode and call lookup
   override def getGame(gameId: GameId): Attempt[Option[GameDb]] = {
@@ -76,29 +76,29 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
     execAsAttempt(players.putAll(playerDBs))
   }
 
-  override def getPhaseGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
+  override def getPhaseGameLog(gameId: GameId): Attempt[List[EventRecordDb]] = {
     // TODO: think about order of records
     // TODO: start by querying smaller number of records, get more if needed
     for {
       results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
       gameLogs <- results.ioTraverse(resultToAttempt)
-      (phaseEvents, finished) = Logs.tryToGetAllPhaseEvents(gameLogs)
+      (phaseEvents, finished) = GameEvents.tryToGetAllPhaseEvents(gameLogs)
     } yield phaseEvents
   }
 
-  override def getFullGameLog(gameId: GameId): Attempt[List[GameLogEntryDb]] = {
+  override def getFullGameLog(gameId: GameId): Attempt[List[EventRecordDb]] = {
     for {
       results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
       gameLogs <- results.ioTraverse(resultToAttempt)
     } yield gameLogs
   }
 
-  override def writeGameEvent(gameLogEntryDb: GameLogEntryDb): Attempt[Unit] = {
-    execAsAttempt(gameLogs.put(gameLogEntryDb))
+  override def writeGameEvent(eventRecordDb: EventRecordDb): Attempt[Unit] = {
+    execAsAttempt(gameLogs.put(eventRecordDb))
   }
 
-  override def writeGameEvents(gameLogEntryDbs: Set[GameLogEntryDb]): Attempt[Unit] = {
-    execAsAttempt(gameLogs.putAll(gameLogEntryDbs))
+  override def writeGameEvents(eventRecordDbs: Set[EventRecordDb]): Attempt[Unit] = {
+    execAsAttempt(gameLogs.putAll(eventRecordDbs))
   }
 
   def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {

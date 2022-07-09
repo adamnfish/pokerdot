@@ -1,9 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Games._
-import io.adamnfish.pokerdot.logic.Play.{dealHoles, playerIsActive, playerIsInvolved}
+import io.adamnfish.pokerdot.logic.Play.{dealHoles, playerIsInvolved}
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.{Clock, Rng}
+import io.adamnfish.pokerdot.services.Rng
 
 
 /**
@@ -142,7 +142,7 @@ object PlayerActions {
    * Checks the round is ready to be advanced, then delegates
    * to the current round's advancement logic.
    */
-  def advancePhase(game: Game, now: Long, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])], List[GameLogEntry])] = {
+  def advancePhase(game: Game, now: Long, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])], List[EventRecord])] = {
     for {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
@@ -152,21 +152,21 @@ object PlayerActions {
         // only progress through standard phases while players are still playing
         case (false, PreFlop) =>
           val newGame = advanceFromPreFlop(game)
-          Right((newGame, nonBustedPlayerIds, None, List(Logs.newPhaseEvent(now, newGame))))
+          Right((newGame, nonBustedPlayerIds, None, List(GameEvents.newPhaseEvent(now, newGame))))
         case (false, Flop) =>
           val newGame = advanceFromFlop(game)
-          Right((newGame, nonBustedPlayerIds, None, List(Logs.newPhaseEvent(now, newGame))))
+          Right((newGame, nonBustedPlayerIds, None, List(GameEvents.newPhaseEvent(now, newGame))))
         case (false, Turn) =>
           val newGame = advanceFromTurn(game)
-          Right((newGame, nonBustedPlayerIds, None, List(Logs.newPhaseEvent(now, newGame))))
+          Right((newGame, nonBustedPlayerIds, None, List(GameEvents.newPhaseEvent(now, newGame))))
         case (false, River) =>
           val (newGame, playerWinnings, potWinnings) = advanceFromRiver(game)
-          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings), List(Logs.newPhaseEvent(now, newGame))))
+          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings), List(GameEvents.newPhaseEvent(now, newGame))))
         case (_, Showdown) =>
           // we can proceed from showdown whenever 2 or more players are still in the game
           for {
             newGame <- startNewRound(game, now, rng)
-            events <- Logs.newRoundEvents(now, newGame)
+            events <- GameEvents.newRoundEvents(now, newGame)
           } yield {
             val allPlayerIds = game.players.map(_.playerId).toSet
             (newGame, allPlayerIds, None, events)
@@ -174,7 +174,7 @@ object PlayerActions {
         case (true, _) =>
           // skip straight to showdown from any phase if everyone else has folded
           val (newGame, playerWinning, potWinning) = advanceFromFoldedFinish(game)
-          Right((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning)), List(Logs.newPhaseEvent(now, newGame))))
+          Right((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning)), List(GameEvents.newPhaseEvent(now, newGame))))
       }
     } yield result
   }

@@ -3,7 +3,7 @@ package io.adamnfish.pokerdot.logic
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer, newSpectator}
 import io.adamnfish.pokerdot.logic.Representations._
-import io.adamnfish.pokerdot.models.{Ace, Clubs, Game, GameDb, GameEvent, GameEventDb, GameId, GameLogEntry, GameLogEntryDb, Hole, PlayerAddress, Queen, Spades}
+import io.adamnfish.pokerdot.models.{Ace, Clubs, Game, GameDb, GameEvent, GameEventDb, GameId, EventRecord, EventRecordDb, Hole, PlayerAddress, Queen, Spades}
 import io.adamnfish.pokerdot.TestHelpers
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalacheck.ScalacheckShapeless._
@@ -198,13 +198,13 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
     "TODO" ignore {}
   }
 
-  "GameLogEntry" - {
+  "EventRecord" - {
     implicitly[Arbitrary[GameEvent]]
 
     "is round-tripped correctly" in {
-      forAll { gameLogEntry: GameLogEntry =>
-        val result = gameLogEntryFromDb(gameLogEntryToDb(gameLogEntry)).value
-        result shouldEqual gameLogEntry
+      forAll { eventRecord: EventRecord =>
+        val result = eventRecordFromDb(eventRecordToDb(eventRecord)).value
+        result shouldEqual eventRecord
       }
     }
   }

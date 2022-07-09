@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.models
 
 
-case class GameLogEntry(
+case class EventRecord(
   gameId: GameId,
   eventTime: Long,
   event: GameEvent,

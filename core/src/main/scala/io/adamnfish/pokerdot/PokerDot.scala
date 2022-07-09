@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{Games, Logs, PlayerActions, Representations, Responses}
+import io.adamnfish.pokerdot.logic.{Games, GameEvents, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
 import io.adamnfish.pokerdot.validation.Validation.{extractAbandonRound, extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind}
@@ -145,8 +145,8 @@ object PokerDot {
       startedGame = Games.start(rawGame, now, startGame.initialSmallBlind, startGame.timerConfig, startGame.startingStack, startGame.playerOrder)
       startedGameDb = Representations.gameToDb(startedGame)
       playerDbs = Representations.allPlayerDbs(startedGame.players)
-      logEvents <- Logs.gameStartEvents(now, startedGame).attempt
-      logEventDbs = logEvents.map(Representations.gameLogEntryToDb)
+      logEvents <- GameEvents.gameStartEvents(now, startedGame).attempt
+      logEventDbs = logEvents.map(Representations.eventRecordToDb)
       // update all players with dealt cards, stack size etc
       _ <- appContext.db.writePlayers(playerDbs.toSet)
       // persist started game
@@ -174,8 +174,8 @@ object PokerDot {
       // obtain DB representations for persistence
       updatedPlayerDbs = Representations.activePlayerDbs(newGame.players)
       newGameDb = Representations.gameToDb(newGame)
-      logEvent = Logs.betEvent(now, bet)
-      logEventDb = Representations.gameLogEntryToDb(logEvent)
+      logEvent = GameEvents.betEvent(now, bet)
+      logEventDb = Representations.eventRecordToDb(logEvent)
       // save this player
       _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       // save game
@@ -202,8 +202,8 @@ object PokerDot {
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(check.playerId)).attempt
       newGameDb = Representations.gameToDb(newGame)
-      logEvent = Logs.checkEvent(now, check)
-      logEventDb = Representations.gameLogEntryToDb(logEvent)
+      logEvent = GameEvents.checkEvent(now, check)
+      logEventDb = Representations.eventRecordToDb(logEvent)
       // save this player
       _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       // save game
@@ -230,8 +230,8 @@ object PokerDot {
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(fold.playerId)).attempt
       newGameDb = Representations.gameToDb(newGame)
-      logEvent = Logs.foldEvent(now, fold)
-      logEventDb = Representations.gameLogEntryToDb(logEvent)
+      logEvent = GameEvents.foldEvent(now, fold)
+      logEventDb = Representations.eventRecordToDb(logEvent)
       // save this player
       _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       // save game
@@ -271,7 +271,7 @@ object PokerDot {
       newGameDb = Representations.gameToDb(updatedGame)
       // only do DB updates for players that have changed
       updatedPlayerDbs <- Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers).attempt
-      logEventDbs = logEvents.map(Representations.gameLogEntryToDb)
+      logEventDbs = logEvents.map(Representations.eventRecordToDb)
       _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       _ <- appContext.db.writeGame(newGameDb)
       _ <- appContext.db.writeGameEvents(logEventDbs.toSet)
@@ -334,8 +334,8 @@ object PokerDot {
       updatedGame = PlayerActions.abandonRound(game, appContext.rng)
       updatedPlayerDbs = Representations.allPlayerDbs(updatedGame.players)
       updatedGameDb = Representations.gameToDb(updatedGame)
-      logEvents <- Logs.abandonRoundEvents(now, updatedGame).attempt
-      logEventDbs = logEvents.map(Representations.gameLogEntryToDb)
+      logEvents <- GameEvents.abandonRoundEvents(now, updatedGame).attempt
+      logEventDbs = logEvents.map(Representations.eventRecordToDb)
       _ <- appContext.db.writePlayers(updatedPlayerDbs.toSet)
       _ <- appContext.db.writeGame(updatedGameDb)
       _ <- appContext.db.writeGameEvents(logEventDbs.toSet)

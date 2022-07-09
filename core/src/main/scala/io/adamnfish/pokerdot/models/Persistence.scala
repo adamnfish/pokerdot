@@ -41,7 +41,7 @@ case class PlayerDb(
 )
 
 // this table is persisted, so let's use more compact keys
-case class GameLogEntryDb(
+case class EventRecordDb(
   gid: String,  // partition
   ctd: Long,    // sort
   e: GameEventDb,

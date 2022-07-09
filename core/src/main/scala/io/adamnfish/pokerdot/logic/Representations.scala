@@ -310,21 +310,21 @@ object Representations {
     )
   }
 
-  def gameLogEntryToDb(gameLogEntry: GameLogEntry): GameLogEntryDb = {
-    GameLogEntryDb(
-      gameLogEntry.gameId.gid,
-      gameLogEntry.eventTime,
-      gameEventToDb(gameLogEntry.event),
+  def eventRecordToDb(eventRecord: EventRecord): EventRecordDb = {
+    EventRecordDb(
+      eventRecord.gameId.gid,
+      eventRecord.eventTime,
+      gameEventToDb(eventRecord.event),
     )
   }
 
-  def gameLogEntryFromDb(gameLogEntryDb: GameLogEntryDb): Either[Failures, GameLogEntry] = {
+  def eventRecordFromDb(eventRecordDb: EventRecordDb): Either[Failures, EventRecord] = {
     for {
-      gameLogEvent <- gameEventFromDb(gameLogEntryDb.e)
+      gameLogEvent <- gameEventFromDb(eventRecordDb.e)
     } yield
-      GameLogEntry(
-        GameId(gameLogEntryDb.gid),
-        gameLogEntryDb.ctd,
+      EventRecord(
+        GameId(eventRecordDb.gid),
+        eventRecordDb.ctd,
         gameLogEvent,
       )
   }

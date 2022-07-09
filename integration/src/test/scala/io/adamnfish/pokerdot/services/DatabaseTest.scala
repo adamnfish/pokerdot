@@ -2,9 +2,9 @@ package io.adamnfish.pokerdot.services
 
 import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.integration.IntegrationComponents
-import io.adamnfish.pokerdot.models.{AR, B, C, F, GS, GameEventDb, GameId, GameLogEntryDb, NP, NR}
-import org.scalacheck.{Arbitrary, Gen}
+import io.adamnfish.pokerdot.models._
 import org.scalacheck.ScalacheckShapeless.derivedArbitrary
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import zio.IO
@@ -12,19 +12,19 @@ import zio.IO
 import java.util.UUID
 
 class DatabaseTest extends AnyFreeSpec with TestHelpers with IntegrationComponents with ScalaCheckDrivenPropertyChecks {
-  implicitly[Arbitrary[GameLogEntryDb]]
+  implicitly[Arbitrary[EventRecordDb]]
 
   "game log" - {
     "getFullGameLog" - {
       "returns all events for the game, newest first" in withDb { db =>
-        forAll { genEvents: List[GameLogEntryDb] =>
+        forAll { genEvents: List[EventRecordDb] =>
           val gid = UUID.randomUUID().toString
           val events = genEvents
             .map(_.copy(gid = gid))
             .map {
               // empty optional strings don't get round-tripped properly
               // but this doesn't matter because these IDs are never empty, so we patch it here
-              case gle @ GameLogEntryDb(_, _, nr @ NR(_, _, _, Some(""), _, _)) =>
+              case gle @ EventRecordDb(_, _, nr @ NR(_, _, _, Some(""), _, _)) =>
                 gle.copy(e = nr.copy(sp = None))
               case gle =>
                 gle
@@ -60,7 +60,7 @@ class DatabaseTest extends AnyFreeSpec with TestHelpers with IntegrationComponen
         val gid = UUID.randomUUID().toString
         val allEvents = (events ::: List(newPhaseEvent) ::: phaseEvents)
           .zipWithIndex
-          .map { case (ge, i) => GameLogEntryDb(gid, i, ge) }
+          .map { case (ge, i) => EventRecordDb(gid, i, ge) }
         val result = for {
           _ <- IO.foreach_(allEvents)(db.writeGameEvent)
           logs <- db.getPhaseGameLog(GameId(gid))

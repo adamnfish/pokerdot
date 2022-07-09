@@ -1,11 +1,12 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
+import io.adamnfish.pokerdot.Console._
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
+import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng}
 import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType._
 import zio.IO
 
 import java.security.SecureRandom
@@ -13,10 +14,22 @@ import java.security.SecureRandom
 
 object DevServer {
   val client = LocalDynamoDB.syncClient()
-  val db = new DynamoDbDatabase(client, "games", "players", "gamelogs")
-  DevServerDB.createGamesTable(client)
-  DevServerDB.createPlayersTable(client)
-  DevServerDB.createGameLogsTable(client)
+  private val gamesTableName = "games"
+  private val playersName = "players"
+  private val gameEventsTableName = "game-events"
+  LocalDynamoDB.createTable(client)(gamesTableName)(
+    "gameCode" -> S,
+    "gameId" -> S,
+  )
+  LocalDynamoDB.createTable(client)(playersName)(
+    "gameId" -> S,
+    "playerId" -> S,
+  )
+  LocalDynamoDB.createTable(client)(gameEventsTableName)(
+    "gid" -> S,
+    "ctd" -> N,
+  )
+  val db = new DynamoDbDatabase(client, gamesTableName, playersName, gameEventsTableName)
 
   def main(args: Array[String]): Unit = {
     val runtime = zio.Runtime.default

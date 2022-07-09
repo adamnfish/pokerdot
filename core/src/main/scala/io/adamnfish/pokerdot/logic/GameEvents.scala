@@ -5,16 +5,16 @@ import io.adamnfish.pokerdot.models._
 import scala.annotation.tailrec
 
 
-object Logs {
-  def gameStartEvents(now: Long, game: Game): Either[Failures, List[GameLogEntry]] = {
+object GameEvents {
+  def gameStartEvents(now: Long, game: Game): Either[Failures, List[EventRecord]] = {
     newRoundEvents(now + 1, game).map { roundAndPhaseEvents =>
-      GameLogEntry(
+      EventRecord(
         game.gameId, now, GameStartEvent(game.players.map(_.playerId))
       ) :: roundAndPhaseEvents
     }
   }
 
-  def newRoundEvents(now: Long, game: Game): Either[Failures, List[GameLogEntry]] = {
+  def newRoundEvents(now: Long, game: Game): Either[Failures, List[EventRecord]] = {
     for {
       bbPlayer <- game.players
         .find(_.blind == BigBlind)
@@ -29,14 +29,14 @@ object Logs {
         .map(_.playerId)
     } yield {
       List(
-        GameLogEntry(
+        EventRecord(
           game.gameId, now,
           NewRoundEvent(
             game.seed, game.button, Some(game.round.smallBlind),
             sbPlayerId, bbPlayer.playerId, game.players.map(p => p.stack + p.bet)
           )
         ),
-        GameLogEntry(
+        EventRecord(
           game.gameId, now + 1,
           NewPhaseEvent(PreFlop)
         ),
@@ -44,64 +44,64 @@ object Logs {
     }
   }
 
-  def newPhaseEvent(now: Long, game: Game): GameLogEntry = {
-    GameLogEntry(
+  def newPhaseEvent(now: Long, game: Game): EventRecord = {
+    EventRecord(
       game.gameId, now, NewPhaseEvent(game.round.phase)
     )
   }
 
-  def checkEvent(now: Long, check: Check): GameLogEntry = {
-    GameLogEntry(
+  def checkEvent(now: Long, check: Check): EventRecord = {
+    EventRecord(
       check.gameId, now, CheckEvent(check.playerId)
     )
   }
 
-  def betEvent(now: Long, bet: Bet): GameLogEntry = {
-    GameLogEntry(
+  def betEvent(now: Long, bet: Bet): EventRecord = {
+    EventRecord(
       bet.gameId, now, BetEvent(bet.playerId, bet.betAmount)
     )
   }
 
-  def foldEvent(now: Long, fold: Fold): GameLogEntry = {
-    GameLogEntry(
+  def foldEvent(now: Long, fold: Fold): EventRecord = {
+    EventRecord(
       fold.gameId, now, FoldEvent(fold.playerId)
     )
   }
 
-  def abandonRoundEvents(now: Long, game: Game): Either[Failures, List[GameLogEntry]] = {
+  def abandonRoundEvents(now: Long, game: Game): Either[Failures, List[EventRecord]] = {
     newRoundEvents(now + 1, game).map { nre =>
-      GameLogEntry(
+      EventRecord(
         game.gameId, now, AbandonRoundEvent()
       ) :: nre
     }
   }
 
-  def gameEndEvent(now: Long, gameId: GameId, winningPlayer: PlayerId): GameLogEntry = {
-    GameLogEntry(
+  def gameEndEvent(now: Long, gameId: GameId, winningPlayer: PlayerId): EventRecord = {
+    EventRecord(
       gameId, now, GameEndEvent(winningPlayer)
     )
   }
 
-  def tryToGetAllPhaseEvents(events: List[GameLogEntryDb]): (List[GameLogEntryDb], Boolean) = {
+  def tryToGetAllPhaseEvents(events: List[EventRecordDb]): (List[EventRecordDb], Boolean) = {
     @tailrec
-    def loop(remainingEvents: List[GameLogEntryDb], accEvents: List[GameLogEntryDb]): (List[GameLogEntryDb], Boolean) = {
+    def loop(remainingEvents: List[EventRecordDb], accEvents: List[EventRecordDb]): (List[EventRecordDb], Boolean) = {
       remainingEvents match {
         case Nil =>
           // we ran into the end of the fetched data before finding the end of the phase
           (accEvents, false)
-        case (event @ GameLogEntryDb(_, _, NP(_))) :: _ =>
+        case (event @ EventRecordDb(_, _, NP(_))) :: _ =>
           // New Phase event means we're done searching, return what we have found
           (event :: accEvents, true)
-        case (GameLogEntryDb(_, _, GE(_))) :: _ =>
+        case (EventRecordDb(_, _, GE(_))) :: _ =>
           // Game End event means there's no active phase
           (Nil, true)
-        case (event @ GameLogEntryDb(_, _, GS(_))) :: _ =>
+        case (event @ EventRecordDb(_, _, GS(_))) :: _ =>
           // Game Start event means we're done - this should be an impossible state though
           (accEvents, true)
-        case (event @ GameLogEntryDb(_, _, NR(_, _, _, _, _, _))) :: _ =>
+        case (event @ EventRecordDb(_, _, NR(_, _, _, _, _, _))) :: _ =>
           // New Round event means anything after this is a previous phase
           (accEvents, true)
-        case (GameLogEntryDb(_, _, AR())) :: _ =>
+        case (EventRecordDb(_, _, AR())) :: _ =>
           // Abandon Round event means anything after this is a previous phase
           (accEvents, true)
         case event :: tail =>
