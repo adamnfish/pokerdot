@@ -436,6 +436,8 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           updatedGame.round.phase shouldEqual Showdown
         }
       }
+
+      "returns the correct game event" ignore {}
     }
 
     "when advancing from the river phase to the showdown" - {
@@ -512,6 +514,8 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           }
         }
       }
+
+      "returns the new round's game events" ignore {}
     }
   }
 

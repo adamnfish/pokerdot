@@ -146,8 +146,7 @@ object PlayerActions {
     for {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
-      involvedPlayers = game.players.filter(playerIsInvolved)
-      foldedFinish = involvedPlayers.length == 1
+      foldedFinish = game.players.count(playerIsInvolved) == 1
       result <- (foldedFinish, game.round.phase) match {
         // only progress through standard phases while players are still playing
         case (false, PreFlop) =>
@@ -161,7 +160,19 @@ object PlayerActions {
           Right((newGame, nonBustedPlayerIds, None, List(GameEvents.newPhaseEvent(now, newGame))))
         case (false, River) =>
           val (newGame, playerWinnings, potWinnings) = advanceFromRiver(game)
-          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings), List(GameEvents.newPhaseEvent(now, newGame))))
+          val events =
+            newGame.players.filter(playerIsInvolved).filter(_.stack != 0) match {
+              case winner :: Nil =>
+                // there is a single player still alive, this showdown is the end of the game
+                List(
+                  GameEvents.newPhaseEvent(now, newGame),
+                  GameEvents.gameEndEvent(now + 1, newGame.gameId, winner.playerId),
+                )
+              case _ =>
+                // proceed to showdown as normal
+                List(GameEvents.newPhaseEvent(now, newGame))
+            }
+          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings), events))
         case (_, Showdown) =>
           // we can proceed from showdown whenever 2 or more players are still in the game
           for {

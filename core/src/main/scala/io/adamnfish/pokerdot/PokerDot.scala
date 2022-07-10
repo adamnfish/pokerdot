@@ -264,8 +264,8 @@ object PokerDot {
       game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
       _ <- Games.ensureStarted(game).attempt
       _ <- Games.ensureAdmin(game.players, advancePhase.playerKey).attempt
-      // TODO: recursively call this operation if we are auto-advancing?
       now <- appContext.clock.now
+      // TODO: recursively call this operation if we are auto-advancing?
       advanceResult <- PlayerActions.advancePhase(game, now, appContext.rng).attempt
       (updatedGame, updatedPlayers, winnings, logEvents) = advanceResult
       newGameDb = Representations.gameToDb(updatedGame)

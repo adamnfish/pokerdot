@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.integration
 
 import io.adamnfish.pokerdot.{PokerDot, RunningTestClock, TestHelpers}
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
-import io.adamnfish.pokerdot.models.{AppContext, Attempt, B, C, GameStatus, PlayerAddress, PlayerId, TimerLevel, Welcome}
+import io.adamnfish.pokerdot.models.{AppContext, Attempt, B, C, GE, GameStatus, PlayerAddress, PlayerId, TimerLevel, Welcome}
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -52,6 +52,7 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
       "bet" as 10,
       "pot" as 0,
       "blind" as 2,
+      "stack" as 985,
     )
     playerDbsNewRound.get(p1Welcome.playerId).value should have(
       "checked" as false,
@@ -59,6 +60,7 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
       "bet" as 5,
       "pot" as 0,
       "blind" as 1,
+      "stack" as 1000,
     )
     // dealer should have moved correctly
     db.getGame(hostWelcome.gameId).value().value should have(
@@ -66,15 +68,39 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
       "inTurn" as Some(p1Welcome.playerId.pid),
     )
 
+    // keep playing until the game ends(!)
+
     // new round
-    // player 1 is first to act, and folds
+    // player 1 is first to act, and goes all-in
     PokerDot.pokerdot(foldRequest(p1Welcome), context(player1Address)).tick().value()
+
+    // advance to showdown
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+    // advance to next round
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+
+    // new round
+    // host is first player to act, goes all-in
+    PokerDot.pokerdot(betRequest(995, hostWelcome), context(hostAddress)).tick().value()
+    // player 1 calls
+    PokerDot.pokerdot(betRequest(990, p1Welcome), context(hostAddress)).tick().value()
+
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+    PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
+
+    // game has finished, players were all-in and player 1 won
 
     // check the log has all the events we'd expect, without getting into too much detail
     val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+
+    // game end event should be most recent in the game log, with the correct winner
+    gameLog.head.e shouldEqual GE(p1Welcome.playerId.pid)
+
     val gameEvents = gameLog.map(_.e.getClass.getSimpleName)
     gameEvents shouldEqual List(
-      "F", "NP", "NR", "NP", "F", "NP", "NR", "GS"
+      "GE", "NP", "NP", "NP", "NP", "B", "B", "NP", "NR", "NP", "F", "NP", "NR", "NP", "F", "NP", "NR", "GS"
     )
   }
 
