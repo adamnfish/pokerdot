@@ -42,43 +42,47 @@ object Serialisation {
   // REQUEST PARSERS
 
   def parseCreateGameRequest(json: Json): Either[Failures, CreateGame] = {
-    extractJson[CreateGame](json, "Could not understand the create game request")
+    extractJson[CreateGame](json, "could not understand the create game request")
   }
 
   def parseJoinGameRequest(json: Json): Either[Failures, JoinGame] = {
-    extractJson[JoinGame](json, "Could not understand the join game request")
+    extractJson[JoinGame](json, "could not understand the join game request")
   }
 
   def parseStartGameRequest(json: Json): Either[Failures, StartGame] = {
-    extractJson[StartGame](json, "Could not understand the start game request")
+    extractJson[StartGame](json, "could not understand the start game request")
   }
 
   def parseUpdateBlindRequest(json: Json): Either[Failures, UpdateBlind] = {
-    extractJson[UpdateBlind](json, "Could not understand the update blind request")
+    extractJson[UpdateBlind](json, "could not understand the update blind request")
   }
 
   def parseBetRequest(json: Json): Either[Failures, Bet] = {
-    extractJson[Bet](json, "Could not understand the bet request")
+    extractJson[Bet](json, "could not understand the bet request")
   }
 
   def parseCheckRequest(json: Json): Either[Failures, Check] = {
-    extractJson[Check](json, "Could not understand the check request")
+    extractJson[Check](json, "could not understand the check request")
   }
 
   def parseFoldRequest(json: Json): Either[Failures, Fold] = {
-    extractJson[Fold](json, "Could not understand the fold request")
+    extractJson[Fold](json, "could not understand the fold request")
   }
 
   def parseAdvancePhaseRequest(json: Json): Either[Failures, AdvancePhase] = {
-    extractJson[AdvancePhase](json, "Could not understand the advance phase request")
+    extractJson[AdvancePhase](json, "could not understand the advance phase request")
   }
 
   def parseAbandonRoundRequest(json: Json): Either[Failures, AbandonRound] = {
-    extractJson[AbandonRound](json, "Could not understand the request to abandon the round")
+    extractJson[AbandonRound](json, "could not understand the request to abandon the round")
+  }
+
+  def parseUndoRequest(json: Json): Either[Failures, Undo] = {
+    extractJson[Undo](json, "could not understand the request to undo an action")
   }
 
   def parsePingRequest(json: Json): Either[Failures, Ping] = {
-    extractJson[Ping](json, "Could not understand the ping request")
+    extractJson[Ping](json, "could not understand the ping request")
   }
 
 
@@ -278,6 +282,7 @@ object Serialisation {
   private implicit val editTimerSummaryEncoder: Encoder[EditTimerSummary] = deriveEncoder[EditTimerSummary]
   private implicit val editBlindSummaryEncoder: Encoder[EditBlindSummary] = deriveEncoder[EditBlindSummary]
   private implicit val abandonRoundSummaryEncoder: Encoder[AbandonRoundSummary] = deriveEncoder[AbandonRoundSummary]
+  private implicit val undoSummaryEncoder: Encoder[UndoSummary] = deriveEncoder[UndoSummary]
   private implicit val noActionSummaryEncoder: Encoder[NoActionSummary] = deriveEncoder[NoActionSummary]
   private[models] implicit val actionSummaryEncoder: Encoder[ActionSummary] = Encoder.instance {
     case gameStartedSummary: GameStartedSummary =>
@@ -313,6 +318,9 @@ object Serialisation {
     case abandonRoundSummary: AbandonRoundSummary =>
       abandonRoundSummaryEncoder.apply(abandonRoundSummary)
         .mapObject(o => o.add("action", Json.fromString("abandon-round")))
+    case undoSummary: UndoSummary =>
+      undoSummaryEncoder.apply(undoSummary)
+        .mapObject(o => o.add("action", Json.fromString("undo")))
     case noActionSummary: NoActionSummary =>
       noActionSummaryEncoder.apply(noActionSummary)
         .mapObject(o => o.add("action", Json.fromString("no-action")))
@@ -357,6 +365,7 @@ object Serialisation {
   private implicit val foldDecoder: Decoder[Fold] = deriveDecoder[Fold]
   private implicit val advancePhaseDecoder: Decoder[AdvancePhase] = deriveDecoder[AdvancePhase]
   private implicit val abandonRoundDecoder: Decoder[AbandonRound] = deriveDecoder[AbandonRound]
+  private implicit val undoDecoder: Decoder[Undo] = deriveDecoder[Undo]
   private implicit val pingDecoder: Decoder[Ping] = deriveDecoder[Ping]
 
   // FAILURE
@@ -387,6 +396,7 @@ object Serialisation {
     private implicit val foldEncoder: Encoder[Fold] = deriveEncoder[Fold]
     private implicit val advancePhaseEncoder: Encoder[AdvancePhase] = deriveEncoder[AdvancePhase]
     private implicit val abandonRoundEncoder: Encoder[AbandonRound] = deriveEncoder[AbandonRound]
+    private implicit val undoEncoder: Encoder[Undo] = deriveEncoder[Undo]
     private implicit val pingEncoder: Encoder[Ping] = deriveEncoder[Ping]
     private implicit val wakeEncoder: Encoder[Wake] = deriveEncoder[Wake]
 
@@ -418,6 +428,9 @@ object Serialisation {
       case abandonRound: AbandonRound =>
         abandonRoundEncoder.apply(abandonRound)
           .mapObject(o => o.add("operation", Json.fromString("abandon-round")))
+      case undo: Undo =>
+        undoEncoder.apply(undo)
+          .mapObject(o => o.add("operation", Json.fromString("undo")))
       case ping: Ping =>
         pingEncoder.apply(ping)
           .mapObject(o => o.add("operation", Json.fromString("ping")))

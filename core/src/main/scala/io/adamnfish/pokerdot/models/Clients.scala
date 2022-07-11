@@ -113,6 +113,8 @@ case class EditBlindSummary(
 ) extends ActionSummary
 case class AbandonRoundSummary(
 ) extends ActionSummary
+case class UndoSummary(
+) extends ActionSummary
 case class NoActionSummary(
 ) extends ActionSummary
 
@@ -205,6 +207,11 @@ case class AdvancePhase(
   // TODO: option to deal all cards and advance straight to showdown
 ) extends Request
 case class AbandonRound(
+  gameId: GameId,
+  playerKey: PlayerKey,
+  playerId: PlayerId,
+) extends Request
+case class Undo(
   gameId: GameId,
   playerKey: PlayerKey,
   playerId: PlayerId,

@@ -284,6 +284,65 @@ object PlayerActions {
     )
   }
 
+  def undo(game: Game, player: Player, phaseEvents: List[EventRecord]): Either[Failures, Game] = {
+    for {
+      lastEvent <-
+        phaseEvents.headOption
+          .toRight(Failures("Trying to undo an empty phase", "there was nothing to undo"))
+          .flatMap { eventRecord =>
+            eventRecord.event match {
+              case NewPhaseEvent(_) =>
+                Left {
+                  Failures("Cannot undo the new phase event", "you can't undo events before cards have been dealt")
+                }
+              // these should all be unreachable
+              case e@(_: AbandonRoundEvent | _: NewRoundEvent | _: GameStartEvent | _: GameEndEvent) =>
+                Left {
+                  Failures(s"Cannot undo a ${e.getClass.getSimpleName} event", "you can only undo a player action")
+                }
+              case _@(_: CheckEvent | _: BetEvent | _: FoldEvent) =>
+                Right(eventRecord)
+            }
+          }
+      rollbackEvent <-
+        if (player.isAdmin) {
+          // admins can roll back any phase event
+          Right(lastEvent)
+        } else {
+          val anotherPlayerFailure =
+            Failures("Non-admin cannot roll back another player's event", "you cannot undo another player's action")
+          // non-admins can only roll back their own action
+          lastEvent.event match {
+            case CheckEvent(ePid) if ePid == player.playerId =>
+              Left(anotherPlayerFailure)
+            case BetEvent(ePid, _) if ePid == player.playerId =>
+              Left(anotherPlayerFailure)
+            case FoldEvent(ePid) if ePid == player.playerId =>
+              Left(anotherPlayerFailure)
+            case _ =>
+              Left(anotherPlayerFailure)
+          }
+        }
+      updatedGame <-
+        rollbackEvent.event match {
+          case ce: CheckEvent =>
+            Right(Undos.check(game, ce))
+          case be: BetEvent =>
+            Right(Undos.bet(game, be))
+          case fe: FoldEvent =>
+            Right(Undos.fold(game, fe))
+          // unreachable
+          case e =>
+            Left {
+              Failures(
+                s"Unreachable code? rolling back unsupported event ${e.getClass.getSimpleName}",
+                "undoing that action is not supported",
+              )
+            }
+        }
+    } yield updatedGame
+  }
+
   private def updateBlindTimer(currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], maybeProgress: Option[Int], newLevels: Option[List[TimerLevel]]): Either[Failures, TimerStatus] = {
     (currentTimerStatus.pausedTime, maybeSetPlayingStatus) match {
       case (Some(_), Some(false)) =>

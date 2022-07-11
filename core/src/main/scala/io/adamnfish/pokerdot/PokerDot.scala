@@ -1,10 +1,10 @@
 package io.adamnfish.pokerdot
 
 import io.adamnfish.pokerdot.logic.Utils.{Attempt, RichEither, RichList}
-import io.adamnfish.pokerdot.logic.{Games, GameEvents, PlayerActions, Representations, Responses}
+import io.adamnfish.pokerdot.logic.{GameEvents, Games, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Database
-import io.adamnfish.pokerdot.validation.Validation.{extractAbandonRound, extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind}
+import io.adamnfish.pokerdot.validation.Validation.{extractAbandonRound, extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUndo, extractUpdateBlind}
 import io.circe.Json
 import zio._
 
@@ -36,6 +36,8 @@ object PokerDot {
           updateBlind(requestJson, appContext)
         case "abandon-round" =>
           abandonRound(requestJson, appContext)
+        case "undo" =>
+          undo(requestJson, appContext)
         // TODO: include admin endpoint to allow manual correction of game state
         case "ping" =>
           ping(requestJson, appContext)
@@ -340,6 +342,24 @@ object PokerDot {
       _ <- appContext.db.writeGame(updatedGameDb)
       _ <- appContext.db.writeGameEvents(logEventDbs.toSet)
     } yield Responses.gameStatuses(updatedGame, AbandonRoundSummary(), abandonRound.playerId, appContext.playerAddress)
+  }
+
+  def undo(requestJson: Json, appContext: AppContext): Attempt[Response[GameStatus]] = {
+    for {
+      undo <- extractUndo(requestJson).attempt
+      maybeGame <- appContext.db.getGame(undo.gameId)
+      rawGameDb <- Attempt.fromOption(maybeGame, Failures(
+        s"Cannot abandon round, game ID not found", "couldn't find the game",
+      ))
+      playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
+      game <- Representations.gameFromDb(rawGameDb, playerDbs).attempt
+      _ <- Games.ensureStarted(game).attempt
+      player <- Games.ensurePlayerKey(game.players, undo.playerId, undo.playerKey).attempt
+      now <- appContext.clock.now
+      phaseEventDbs <- appContext.db.getPhaseGameLog(GameId(rawGameDb.gameId))
+      phaseEvents <- phaseEventDbs.eitherTraverse(Representations.eventRecordFromDb).attempt
+      updatedGame <- PlayerActions.undo(game, player, phaseEvents).attempt
+    } yield Responses.tbd()
   }
 
   /**

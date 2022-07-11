@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.models.Serialisation.{parseAbandonRoundRequest, parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateBlindRequest}
+import io.adamnfish.pokerdot.models.Serialisation.{parseAbandonRoundRequest, parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUndoRequest, parseUpdateBlindRequest}
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.validation.Validators._
 import io.circe.Json
@@ -207,6 +207,21 @@ object Validation {
       validate(abandonRound.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(abandonRound.playerId.pid, "playerId", "player's id", isUUID) ++
         validate(abandonRound.playerKey.key, "playerId", "player's id", isUUID)
+    )
+  }
+
+  def extractUndo(json: Json): Either[Failures, Undo] = {
+    for {
+      raw <- parseUndoRequest(json)
+      validated <- validate(raw)
+    } yield validated
+  }
+
+  def validate(undo: Undo): Either[Failures, Undo] = {
+    asResult(undo,
+      validate(undo.gameId.gid, "gameId", "game's id", isUUID) ++
+        validate(undo.playerId.pid, "playerId", "player's id", isUUID) ++
+        validate(undo.playerKey.key, "playerId", "player's id", isUUID)
     )
   }
 

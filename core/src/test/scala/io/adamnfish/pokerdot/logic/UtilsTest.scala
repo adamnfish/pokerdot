@@ -1,8 +1,10 @@
 package io.adamnfish.pokerdot.logic
 
+import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.logic.Utils.orderFromList
 import io.adamnfish.pokerdot.logic.Utils.RichList
 import io.adamnfish.pokerdot.models.Failures
+import org.scalacheck.Gen
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -12,7 +14,7 @@ import zio.{Exit, IO}
 import scala.util.Random
 
 
-class UtilsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+class UtilsTest extends AnyFreeSpec with Matchers with TestHelpers with ScalaCheckDrivenPropertyChecks {
   "orderFromList" - {
     "leaves the list unchanged if the order is already correct" in {
       val list = List(1, 2, 3, 4)
@@ -61,6 +63,28 @@ class UtilsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
         case Exit.Failure(cause) =>
           cause.failures.head.failures.map(_.logMessage) shouldEqual List("fail 1", "fail 2", "fail 3")
       }
+    }
+  }
+
+  "eitherTraverse" - {
+    "identity traversal comes out correctly" in {
+      forAll(Gen.listOf(Gen.choose(0, 100))) { ns =>
+        val result = ns.eitherTraverse(i => Right(i))
+        result.value shouldEqual ns
+      }
+    }
+
+    "successful traversal is the same as mapping" in {
+      forAll(Gen.listOf(Gen.choose(0, 100))) { ns =>
+        val result = ns.eitherTraverse(i => Right(i * 2))
+        result.value shouldEqual ns.map(i => i * 2)
+      }
+    }
+
+    "failures are propagated" in {
+      val failure = Left(Failures("msg", "frmsg"))
+      val result = List(1, 2, 3).eitherTraverse(_ => failure)
+      result shouldEqual failure
     }
   }
 }

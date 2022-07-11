@@ -22,6 +22,15 @@ object Utils {
       }
     }
 
+    def eitherTraverse[B](f: A => Either[Failures, B]): Either[Failures, List[B]] = {
+      as.foldRight[Either[Failures, List[B]]](Right(Nil)) { (a, accE) =>
+        for {
+          acc <- accE
+          b <- f(a)
+        } yield b :: acc
+      }
+    }
+
     /**
      * Converts from stdlib's `-1 = empty` to an Option
      */
@@ -29,21 +38,6 @@ object Utils {
       val i = as.indexWhere(p)
       if (i == -1) None
       else Some(i)
-    }
-  }
-
-  implicit class RichAttempt[A](val attempt: Attempt[A]) extends AnyVal {
-    def |!|(attempt2: Attempt[A]): Attempt[Unit] = {
-      IO.partition(List(attempt, attempt2))(identity).flatMap { case (failedResults, _) =>
-        if (failedResults.isEmpty) {
-          IO.unit
-        } else {
-          val allFailures = failedResults.foldLeft[List[Failure]](Nil) { case (acc, failures) =>
-            acc ++ failures.failures
-          }
-          IO.fail(Failures(allFailures))
-        }
-      }
     }
   }
 
