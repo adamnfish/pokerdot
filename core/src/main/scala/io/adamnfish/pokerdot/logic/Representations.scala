@@ -320,12 +320,12 @@ object Representations {
 
   def eventRecordFromDb(eventRecordDb: EventRecordDb): Either[Failures, EventRecord] = {
     for {
-      gameLogEvent <- gameEventFromDb(eventRecordDb.e)
+      gameEvent <- gameEventFromDb(eventRecordDb.e)
     } yield
       EventRecord(
         GameId(eventRecordDb.gid),
         eventRecordDb.ctd,
-        gameLogEvent,
+        gameEvent,
       )
   }
 

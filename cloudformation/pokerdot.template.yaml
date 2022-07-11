@@ -18,6 +18,7 @@ Metadata:
           - DistBucket
           - GamesTableName
           - PlayersTableName
+          - GameEventsTableName
       - Label:
           default: Static site
         Parameters:
@@ -51,6 +52,13 @@ Parameters:
   PlayersTableName:
     Type: String
     Description: Players DynamoDB table name (check output of storage stack)
+    MinLength: 3
+    MaxLength: 255
+    AllowedPattern: ^[A-Za-z_-]+$
+    ConstraintDescription: Can be characters and underscore/hyphen only. No numbers or special characters allowed.
+  GameEventsTableName:
+    Type: String
+    Description: Game event log DynamoDB table name (check output of storage stack)
     MinLength: 3
     MaxLength: 255
     AllowedPattern: ^[A-Za-z_-]+$
@@ -159,6 +167,7 @@ Resources:
         Variables:
           GAMES_TABLE: !Ref GamesTableName
           PLAYERS_TABLE: !Ref PlayersTableName
+          GAME_EVENTS_TABLE: !Ref GameEventsTableName
           ORIGIN_LOCATION: !Sub "pokerdot.${DomainName}"
           API_ORIGIN_LOCATION: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/$default"
           REGION: !Ref AWS::Region

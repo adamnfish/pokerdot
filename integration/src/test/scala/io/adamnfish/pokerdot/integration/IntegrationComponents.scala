@@ -44,13 +44,13 @@ trait IntegrationComponents {
     val randomSuffix = randomUUID().toString
     val gameTableName = s"games-$randomSuffix"
     val playerTableName = s"players-$randomSuffix"
-    val gameLogTableName = s"game-logs-$randomSuffix"
+    val gameEventTableName = s"game-events-$randomSuffix"
 
-    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName, gameLogTableName)
+    val testDb = new DynamoDbDatabase(client, gameTableName, playerTableName, gameEventTableName)
 
     LocalDynamoDB.withTable(client)(gameTableName)("gameCode" -> S, "gameId" -> S) {
       LocalDynamoDB.withTable(client)(playerTableName)("gameId" -> S, "playerId" -> S) {
-        LocalDynamoDB.withTable(client)(gameLogTableName)("gid" -> S, "ctd" -> N) {
+        LocalDynamoDB.withTable(client)(gameEventTableName)("gid" -> S, "ctd" -> N) {
           f(testDb)
         }
       }

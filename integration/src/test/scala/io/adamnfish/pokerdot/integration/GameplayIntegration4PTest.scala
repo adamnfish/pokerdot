@@ -31,7 +31,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         timerConfig = None,
       ).value()
 
-      val startGameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      val startGameLog = db.getAllGameEvents(hostWelcome.gameId).value()
       startGameLog.head should have(
         "gid" as hostWelcome.gameId.gid,
         "e" as NP("p"),
@@ -51,16 +51,16 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       // p3 is initial player (left of dealer small blind and big blind)
       // p3 gas 7♠ 6♠ and folds
       PokerDot.pokerdot(foldRequest(p3Welcome), context(player3Address)).tick().value()
-      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual F(p3Welcome.playerId.pid)
+      db.getPhaseGameEvents(hostWelcome.gameId).value().head.e shouldEqual F(p3Welcome.playerId.pid)
       // host has Q♦ 7♣ and calls
       PokerDot.pokerdot(betRequest(10, hostWelcome), context(hostAddress)).tick().value()
-      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual B(hostWelcome.playerId.pid, 10)
+      db.getPhaseGameEvents(hostWelcome.gameId).value().head.e shouldEqual B(hostWelcome.playerId.pid, 10)
       // p1 has 10♠ 7♦ and calls from small blind
       PokerDot.pokerdot(betRequest(5, p1Welcome), context(player1Address)).tick().value()
-      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual B(p1Welcome.playerId.pid, 5)
+      db.getPhaseGameEvents(hostWelcome.gameId).value().head.e shouldEqual B(p1Welcome.playerId.pid, 5)
       // p2 has J♥ Q♣ and checks from big blind
       PokerDot.pokerdot(checkRequest(p2Welcome), context(player2Address)).tick().value()
-      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual C(p2Welcome.playerId.pid)
+      db.getPhaseGameEvents(hostWelcome.gameId).value().head.e shouldEqual C(p2Welcome.playerId.pid)
 
       // phase is now complete
 
@@ -86,7 +86,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
         "pot" as 0,
       )
       PokerDot.pokerdot(advancePhaseRequest(hostWelcome), context(hostAddress)).tick().value()
-      db.getPhaseGameLog(hostWelcome.gameId).value().head.e shouldEqual NP("f")
+      db.getPhaseGameEvents(hostWelcome.gameId).value().head.e shouldEqual NP("f")
 
       // community cards K♦ A♦ Q♠ are now visible
       // p1 is first to act, and checks
@@ -264,7 +264,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       )
 
       // check the game log has been persisted correctly
-      val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      val gameLog = db.getAllGameEvents(hostWelcome.gameId).value()
       gameLog.head should have(
         "gid" as hostWelcome.gameId.gid,
         "e" as NP("p"),
@@ -279,7 +279,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
       )
 
       // the phase game log should only contain the new phase event, after the new round
-      val phaseLog = db.getPhaseGameLog(hostWelcome.gameId).value()
+      val phaseLog = db.getPhaseGameEvents(hostWelcome.gameId).value()
       phaseLog.length shouldEqual 1
       phaseLog.head should have(
         "gid" as hostWelcome.gameId.gid,
@@ -288,7 +288,7 @@ class GameplayIntegration4PTest extends AnyFreeSpec with Matchers with Integrati
 
       // TODO: check the full game log has been persisted here?
       // check the log has all the events we'd expect, without getting into too much detail
-      val finalGameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      val finalGameLog = db.getAllGameEvents(hostWelcome.gameId).value()
       val allGameEvents = finalGameLog.map(_.e.getClass.getSimpleName)
       allGameEvents shouldEqual List(
         "NP", "NR", "NP", "F", "B", "B", "NP", "C", "C", "C", "NP", "B", "B", "B", "C", "NP", "C", "B", "B", "F", "NP", "NR", "GS"

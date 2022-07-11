@@ -33,14 +33,14 @@ class DatabaseTest extends AnyFreeSpec with TestHelpers with IntegrationComponen
             .sortBy(_.ctd)
           val result = for {
             _ <- db.writeGameEvents(events.toSet)
-            logs <- db.getFullGameLog(GameId(gid))
+            logs <- db.getAllGameEvents(GameId(gid))
           } yield logs
           result.value() shouldEqual events.reverse
         }
       }
 
       "returns nothing if there are not yet any events" in withDb { db =>
-        val result = db.getFullGameLog(GameId("does not exist")).value()
+        val result = db.getAllGameEvents(GameId("does not exist")).value()
         result shouldBe empty
       }
     }
@@ -63,7 +63,7 @@ class DatabaseTest extends AnyFreeSpec with TestHelpers with IntegrationComponen
           .map { case (ge, i) => EventRecordDb(gid, i, ge) }
         val result = for {
           _ <- IO.foreach_(allEvents)(db.writeGameEvent)
-          logs <- db.getPhaseGameLog(GameId(gid))
+          logs <- db.getPhaseGameEvents(GameId(gid))
         } yield logs
         result.value().map(_.e) shouldEqual (phaseEvents.reverse :+ newPhaseEvent)
       }

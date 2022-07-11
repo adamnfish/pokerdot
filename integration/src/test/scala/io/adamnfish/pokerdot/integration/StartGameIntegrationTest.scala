@@ -110,7 +110,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
       performStartGame(startGameRequest(hostWelcome, Some(1000), Some(5), None, playerOrder), context(hostAddress)).value()
 
       val newGameDb = db.getGame(hostWelcome.gameId).value().value
-      val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+      val gameLog = db.getAllGameEvents(hostWelcome.gameId).value()
       gameLog.head should have(
         "gid" as hostWelcome.gameId.gid,
         "e" as NP("p"),
@@ -128,7 +128,7 @@ class StartGameIntegrationTest extends AnyFreeSpec with Matchers with Integratio
         "e" as GS(playerOrder.map(_.pid)),
       )
 
-      val phaseLog = db.getPhaseGameLog(hostWelcome.gameId).value()
+      val phaseLog = db.getPhaseGameEvents(hostWelcome.gameId).value()
       phaseLog.length shouldEqual 1
       phaseLog.head should have(
         "gid" as hostWelcome.gameId.gid,

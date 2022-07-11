@@ -18,11 +18,11 @@ trait Database {
 
   // get log entries only back as far as the start of this phase
   // this can use a smaller query on the assumption there won't be millions of matching entries
-  def getPhaseGameLog(gameId: GameId): Attempt[List[EventRecordDb]]
+  def getPhaseGameEvents(gameId: GameId): Attempt[List[EventRecordDb]]
 
   // get all log entries for this game
   // this is unlikely to be useful, we might have to paginate it?
-  def getFullGameLog(gameId: GameId): Attempt[List[EventRecordDb]]
+  def getAllGameEvents(gameId: GameId): Attempt[List[EventRecordDb]]
 
   def writeGameEvent(eventRecordDb: EventRecordDb): Attempt[Unit]
   def writeGameEvents(eventRecordDbs: Set[EventRecordDb]): Attempt[Unit]

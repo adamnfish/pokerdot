@@ -79,7 +79,7 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
     postPlayerDbs.get(p2Welcome.playerId).value.hole should not equal prePlayerDbs.get(p2Welcome.playerId).value.hole
 
     // check the game log has been persisted correctly
-    val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+    val gameLog = db.getAllGameEvents(hostWelcome.gameId).value()
     gameLog.head should have(
       "gid" as hostWelcome.gameId.gid,
       "e" as NP("p")
@@ -93,7 +93,7 @@ class AbandonRoundIntegrationTest extends AnyFreeSpec with Matchers with Integra
       "e" as AR()
     )
     // the phase game log should now be empty, since abandon round also resets the phase
-    val phaseLog = db.getPhaseGameLog(hostWelcome.gameId).value()
+    val phaseLog = db.getPhaseGameEvents(hostWelcome.gameId).value()
     phaseLog.length shouldEqual 1
     phaseLog.head should have(
       "gid" as hostWelcome.gameId.gid,

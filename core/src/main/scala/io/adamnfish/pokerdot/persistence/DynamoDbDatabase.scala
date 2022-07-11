@@ -11,13 +11,13 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import zio.IO
 
 
-class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String, gameLogTableName: String) extends Database {
+class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String, gameEventsTableName: String) extends Database {
   // TODO: switch DB models to use PlayerId?
   //  provide implicit to allow Scanamo to use those wrapper types
 
   private val games = Table[GameDb](gameTableName)
   private val players = Table[PlayerDb](playerTableName)
-  private val gameLogs = Table[EventRecordDb](gameLogTableName)
+  private val gameEvents = Table[EventRecordDb](gameEventsTableName)
 
   // TODO: consider whether this should just derive a gameCode and call lookup
   override def getGame(gameId: GameId): Attempt[Option[GameDb]] = {
@@ -76,29 +76,29 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
     execAsAttempt(players.putAll(playerDBs))
   }
 
-  override def getPhaseGameLog(gameId: GameId): Attempt[List[EventRecordDb]] = {
+  override def getPhaseGameEvents(gameId: GameId): Attempt[List[EventRecordDb]] = {
     // TODO: think about order of records
     // TODO: start by querying smaller number of records, get more if needed
     for {
-      results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
-      gameLogs <- results.ioTraverse(resultToAttempt)
-      (phaseEvents, finished) = GameEvents.tryToGetAllPhaseEvents(gameLogs)
+      results <- execAsAttempt(gameEvents.descending.query("gid" === gameId.gid))
+      gameEventRecords <- results.ioTraverse(resultToAttempt)
+      (phaseEvents, finished) = GameEvents.tryToGetAllPhaseEvents(gameEventRecords)
     } yield phaseEvents
   }
 
-  override def getFullGameLog(gameId: GameId): Attempt[List[EventRecordDb]] = {
+  override def getAllGameEvents(gameId: GameId): Attempt[List[EventRecordDb]] = {
     for {
-      results <- execAsAttempt(gameLogs.descending.query("gid" === gameId.gid))
-      gameLogs <- results.ioTraverse(resultToAttempt)
-    } yield gameLogs
+      results <- execAsAttempt(gameEvents.descending.query("gid" === gameId.gid))
+      gameEvents <- results.ioTraverse(resultToAttempt)
+    } yield gameEvents
   }
 
   override def writeGameEvent(eventRecordDb: EventRecordDb): Attempt[Unit] = {
-    execAsAttempt(gameLogs.put(eventRecordDb))
+    execAsAttempt(gameEvents.put(eventRecordDb))
   }
 
   override def writeGameEvents(eventRecordDbs: Set[EventRecordDb]): Attempt[Unit] = {
-    execAsAttempt(gameLogs.putAll(eventRecordDbs))
+    execAsAttempt(gameEvents.putAll(eventRecordDbs))
   }
 
   def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {

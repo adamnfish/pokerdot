@@ -93,7 +93,7 @@ class GameplayIntegrationTestHeadsUp extends AnyFreeSpec with Matchers with Inte
     // game has finished, players were all-in and player 1 won
 
     // check the log has all the events we'd expect, without getting into too much detail
-    val gameLog = db.getFullGameLog(hostWelcome.gameId).value()
+    val gameLog = db.getAllGameEvents(hostWelcome.gameId).value()
 
     // game end event should be most recent in the game log, with the correct winner
     gameLog.head.e shouldEqual GE(p1Welcome.playerId.pid)
