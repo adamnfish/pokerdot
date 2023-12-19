@@ -7,7 +7,7 @@ import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Database, Messaging, Rng}
 import org.scanamo.LocalDynamoDB
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType._
-import zio.IO
+import zio.ZIO
 
 import java.util.UUID.randomUUID
 import scala.util.Random
@@ -33,11 +33,11 @@ trait IntegrationComponents {
           testDb,
           new Messaging {
             override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
-              IO.unit
+              ZIO.unit
             }
 
             override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = {
-              IO.unit
+              ZIO.unit
             }
           },
           TestClock,

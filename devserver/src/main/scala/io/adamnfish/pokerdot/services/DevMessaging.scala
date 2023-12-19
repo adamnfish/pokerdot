@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot.services
 
 import io.adamnfish.pokerdot.models._
 import io.javalin.websocket.WsContext
-import zio.IO
+import zio.ZIO
 
 import scala.collection.mutable
 
@@ -36,25 +36,25 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
    */
   private def send(recipientId: String, body: String): Attempt[Unit] = {
     for {
-      wctx <- IO.fromOption(connections.get(recipientId)).mapError(_ =>
+      wctx <- ZIO.fromOption(connections.get(recipientId)).mapError(_ =>
         Failures("User not connected", "connection not found", internal = true)
       )
       _ <-
         if (wctx.session.isOpen) {
-          IO.unit
+          ZIO.unit
         } else {
-          IO.fail {
+          ZIO.fail {
             Failures("Connection has closed", "connection closed", internal = true)
           }
         }
       result <-
-        IO.effect {
+        ZIO.attempt {
           wctx.send(body)
           ()
         }.mapError { err =>
           Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err), internal = true)
         }
-      _ <- IO.effect(logMessage(recipientId, body)).mapError { err =>
+      _ <- ZIO.attempt(logMessage(recipientId, body)).mapError { err =>
         Failures("Error logging websocket message", "could not log message", exception = Some(err), internal = true)
       }
     } yield result

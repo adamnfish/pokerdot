@@ -15,7 +15,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.util.Random
 
 
-class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues {
+class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with OptionValues {
   "generateRound" - {
     "generates different cards for different seeds" in {
       forAll { (seed: Long) =>

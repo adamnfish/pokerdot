@@ -1,6 +1,7 @@
 .dynamodb-local/
 .aws-sam/
 .bsp
+dynamodb-local-metadata.json
 
 # Created by https://www.toptal.com/developers/gitignore/api/emacs,intellij,elm,scala,sbt,node
 # Edit at https://www.toptal.com/developers/gitignore?templates=emacs,intellij,elm,scala,sbt,node

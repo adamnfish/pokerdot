@@ -1,7 +1,7 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures}
-import zio.IO
+import zio.ZIO
 
 
 object Utils {
@@ -16,7 +16,7 @@ object Utils {
     }
 
     def ioTraverse[B](f: A => Attempt[B]): Attempt[List[B]] = {
-      IO.validatePar(as)(f).mapError { fss =>
+      ZIO.validatePar(as)(f).mapError { fss =>
         // collect failure instances from multiple failures into a single Failures instance
         Failures(fss.flatMap(_.failures))
       }
@@ -34,14 +34,14 @@ object Utils {
 
   implicit class RichAttempt[A](val attempt: Attempt[A]) extends AnyVal {
     def |!|(attempt2: Attempt[A]): Attempt[Unit] = {
-      IO.partition(List(attempt, attempt2))(identity).flatMap { case (failedResults, _) =>
+      ZIO.partition(List(attempt, attempt2))(identity).flatMap { case (failedResults, _) =>
         if (failedResults.isEmpty) {
-          IO.unit
+          ZIO.unit
         } else {
           val allFailures = failedResults.foldLeft[List[Failure]](Nil) { case (acc, failures) =>
             acc ++ failures.failures
           }
-          IO.fail(Failures(allFailures))
+          ZIO.fail(Failures(allFailures))
         }
       }
     }
@@ -55,7 +55,7 @@ object Utils {
 
   implicit class RichEither[A](val efa: Either[Failures, A]) extends AnyVal {
     def attempt: Attempt[A] = {
-      IO.fromEither(efa)
+      ZIO.fromEither(efa)
     }
   }
 
@@ -79,12 +79,12 @@ object Utils {
 
   object Attempt {
     def failAs[A](failures: Failures): Attempt[A] = {
-      val failed: Attempt[A] = IO.fail(failures)
+      val failed: Attempt[A] = ZIO.fail(failures)
       failed
     }
 
     def fromOption[A](ao: Option[A], ifEmpty: Failures): Attempt[A] = {
-      ao.fold[Attempt[A]](IO.fail(ifEmpty))(a => IO.succeed(a))
+      ao.fold[Attempt[A]](ZIO.fail(ifEmpty))(a => ZIO.succeed(a))
     }
   }
 

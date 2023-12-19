@@ -13,7 +13,7 @@ object PokerDot {
   def pokerdot(requestBody: String, appContext: AppContext): Attempt[String] = {
     (for {
       requestJson <- Serialisation.parse(requestBody, "could not understand the request", None).attempt
-      operationJson <- IO.fromOption(requestJson.hcursor.downField("operation").focus).mapError(_ =>
+      operationJson <- ZIO.fromOption(requestJson.hcursor.downField("operation").focus).mapError(_ =>
         Failures("Request did not include operation field", "could not understand the request")
       )
       operation <- Serialisation.extractJson[String](operationJson, "unexpected operation").attempt
@@ -59,7 +59,7 @@ object PokerDot {
         failures.externalFailures match {
           case Nil =>
             // if all the messages were 'internal' then there's no need to send a failure message
-            IO.unit
+            ZIO.unit
           case externalFailures =>
             appContext.messaging.sendError(appContext.playerAddress, failures.copy(failures = externalFailures))
         }
@@ -310,7 +310,7 @@ object PokerDot {
       player <- Games.ensurePlayerKey(game.players, pingRequest.playerId, pingRequest.playerKey).attempt
       // update the player's address, if it has changed
       updatedPlayerOpt = Games.updatePlayerAddress(player, appContext.playerAddress)
-      updatedPlayer <- updatedPlayerOpt.fold[Attempt[Player]](IO.succeed(player)) { updatedPlayer =>
+      updatedPlayer <- updatedPlayerOpt.fold[Attempt[Player]](ZIO.succeed(player)) { updatedPlayer =>
         // if player's address has changed, persist change to DB
         val updatedPlayerDb = Representations.playerToDb(updatedPlayer)
         appContext.db.writePlayer(updatedPlayerDb).map(_ => updatedPlayer)
@@ -334,7 +334,7 @@ object PokerDot {
    * wakes the container so that subsequent requests load quickly.
    */
   def wake(appContext: AppContext): Attempt[Response[Status]] = {
-    IO.succeed {
+    ZIO.succeed {
       Responses.ok(appContext.playerAddress)
     }
   }

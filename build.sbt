@@ -1,6 +1,6 @@
 import scala.concurrent.duration.DurationInt
 
-ThisBuild / scalaVersion     := "2.13.5"
+ThisBuild / scalaVersion     := "2.13.12"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.adamnfish"
 ThisBuild / organizationName := "adamnfish"
@@ -8,20 +8,19 @@ ThisBuild / organizationName := "adamnfish"
 ThisBuild / scalacOptions ++= Seq(
   "-Xfatal-warnings",
   "-encoding", "UTF-8",
-  "-target:jvm-1.8",
   "-Ywarn-dead-code",
   "-deprecation",
   "-explaintypes",
 )
 
 
-val circeVersion = "0.14.0-M3"
+val circeVersion = "0.14.5"
 val scanamoVersion = "1.0-M14"
-val awsJavaSdkVersion = "2.15.72"
+val awsJavaSdkVersion = "2.20.68"
 val commonDeps = Seq(
-  "org.scalatest" %% "scalatest" % "3.2.2" % Test,
-  "org.scalacheck" %% "scalacheck" % "1.14.1" % Test,
-  "org.scalatestplus" %% "scalacheck-1-14" % "3.1.1.1" % Test,
+  "org.scalatest" %% "scalatest" % "3.2.15" % Test,
+  "org.scalacheck" %% "scalacheck" % "1.17.0" % Test,
+  "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test,
 )
 
 // https://aws.amazon.com/blogs/developer/tuning-the-aws-java-sdk-2-x-to-reduce-startup-time/
@@ -43,7 +42,7 @@ lazy val core = (project in file("core"))
   .settings(
     name := "core",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % "1.0.4",
+      "dev.zio" %% "zio" % "2.0.13",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
@@ -57,9 +56,9 @@ lazy val lambda = (project in file("lambda"))
   .settings(
     name := "lambda",
     libraryDependencies ++= Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
-      "com.amazonaws" % "aws-lambda-java-events" % "3.7.0",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
+      "com.amazonaws" % "aws-lambda-java-core" % "1.2.2",
+      "com.amazonaws" % "aws-lambda-java-events" % "3.11.1",
       "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps,
@@ -82,6 +81,8 @@ lazy val integration = (project in file("integration"))
   .settings(
     name := "integration",
     libraryDependencies ++= Seq(
+      "org.slf4j" % "slf4j-simple" % "2.0.5",
+      "org.slf4j" % "slf4j-api" % "2.0.5",
       "org.scanamo" %% "scanamo-testkit" % scanamoVersion % Test,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion % Test,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion % Test,
@@ -101,9 +102,9 @@ lazy val devServer = (project in file("devserver"))
   .settings(
     name := "devserver",
     libraryDependencies ++= Seq(
-      "io.javalin" % "javalin" % "3.6.0",
-      "org.slf4j" % "slf4j-simple" % "1.8.0-beta4",
-      "org.slf4j" % "slf4j-api" % "1.8.0-beta4",
+      "io.javalin" % "javalin" % "5.6.3",
+      "org.slf4j" % "slf4j-simple" % "2.0.5",
+      "org.slf4j" % "slf4j-api" % "2.0.5",
       "org.scanamo" %% "scanamo-testkit" % scanamoVersion,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,

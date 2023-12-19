@@ -5,7 +5,7 @@ import io.adamnfish.pokerdot.services.Messaging
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.apigatewaymanagementapi.ApiGatewayManagementApiClient
 import software.amazon.awssdk.services.apigatewaymanagementapi.model.PostToConnectionRequest
-import zio.IO
+import zio.ZIO
 
 import scala.util.control.NonFatal
 
@@ -25,7 +25,7 @@ class AwsMessaging(client: ApiGatewayManagementApiClient, logger: LambdaLogger) 
       .connectionId(playerAddress.address)
       .data(SdkBytes.fromByteArray(message.getBytes("UTF-8")))
       .build()
-    IO.effect(client.postToConnection(request)).mapError {
+    ZIO.attempt(client.postToConnection(request)).mapError {
       case NonFatal(e) =>
         Failures(
           s"AWS messaging failure ${e.getMessage}",

@@ -154,7 +154,7 @@ Resources:
       Handler: "io.adamnfish.pokerdot.Lambda::handleRequest"
       Timeout: 20
       MemorySize: 1024
-      Runtime: java8
+      Runtime: java11
       Environment:
         Variables:
           GAMES_TABLE: !Ref GamesTableName

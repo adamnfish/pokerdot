@@ -7,7 +7,7 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 14
+      nodejs: 20
       java: corretto11
 
   pre_build:
@@ -27,7 +27,7 @@ phases:
 
       # Install software for frontend build
       - cd frontend
-      - yarn install
+      - npm install
       - cd ..
 
       - echo "[STATUS] pre build step finished"
@@ -37,11 +37,11 @@ phases:
       - echo "[Status] Build started at `date`"
 
       # test and package API
-      - sbt/bin/sbt -no-colors test "project lambda" universal:packageBin
+      - sbt/bin/sbt -no-colors test lambda/universal:packageBin
       # frontend
       - cd frontend
-      - yarn test
-      - yarn build
+      - npm run test
+      - npm run build
       - cd ..
 
       - echo "[STATUS] Build finished"

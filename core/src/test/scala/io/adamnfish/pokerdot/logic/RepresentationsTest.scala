@@ -12,7 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 
-class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues {
+class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers {
   "games" - {
     "round trips a game correctly" in {
       val game = newGame("game name", trackStacks = false, TestClock, 1)

@@ -4,7 +4,7 @@ import io.adamnfish.pokerdot.logic.Play.dealHoles
 import io.adamnfish.pokerdot.logic.Utils.orderFromList
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.{Database, Clock}
-import zio.IO
+import zio.ZIO
 
 import java.time.{Duration, Instant}
 import java.util.UUID
@@ -124,11 +124,11 @@ object Games {
     def loop(prefixLength: Int): Attempt[String] = {
       fn(gameId, prefixLength, persistence).flatMap {
         case true =>
-          IO.succeed(gameId.gid.take(prefixLength))
+          ZIO.succeed(gameId.gid.take(prefixLength))
         case false if prefixLength < max =>
           loop(prefixLength + 1)
         case _ =>
-          IO.fail(
+          ZIO.fail(
             Failures("Couldn't create unique prefix of GameID", "couldn't set up game with a join code")
           )
       }

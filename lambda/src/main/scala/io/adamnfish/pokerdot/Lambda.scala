@@ -11,6 +11,7 @@ import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.apigatewaymanagementapi.ApiGatewayManagementApiClient
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import zio.Unsafe
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
@@ -67,37 +68,29 @@ class Lambda {
 
     event.getRequestContext.getRouteKey match {
       case "$connect" =>
-      // ignore this for now
+        // ignore this for now
       case "$disconnect" =>
-      // ignore this for now
+        // ignore this for now
       case "$default" =>
         val playerAddress = PlayerAddress(event.getRequestContext.getConnectionId)
         val appContext = appContextBuilder(playerAddress, awsContext)
 
-        zio.Runtime.default.unsafeRunSync(
-          PokerDot.pokerdot(event.getBody, appContext)
-        ).fold(
-          { cause =>
-            cause.failureOption match {
-              case Some(fs) =>
-                awsContext.getLogger.log(
-                  s"Request failed: ${fs.logString}"
-                )
-              case None =>
-                awsContext.getLogger.log(
-                  s"Request failed with no failures"
-                )
+        Unsafe.unsafe { implicit unsafe =>
+          zio.Runtime.default.run(
+            PokerDot.pokerdot(event.getBody, appContext)
+          ).fold(
+            { fs =>
+              awsContext.getLogger.log(
+                s"Request failed: ${fs.logString}"
+              )
+            },
+            { operation =>
+              awsContext.getLogger.log(
+                s"Request succeeded: $operation"
+              )
             }
-            cause.defects.foreach { err =>
-              awsContext.getLogger.log(s"Fatal error: ${err.toString}")
-            }
-          },
-          { operation =>
-            awsContext.getLogger.log(
-              s"Request succeeded: $operation"
-            )
-          }
-        )
+          )
+        }
     }
 
     val response = new APIGatewayV2WebSocketResponse()

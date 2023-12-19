@@ -8,7 +8,7 @@ import org.scalatest.exceptions.TestFailedException
 import org.scalatest.matchers.HavePropertyMatcher
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Failed, Succeeded}
-import zio.Exit
+import zio.{Exit, Unsafe}
 
 
 trait TestHelpers extends Matchers {
@@ -36,6 +36,18 @@ trait TestHelpers extends Matchers {
         identity
       )
     }
+
+    def leftValue(implicit position: Position): L = {
+      e.fold(
+        identity,
+        { r =>
+          throw new TestFailedException(
+            _ => Some(s"The Either on which leftValue was invoked was not a Left, got Right($r)"),
+            None, position
+          )
+        }
+      )
+    }
   }
 
   /**
@@ -56,37 +68,43 @@ trait TestHelpers extends Matchers {
 
   implicit class RichAttempt[A](aa: Attempt[A]) {
     def value()(implicit pos: Position): A = {
-      testRuntime.unsafeRunSync(aa) match {
-        case Exit.Success(a) =>
-          a
-        case Exit.Failure(cause) =>
-          throw new TestFailedException(
-            _ => Some(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}"),
-            None, pos
-          )
+      Unsafe.unsafe { implicit unsafe =>
+        testRuntime.unsafe.run(aa) match {
+          case Exit.Success(a) =>
+            a
+          case Exit.Failure(cause) =>
+            throw new TestFailedException(
+              _ => Some(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}"),
+              None, pos
+            )
+        }
       }
     }
 
     def failures()(implicit pos: Position): Failures = {
-      testRuntime.unsafeRunSync(aa) match {
-        case Exit.Success(a) =>
-          throw new TestFailedException(
-            _ => Some(s"Expected failed attempt, got successful result: $a"),
-            None, pos
-          )
-        case Exit.Failure(cause) =>
-          Failures(cause.failures.flatMap(_.failures))
+      Unsafe.unsafe { implicit unsafe =>
+        testRuntime.unsafe.run(aa) match {
+          case Exit.Success(a) =>
+            throw new TestFailedException(
+              _ => Some(s"Expected failed attempt, got successful result: $a"),
+              None, pos
+            )
+          case Exit.Failure(cause) =>
+            Failures(cause.failures.flatMap(_.failures))
+        }
       }
     }
 
     def is(attemptStatus: AttemptStatus)(implicit pos: Position): Assertion = {
-      testRuntime.unsafeRunSync(aa) match {
-        case Exit.Success(a) =>
-          if (attemptStatus == ASuccess) Succeeded
-          else Failed(s"Expected failed attempt but got success `$a`").toSucceeded
-        case Exit.Failure(cause) =>
-          if (attemptStatus == AFailure) Succeeded
-          else Failed(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}").toSucceeded
+      Unsafe.unsafe { implicit unsafe =>
+        testRuntime.unsafe.run(aa) match {
+          case Exit.Success(a) =>
+            if (attemptStatus == ASuccess) Succeeded
+            else Failed(s"Expected failed attempt but got success `$a`").toSucceeded
+          case Exit.Failure(cause) =>
+            if (attemptStatus == AFailure) Succeeded
+            else Failed(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}").toSucceeded
+        }
       }
     }
   }

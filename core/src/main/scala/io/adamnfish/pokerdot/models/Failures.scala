@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.models
 
-import zio.IO
+import zio.{IO, ZIO}
 
 
 case class Failures(failures: List[Failure]) {
@@ -43,6 +43,6 @@ case class Failure(
   exception: Option[Throwable] = None,
   internal: Boolean = false
 ) {
-  def asIO: IO[Failures, Nothing] = IO.fail(Failures(this))
+  def asIO: IO[Failures, Nothing] = ZIO.fail(Failures(this))
   def asFailures: Failures = Failures(this)
 }

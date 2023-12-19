@@ -6,7 +6,7 @@ import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
 import io.javalin.Javalin
 import org.scanamo.LocalDynamoDB
-import zio.IO
+import zio.{Exit, Unsafe, ZIO}
 
 import java.security.SecureRandom
 
@@ -63,26 +63,22 @@ object DevServer {
         messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
         val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Clock, rng)
         val program = PokerDot.pokerdot(wctx.message, appContext).catchAll { failures =>
-          IO {
-            println(s"[ERROR] Failures: ${failures.logString}")
-            "FAILURE"
+          ZIO.console.flatMap(_.printLine(s"[ERROR] Failures: ${failures.logString}"))
+        }
+        Unsafe.unsafe { implicit unsafe =>
+          runtime.unsafe.run(program) match {
+            case Exit.Success(operation) =>
+              println(s"[INFO] $operation")
+            case Exit.Failure(cause) =>
+              println(s"[ERROR] ${cause}")
+              cause.failures.foreach { e =>
+                println(s"[ERROR] Unhandled exception: ${e.printStackTrace()}")
+              }
+              cause.defects.foreach { err =>
+                println(s"[ERROR] Fatal error: ${err.toString}")
+              }
           }
         }
-
-        runtime.unsafeRunSync(program).fold(
-          { cause =>
-            println(s"[ERROR] ${cause.prettyPrint}")
-            cause.failures.foreach { e =>
-              println(s"[ERROR] Unhandled exception: ${e.printStackTrace()}")
-            }
-            cause.defects.foreach { err =>
-              println(s"[ERROR] Fatal error: ${err.toString}")
-            }
-          },
-          { operation =>
-            println(s"[INFO] $operation")
-          }
-        )
       }
     })
 

@@ -8,7 +8,7 @@ import io.adamnfish.pokerdot.services.Database
 import org.scanamo._
 import org.scanamo.syntax._
 import org.scanamo.generic.auto._
-import zio.IO
+import zio.ZIO
 
 
 class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
@@ -23,7 +23,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
     val gameCode = Games.gameCode(gameId)
     for {
       maybeResult <- execAsAttempt(games.get("gameCode" === gameCode and "gameId" === gameId.gid))
-      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](IO.succeed(None)) { result =>
+      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](ZIO.succeed(None)) { result =>
         resultToAttempt(result).map(Some(_))
       }
     } yield maybeGameDb
@@ -34,16 +34,16 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
       results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
       maybeResult <- results match {
         case Nil =>
-          IO.succeed(None)
+          ZIO.succeed(None)
         case result :: Nil =>
-          IO.succeed(Some(result))
+          ZIO.succeed(Some(result))
         case _ =>
           Failure(
             s"Multiple games found for code `$gameCode`",
             "couldn't find a game for that code",
           ).asIO
       }
-      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](IO.succeed(None)) { result =>
+      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](ZIO.succeed(None)) { result =>
         resultToAttempt(result).map(Some(_))
       }
     } yield maybeGameDb
@@ -77,7 +77,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
   }
 
   def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {
-    IO.effect {
+    ZIO.attempt {
       Scanamo(client).exec(op)
     }.mapError { err =>
       Failures("Uncaught DB error", "I had a problem saving the game", None, Some(err))
@@ -85,7 +85,7 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
   }
 
   private def resultToAttempt[A](result: Either[DynamoReadError, A]): Attempt[A] = {
-    IO.fromEither {
+    ZIO.fromEither {
       result.left.map { dre =>
         Failures(s"DynamoReadError: $dre", "error with saved data", None, None)
       }

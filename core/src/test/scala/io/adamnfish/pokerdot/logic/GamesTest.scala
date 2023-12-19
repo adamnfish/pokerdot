@@ -14,7 +14,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.util.Random
 
 
-class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues with PokerGenerators {
+class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with OptionValues with PokerGenerators {
   "newGame" - {
     "initialises the basic fields correctly" in {
       forAll { (gameName: String, trackStacks: Boolean, seed: Long) =>
@@ -667,7 +667,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
 
     "fails with a note about the GID, if the game wasn't found" in {
-      val failures = requireGame(None, "GID").left.value
+      val failures = requireGame(None, "GID").leftValue
       failures.logString should include("GID")
     }
   }

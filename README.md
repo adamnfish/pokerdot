@@ -86,12 +86,12 @@ You can run the frontend and the API in two separate terminals:
 
 #### Frontend application
 
-You will need `node` and `yarn` installed, all other dependencies will
+You will need `node` and `npm` installed, all other dependencies will
 be fetched for you.
 
 ```bash
 $ cd frontend
-$ yarn start
+$ npm run start
 ```
 
 #### API
