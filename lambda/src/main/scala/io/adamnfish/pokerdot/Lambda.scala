@@ -11,7 +11,7 @@ import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.apigatewaymanagementapi.ApiGatewayManagementApiClient
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import zio.Unsafe
+import zio.{Runtime, Unsafe}
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
@@ -76,7 +76,7 @@ class Lambda {
         val appContext = appContextBuilder(playerAddress, awsContext)
 
         Unsafe.unsafe { implicit unsafe =>
-          zio.Runtime.default.run(
+          Runtime.default.unsafe.run(
             PokerDot.pokerdot(event.getBody, appContext)
           ).fold(
             { fs =>

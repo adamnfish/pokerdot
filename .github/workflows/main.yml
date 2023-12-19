@@ -1,4 +1,4 @@
-name: Poker Dot
+name: Poker Dot Build
 
 on:
   push:
