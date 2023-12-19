@@ -96,7 +96,7 @@ $ npm run start
 
 #### API
 
-You will need a JDK installed (pokerdot uses 11, but others should
+You will need a JDK installed (pokerdot uses 17, but others should
 work fine) and `sbt`.
 
 ```bash
