@@ -11,7 +11,7 @@ import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.apigatewaymanagementapi.ApiGatewayManagementApiClient
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import zio.{Runtime, Unsafe}
+import zio.{Exit, Runtime, Unsafe, ZIO}
 
 import java.net.URI
 import scala.jdk.CollectionConverters._
@@ -61,9 +61,9 @@ class Lambda {
   }
 
   def handleRequest(event: APIGatewayV2WebSocketEvent, awsContext: AwsContext): APIGatewayV2WebSocketResponse = {
-    // Debugging for now
-    awsContext.getLogger.log(s"request body: ${event.getBody}")
-    awsContext.getLogger.log(s"connection ID: ${event.getRequestContext.getConnectionId}")
+    // Debugging
+//    awsContext.getLogger.log(s"request body: ${event.getBody}")
+//    awsContext.getLogger.log(s"connection ID: ${event.getRequestContext.getConnectionId}")
     awsContext.getLogger.log(s"route: ${event.getRequestContext.getRouteKey}")
 
     event.getRequestContext.getRouteKey match {
@@ -78,18 +78,20 @@ class Lambda {
         Unsafe.unsafe { implicit unsafe =>
           Runtime.default.unsafe.run(
             PokerDot.pokerdot(event.getBody, appContext)
-          ).fold(
-            { fs =>
-              awsContext.getLogger.log(
-                s"Request failed: ${fs.logString}"
-              )
-            },
-            { operation =>
-              awsContext.getLogger.log(
-                s"Request succeeded: $operation"
-              )
-            }
           )
+        } match {
+          case Exit.Success(operation) =>
+            awsContext.getLogger.log(s"[INFO] $operation")
+          case Exit.Failure(cause) =>
+            cause.failures.foreach { fs =>
+              awsContext.getLogger.log(s"[ERROR] error: ${fs.logString}")
+              fs.exception.foreach { e =>
+                awsContext.getLogger.log(s"[ERROR] exception: ${e.printStackTrace()}")
+              }
+            }
+            cause.defects.foreach { err =>
+              awsContext.getLogger.log(s"[ERROR] Fatal error: ${err.toString}")
+            }
         }
     }
 

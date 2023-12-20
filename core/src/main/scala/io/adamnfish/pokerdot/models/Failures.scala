@@ -14,6 +14,9 @@ case class Failures(failures: List[Failure]) {
   }.mkString(", ")
 
   val externalFailures: List[Failure] = failures.filterNot(_.internal)
+
+  def exception: Option[Throwable] =
+    failures.find(_.exception.isDefined).flatMap(_.exception)
 }
 object Failures {
   def apply(error: Failure): Failures = {

@@ -62,22 +62,23 @@ object DevServer {
       ws.onMessage { wctx =>
         messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
         val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Clock, rng)
-        val program = PokerDot.pokerdot(wctx.message, appContext).catchAll { failures =>
-          ZIO.console.flatMap(_.printLine(s"[ERROR] Failures: ${failures.logString}"))
-        }
         Unsafe.unsafe { implicit unsafe =>
-          runtime.unsafe.run(program) match {
-            case Exit.Success(operation) =>
-              println(s"[INFO] $operation")
-            case Exit.Failure(cause) =>
-              println(s"[ERROR] ${cause}")
-              cause.failures.foreach { e =>
-                println(s"[ERROR] Unhandled exception: ${e.printStackTrace()}")
-              }
-              cause.defects.foreach { err =>
-                println(s"[ERROR] Fatal error: ${err.toString}")
-              }
+          runtime.unsafe.run {
+            PokerDot.pokerdot(wctx.message, appContext)
           }
+        } match {
+          case Exit.Success(operation) =>
+            println(s"[INFO] $operation")
+          case Exit.Failure(cause) =>
+            cause.failures.foreach { fs =>
+              println(s"[ERROR] error: ${fs.logString}")
+              fs.exception.foreach { e =>
+                println(s"[ERROR] exception: ${e.printStackTrace()}")
+              }
+            }
+            cause.defects.foreach { err =>
+              println(s"[ERROR] Fatal error: ${err.toString}")
+            }
         }
       }
     })

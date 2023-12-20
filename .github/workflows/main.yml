@@ -18,7 +18,7 @@ jobs:
         distribution: 'corretto'
         cache: 'sbt'
     - name: Run tests
-      run: sbt test lambda/universal:packageBin
+      run: sbt test lambda/Universal/packageBin
 
   test-frontend:
     runs-on: ubuntu-latest

@@ -37,7 +37,7 @@ phases:
       - echo "[Status] Build started at `date`"
 
       # test and package API
-      - sbt/bin/sbt -no-colors test lambda/universal:packageBin
+      - sbt/bin/sbt -no-colors test lambda/Universal/packageBin
       # frontend
       - cd frontend
       - npm run test
