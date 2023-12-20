@@ -64,10 +64,9 @@ class Lambda extends LazyLogging {
   }
 
   def handleRequest(event: APIGatewayV2WebSocketEvent, awsContext: AwsContext): APIGatewayV2WebSocketResponse = {
-    // This doesn't appear in X-Ray, but it's useful to get the trace ID for the log lines
     val subsegment = AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest")
-    val handlerTraceId = AWSXRay.currentFormattedId()
-    logger.info(s"<$handlerTraceId> route: ${event.getRequestContext.getRouteKey}")
+    val traceId = AWSXRay.currentFormattedId()
+    logger.info(s"<$traceId> route: ${event.getRequestContext.getRouteKey}")
     // Debugging
     // logger.debug(s"<$handlerTraceId> request body: ${event.getBody}")
     // logger.debug(s"<$handlerTraceId> connection ID: ${event.getRequestContext.getConnectionId}")
@@ -78,8 +77,6 @@ class Lambda extends LazyLogging {
       case "$disconnect" =>
         // ignore this for now
       case "$default" =>
-        val traceId = AWSXRay.currentFormattedId()
-
         val playerAddress = PlayerAddress(event.getRequestContext.getConnectionId)
         val appContext = appContextBuilder(playerAddress, TraceId(traceId))
 
@@ -110,7 +107,6 @@ class Lambda extends LazyLogging {
         logger.info(s"<$traceId> Finished handling request")
     }
 
-    // This doesn't appear in X-Ray
     subsegment.end()
     AWSXRay.endSubsegment(subsegment)
     AWSXRay.sendSubsegment(subsegment)
