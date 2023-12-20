@@ -70,9 +70,11 @@ case class PlayerId(pid: String) extends AnyVal
 case class PlayerAddress(address: String) extends AnyVal
 case class PlayerKey(key: String) extends AnyVal
 
+case class TraceId(tid: String) extends AnyVal
 
 case class AppContext(
   playerAddress: PlayerAddress,
+  traceId: TraceId,
   db: Database,
   messaging: Messaging,
   clock: Clock,

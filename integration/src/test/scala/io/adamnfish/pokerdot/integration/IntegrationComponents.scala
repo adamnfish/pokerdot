@@ -30,6 +30,7 @@ trait IntegrationComponents {
       LocalDynamoDB.withTable(client)(playerTableName)("gameId" -> S, "playerId" -> S) {
         val addressToContext = AppContext(
           _,
+          TraceId("trace-id"),
           testDb,
           new Messaging {
             override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {

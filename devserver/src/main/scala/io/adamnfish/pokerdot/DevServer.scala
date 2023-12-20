@@ -2,7 +2,7 @@ package io.adamnfish.pokerdot
 
 import com.typesafe.scalalogging.LazyLogging
 import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
-import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
+import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
 import io.javalin.Javalin
@@ -10,6 +10,7 @@ import org.scanamo.LocalDynamoDB
 import zio.{Exit, Unsafe, ZIO}
 
 import java.security.SecureRandom
+import java.util.UUID
 
 
 object DevServer extends LazyLogging {
@@ -61,8 +62,10 @@ object DevServer extends LazyLogging {
         connectionPrinter(wctx.getSessionId, false)
       }
       ws.onMessage { wctx =>
+        val traceId = TraceId(UUID.randomUUID().toString)
+
         messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
-        val appContext = AppContext(PlayerAddress(wctx.getSessionId), db, messaging, Clock, rng)
+        val appContext = AppContext(PlayerAddress(wctx.getSessionId), traceId, db, messaging, Clock, rng)
         Unsafe.unsafe { implicit unsafe =>
           runtime.unsafe.run {
             PokerDot.pokerdot(wctx.message, appContext)

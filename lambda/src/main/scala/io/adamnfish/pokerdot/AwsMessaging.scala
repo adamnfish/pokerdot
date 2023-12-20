@@ -10,7 +10,7 @@ import zio.ZIO
 import scala.util.control.NonFatal
 
 
-class AwsMessaging(client: ApiGatewayManagementApiClient) extends Messaging with LazyLogging {
+class AwsMessaging(client: ApiGatewayManagementApiClient, traceId: TraceId) extends Messaging with LazyLogging {
   override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
     send(playerAddress, Serialisation.encodeMessage(message))
   }
@@ -20,7 +20,7 @@ class AwsMessaging(client: ApiGatewayManagementApiClient) extends Messaging with
   }
 
   private def send(playerAddress: PlayerAddress, message: String): Attempt[Unit] = {
-    logger.debug(s"Message {${playerAddress.address}}: $message")
+    logger.debug(s"<${traceId.tid}> Message {${playerAddress.address}}: $message")
     val request = PostToConnectionRequest.builder
       .connectionId(playerAddress.address)
       .data(SdkBytes.fromByteArray(message.getBytes("UTF-8")))

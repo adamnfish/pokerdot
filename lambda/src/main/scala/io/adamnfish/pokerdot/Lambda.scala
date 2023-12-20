@@ -4,8 +4,9 @@ package io.adamnfish.pokerdot
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayV2WebSocketEvent, APIGatewayV2WebSocketResponse}
 import com.amazonaws.services.lambda.runtime.{Context => AwsContext}
 import com.amazonaws.xray.AWSXRay
+import com.amazonaws.xray.entities.Subsegment
 import com.typesafe.scalalogging.LazyLogging
-import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
+import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Clock, RandomRng}
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider
@@ -21,8 +22,8 @@ import scala.util.Properties
 
 
 class Lambda extends LazyLogging {
-  // initialise AWS clients at start time
-  val appContextBuilder: PlayerAddress => AppContext = {
+  // initialise everything on every request so that ENV vars can be updated without restarting the lambda
+  val appContextBuilder: (PlayerAddress, TraceId) => AppContext = {
     (for {
       // AWS ASK configuration
       regionStr <- Properties.envOrNone("REGION")
@@ -51,9 +52,9 @@ class Lambda extends LazyLogging {
         .build()
       db = new DynamoDbDatabase(dynamoDbClient, gamesTableName, playersTableName)
       rng = new RandomRng
-    } yield { (playerAddress: PlayerAddress) =>
-      val messaging = new AwsMessaging(apiGatewayManagementClient)
-      AppContext(playerAddress, db, messaging, Clock, rng)
+    } yield { (playerAddress: PlayerAddress, traceId: TraceId) =>
+      val messaging = new AwsMessaging(apiGatewayManagementClient, traceId)
+      AppContext(playerAddress, traceId, db, messaging, Clock, rng)
     }).fold(
       { errMsg =>
         throw new RuntimeException(errMsg)
@@ -63,13 +64,13 @@ class Lambda extends LazyLogging {
   }
 
   def handleRequest(event: APIGatewayV2WebSocketEvent, awsContext: AwsContext): APIGatewayV2WebSocketResponse = {
+    // This doesn't appear in X-Ray, but it's useful to get the trace ID for the log lines
+    val subsegment = AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest")
+    val handlerTraceId = AWSXRay.currentFormattedId()
+    logger.info(s"<$handlerTraceId> route: ${event.getRequestContext.getRouteKey}")
     // Debugging
-//    logger.info(s"request body: ${event.getBody}")
-//    logger.info(s"connection ID: ${event.getRequestContext.getConnectionId}")
-    logger.info(s"route: ${event.getRequestContext.getRouteKey}")
-
-    val subsegment = AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest:$default")
-    logger.info(s"Trace sub: ${AWSXRay.currentFormattedId()}")
+    // logger.debug(s"<$handlerTraceId> request body: ${event.getBody}")
+    // logger.debug(s"<$handlerTraceId> connection ID: ${event.getRequestContext.getConnectionId}")
 
     event.getRequestContext.getRouteKey match {
       case "$connect" =>
@@ -77,8 +78,10 @@ class Lambda extends LazyLogging {
       case "$disconnect" =>
         // ignore this for now
       case "$default" =>
+        val traceId = AWSXRay.currentFormattedId()
+
         val playerAddress = PlayerAddress(event.getRequestContext.getConnectionId)
-        val appContext = appContextBuilder(playerAddress)
+        val appContext = appContextBuilder(playerAddress, TraceId(traceId))
 
         Unsafe.unsafe { implicit unsafe =>
           Runtime.default.unsafe.run(
@@ -86,27 +89,31 @@ class Lambda extends LazyLogging {
           )
         } match {
           case Exit.Success(operation) =>
-            logger.info(s"completed $operation")
+            logger.info(s"<$traceId> completed $operation")
             subsegment.putAnnotation("operation", operation)
           case Exit.Failure(cause) =>
             cause.failures.foreach { fs =>
-              logger.error(s"error: ${fs.logString}")
+              logger.error(s"<$traceId> error: ${fs.logString}")
               fs.exception match {
                 case Some(e) =>
-                  logger.error(s"exception: ${e.getMessage}", e)
+                  logger.error(s"<$traceId> exception: ${e.getMessage}", e)
                   subsegment.addException(e)
                 case None =>
                   subsegment.setFault(true)
               }
             }
             cause.defects.foreach { err =>
-              logger.error(s"Fatal error: ${err.getMessage}", err)
+              logger.error(s"<$traceId> Fatal error: ${err.getMessage}", err)
               subsegment.addException(err)
             }
         }
-        logger.info("Finished handling request")
-        subsegment.end()
+        logger.info(s"<$traceId> Finished handling request")
     }
+
+    // This doesn't appear in X-Ray
+    subsegment.end()
+    AWSXRay.endSubsegment(subsegment)
+    AWSXRay.sendSubsegment(subsegment)
 
     val response = new APIGatewayV2WebSocketResponse()
     response.setStatusCode(200)
