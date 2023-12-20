@@ -66,8 +66,10 @@ class Lambda extends LazyLogging {
     // Debugging
 //    logger.info(s"request body: ${event.getBody}")
 //    logger.info(s"connection ID: ${event.getRequestContext.getConnectionId}")
-    logger.info(s"Trace: ${AWSXRay.currentFormattedId()}")
     logger.info(s"route: ${event.getRequestContext.getRouteKey}")
+
+    val subsegment = AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest:$default")
+    logger.info(s"Trace sub: ${AWSXRay.currentFormattedId()}")
 
     event.getRequestContext.getRouteKey match {
       case "$connect" =>
@@ -85,17 +87,25 @@ class Lambda extends LazyLogging {
         } match {
           case Exit.Success(operation) =>
             logger.info(s"completed $operation")
+            subsegment.putAnnotation("operation", operation)
           case Exit.Failure(cause) =>
             cause.failures.foreach { fs =>
               logger.error(s"error: ${fs.logString}")
-              fs.exception.foreach { e =>
-                logger.error(s"exception: ${e.printStackTrace()}")
+              fs.exception match {
+                case Some(e) =>
+                  logger.error(s"exception: ${e.getMessage}", e)
+                  subsegment.addException(e)
+                case None =>
+                  subsegment.setFault(true)
               }
             }
             cause.defects.foreach { err =>
               logger.error(s"Fatal error: ${err.getMessage}", err)
+              subsegment.addException(err)
             }
         }
+        logger.info("Finished handling request")
+        subsegment.end()
     }
 
     val response = new APIGatewayV2WebSocketResponse()
