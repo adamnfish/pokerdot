@@ -65,7 +65,7 @@ lazy val lambda = (project in file("lambda"))
       "com.amazonaws" % "aws-lambda-java-events" % "3.11.1",
       "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
-    ) ++ commonDeps,
+    ) ++ commonDeps ++ loggingDeps,
     // native-packager
     Universal / topLevelDirectory := None,
     Universal / packageName := "pokerdot-lambda",
