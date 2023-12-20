@@ -3,6 +3,7 @@ package io.adamnfish.pokerdot
 
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayV2WebSocketEvent, APIGatewayV2WebSocketResponse}
 import com.amazonaws.services.lambda.runtime.{Context => AwsContext}
+import com.amazonaws.xray.AWSXRay
 import com.typesafe.scalalogging.LazyLogging
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
@@ -65,6 +66,7 @@ class Lambda extends LazyLogging {
     // Debugging
 //    logger.info(s"request body: ${event.getBody}")
 //    logger.info(s"connection ID: ${event.getRequestContext.getConnectionId}")
+    logger.info(s"Trace: ${AWSXRay.currentFormattedId()}")
     logger.info(s"route: ${event.getRequestContext.getRouteKey}")
 
     event.getRequestContext.getRouteKey match {

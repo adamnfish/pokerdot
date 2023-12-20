@@ -63,6 +63,7 @@ lazy val lambda = (project in file("lambda"))
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.2",
       "com.amazonaws" % "aws-lambda-java-events" % "3.11.1",
+      "com.amazonaws" % "aws-xray-recorder-sdk-core" % "2.15.0",
       "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps ++ loggingDeps,
