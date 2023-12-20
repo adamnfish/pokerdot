@@ -3,6 +3,7 @@ package io.adamnfish.pokerdot
 
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayV2WebSocketEvent, APIGatewayV2WebSocketResponse}
 import com.amazonaws.services.lambda.runtime.{Context => AwsContext}
+import com.typesafe.scalalogging.LazyLogging
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Clock, RandomRng}
@@ -18,7 +19,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.Properties
 
 
-class Lambda {
+class Lambda extends LazyLogging {
   // initialise AWS clients at start time
   val appContextBuilder: (PlayerAddress, AwsContext) => AppContext = {
     (for {
@@ -50,7 +51,7 @@ class Lambda {
       db = new DynamoDbDatabase(dynamoDbClient, gamesTableName, playersTableName)
       rng = new RandomRng
     } yield { (playerAddress: PlayerAddress, awsContext: AwsContext) =>
-      val messaging = new AwsMessaging(apiGatewayManagementClient, awsContext.getLogger)
+      val messaging = new AwsMessaging(apiGatewayManagementClient)
       AppContext(playerAddress, db, messaging, Clock, rng)
     }).fold(
       { errMsg =>
@@ -62,9 +63,9 @@ class Lambda {
 
   def handleRequest(event: APIGatewayV2WebSocketEvent, awsContext: AwsContext): APIGatewayV2WebSocketResponse = {
     // Debugging
-//    awsContext.getLogger.log(s"request body: ${event.getBody}")
-//    awsContext.getLogger.log(s"connection ID: ${event.getRequestContext.getConnectionId}")
-    awsContext.getLogger.log(s"route: ${event.getRequestContext.getRouteKey}")
+//    logger.info(s"request body: ${event.getBody}")
+//    logger.info(s"connection ID: ${event.getRequestContext.getConnectionId}")
+    logger.info(s"route: ${event.getRequestContext.getRouteKey}")
 
     event.getRequestContext.getRouteKey match {
       case "$connect" =>
@@ -81,16 +82,16 @@ class Lambda {
           )
         } match {
           case Exit.Success(operation) =>
-            awsContext.getLogger.log(s"[INFO] $operation")
+            logger.info(s"[INFO] completed $operation")
           case Exit.Failure(cause) =>
             cause.failures.foreach { fs =>
-              awsContext.getLogger.log(s"[ERROR] error: ${fs.logString}")
+              logger.error(s"[ERROR] error: ${fs.logString}")
               fs.exception.foreach { e =>
-                awsContext.getLogger.log(s"[ERROR] exception: ${e.printStackTrace()}")
+                logger.error(s"[ERROR] exception: ${e.printStackTrace()}")
               }
             }
             cause.defects.foreach { err =>
-              awsContext.getLogger.log(s"[ERROR] Fatal error: ${err.toString}")
+              logger.error(s"[ERROR] Fatal error: ${err.toString}")
             }
         }
     }

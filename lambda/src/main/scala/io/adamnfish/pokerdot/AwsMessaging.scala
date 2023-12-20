@@ -1,5 +1,5 @@
 package io.adamnfish.pokerdot
-import com.amazonaws.services.lambda.runtime.LambdaLogger
+import com.typesafe.scalalogging.LazyLogging
 import io.adamnfish.pokerdot.models._
 import io.adamnfish.pokerdot.services.Messaging
 import software.amazon.awssdk.core.SdkBytes
@@ -10,7 +10,7 @@ import zio.ZIO
 import scala.util.control.NonFatal
 
 
-class AwsMessaging(client: ApiGatewayManagementApiClient, logger: LambdaLogger) extends Messaging {
+class AwsMessaging(client: ApiGatewayManagementApiClient) extends Messaging with LazyLogging {
   override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
     send(playerAddress, Serialisation.encodeMessage(message))
   }
@@ -20,7 +20,7 @@ class AwsMessaging(client: ApiGatewayManagementApiClient, logger: LambdaLogger) 
   }
 
   private def send(playerAddress: PlayerAddress, message: String): Attempt[Unit] = {
-    logger.log(s"Message (${playerAddress.address}): $message")
+    logger.debug(s"Message (${playerAddress.address}): $message")
     val request = PostToConnectionRequest.builder
       .connectionId(playerAddress.address)
       .data(SdkBytes.fromByteArray(message.getBytes("UTF-8")))

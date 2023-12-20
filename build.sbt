@@ -22,6 +22,10 @@ val commonDeps = Seq(
   "org.scalacheck" %% "scalacheck" % "1.17.0" % Test,
   "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test,
 )
+val loggingDeps = Seq(
+  "ch.qos.logback" % "logback-classic" % "1.4.7",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
+)
 
 // https://aws.amazon.com/blogs/developer/tuning-the-aws-java-sdk-2-x-to-reduce-startup-time/
 // url-connection-client is included in modules that make AWS API calls (lambda, devserver and integration)
@@ -81,12 +85,10 @@ lazy val integration = (project in file("integration"))
   .settings(
     name := "integration",
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-simple" % "2.0.5",
-      "org.slf4j" % "slf4j-api" % "2.0.5",
       "org.scanamo" %% "scanamo-testkit" % scanamoVersion % Test,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion % Test,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion % Test,
-    ) ++ commonDeps,
+    ) ++ commonDeps ++ loggingDeps,
     // start DynamoDB for tests
     dynamoDBLocalDownloadDir := file(".dynamodb-local"),
     dynamoDBLocalPort := 8042,
@@ -103,12 +105,10 @@ lazy val devServer = (project in file("devserver"))
     name := "devserver",
     libraryDependencies ++= Seq(
       "io.javalin" % "javalin" % "5.6.3",
-      "org.slf4j" % "slf4j-simple" % "2.0.5",
-      "org.slf4j" % "slf4j-api" % "2.0.5",
       "org.scanamo" %% "scanamo-testkit" % scanamoVersion,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
-    ) ++ commonDeps,
+    ) ++ commonDeps ++ loggingDeps,
     // console logging and ctrl-c to kill support
     run / fork := true,
     run / connectInput := true,

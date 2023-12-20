@@ -1,5 +1,6 @@
 package io.adamnfish.pokerdot
 
+import com.typesafe.scalalogging.LazyLogging
 import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
@@ -11,7 +12,7 @@ import zio.{Exit, Unsafe, ZIO}
 import java.security.SecureRandom
 
 
-object DevServer {
+object DevServer extends LazyLogging {
   val client = LocalDynamoDB.syncClient()
   val db = new DynamoDbDatabase(client, "games", "players")
   DevServerDB.createGamesTable(client)
@@ -29,12 +30,12 @@ object DevServer {
           seed.toLong
       }
       .getOrElse(0L)
-    println(s"[INFO] initial seed: $initialSeed")
+    logger.info(s"[INFO] initial seed: $initialSeed")
     val rng = new DevRng(initialSeed)
 
     val messagePrinter: Direction => (String, String) => Unit =
       if (args.contains("--debug")) {
-        println("[INFO] debug mode - connection events and messages will be printed")
+        logger.info("[INFO] debug mode - connection events and messages will be printed")
         logMessage
       } else {
         noOpMessage
@@ -68,23 +69,23 @@ object DevServer {
           }
         } match {
           case Exit.Success(operation) =>
-            println(s"[INFO] $operation")
+            logger.info(s"[INFO] completed $operation")
           case Exit.Failure(cause) =>
             cause.failures.foreach { fs =>
-              println(s"[ERROR] error: ${fs.logString}")
+              logger.error(s"[ERROR] error: ${fs.logString}")
               fs.exception.foreach { e =>
-                println(s"[ERROR] exception: ${e.printStackTrace()}")
+                logger.error(s"[ERROR] exception: ${e.printStackTrace()}")
               }
             }
             cause.defects.foreach { err =>
-              println(s"[ERROR] Fatal error: ${err.toString}")
+              logger.error(s"[ERROR] Fatal error: ${err.toString}")
             }
         }
       }
     })
 
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      println("[INFO] Stopping...")
+      logger.info("[INFO] Stopping...")
       app.stop()
     }))
   }
