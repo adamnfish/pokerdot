@@ -20,7 +20,7 @@ class AwsMessaging(client: ApiGatewayManagementApiClient) extends Messaging with
   }
 
   private def send(playerAddress: PlayerAddress, message: String): Attempt[Unit] = {
-    logger.debug(s"Message (${playerAddress.address}): $message")
+    logger.debug(s"Message {${playerAddress.address}}: $message")
     val request = PostToConnectionRequest.builder
       .connectionId(playerAddress.address)
       .data(SdkBytes.fromByteArray(message.getBytes("UTF-8")))

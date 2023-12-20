@@ -30,12 +30,12 @@ object DevServer extends LazyLogging {
           seed.toLong
       }
       .getOrElse(0L)
-    logger.info(s"[INFO] initial seed: $initialSeed")
+    logger.info(s"initial seed: $initialSeed")
     val rng = new DevRng(initialSeed)
 
     val messagePrinter: Direction => (String, String) => Unit =
       if (args.contains("--debug")) {
-        logger.info("[INFO] debug mode - connection events and messages will be printed")
+        logger.info("debug mode - connection events and messages will be printed")
         logMessage
       } else {
         noOpMessage
@@ -69,23 +69,23 @@ object DevServer extends LazyLogging {
           }
         } match {
           case Exit.Success(operation) =>
-            logger.info(s"[INFO] completed $operation")
+            logger.info(s"completed $operation")
           case Exit.Failure(cause) =>
             cause.failures.foreach { fs =>
-              logger.error(s"[ERROR] error: ${fs.logString}")
+              logger.error(s"error: ${fs.logString}")
               fs.exception.foreach { e =>
-                logger.error(s"[ERROR] exception: ${e.printStackTrace()}")
+                logger.error(s"exception: ${e.printStackTrace()}")
               }
             }
             cause.defects.foreach { err =>
-              logger.error(s"[ERROR] Fatal error: ${err.toString}")
+              logger.error(s"Fatal error: ${err.getMessage}", err)
             }
         }
       }
     })
 
     Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      logger.info("[INFO] Stopping...")
+      logger.info("Stopping...")
       app.stop()
     }))
   }

@@ -21,7 +21,7 @@ import scala.util.Properties
 
 class Lambda extends LazyLogging {
   // initialise AWS clients at start time
-  val appContextBuilder: (PlayerAddress, AwsContext) => AppContext = {
+  val appContextBuilder: PlayerAddress => AppContext = {
     (for {
       // AWS ASK configuration
       regionStr <- Properties.envOrNone("REGION")
@@ -50,7 +50,7 @@ class Lambda extends LazyLogging {
         .build()
       db = new DynamoDbDatabase(dynamoDbClient, gamesTableName, playersTableName)
       rng = new RandomRng
-    } yield { (playerAddress: PlayerAddress, awsContext: AwsContext) =>
+    } yield { (playerAddress: PlayerAddress) =>
       val messaging = new AwsMessaging(apiGatewayManagementClient)
       AppContext(playerAddress, db, messaging, Clock, rng)
     }).fold(
@@ -74,7 +74,7 @@ class Lambda extends LazyLogging {
         // ignore this for now
       case "$default" =>
         val playerAddress = PlayerAddress(event.getRequestContext.getConnectionId)
-        val appContext = appContextBuilder(playerAddress, awsContext)
+        val appContext = appContextBuilder(playerAddress)
 
         Unsafe.unsafe { implicit unsafe =>
           Runtime.default.unsafe.run(
@@ -82,16 +82,16 @@ class Lambda extends LazyLogging {
           )
         } match {
           case Exit.Success(operation) =>
-            logger.info(s"[INFO] completed $operation")
+            logger.info(s"completed $operation")
           case Exit.Failure(cause) =>
             cause.failures.foreach { fs =>
-              logger.error(s"[ERROR] error: ${fs.logString}")
+              logger.error(s"error: ${fs.logString}")
               fs.exception.foreach { e =>
-                logger.error(s"[ERROR] exception: ${e.printStackTrace()}")
+                logger.error(s"exception: ${e.printStackTrace()}")
               }
             }
             cause.defects.foreach { err =>
-              logger.error(s"[ERROR] Fatal error: ${err.toString}")
+              logger.error(s"Fatal error: ${err.getMessage}", err)
             }
         }
     }
@@ -103,4 +103,3 @@ class Lambda extends LazyLogging {
     response
   }
 }
-
