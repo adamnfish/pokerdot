@@ -13,7 +13,7 @@ class RngTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChe
     }
 
     "returns a different 'next' seed every time" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val rng = new RandomRng
         rng.nextState(seed) should not equal rng.nextState(seed)
       }

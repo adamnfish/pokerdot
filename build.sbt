@@ -1,6 +1,6 @@
 import scala.concurrent.duration.DurationInt
 
-ThisBuild / scalaVersion     := "2.13.12"
+ThisBuild / scalaVersion     := "3.3.1"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.adamnfish"
 ThisBuild / organizationName := "adamnfish"
@@ -8,19 +8,17 @@ ThisBuild / organizationName := "adamnfish"
 ThisBuild / scalacOptions ++= Seq(
   "-Xfatal-warnings",
   "-encoding", "UTF-8",
-  "-Ywarn-dead-code",
   "-deprecation",
   "-explaintypes",
 )
 
 
 val circeVersion = "0.14.5"
-val scanamoVersion = "1.0-M14"
 val awsJavaSdkVersion = "2.20.68"
 val commonDeps = Seq(
   "org.scalatest" %% "scalatest" % "3.2.15" % Test,
   "org.scalacheck" %% "scalacheck" % "1.17.0" % Test,
-  "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test,
+  "org.scalatestplus" %% "scalacheck-1-15" % "3.2.11.0" % Test,
 )
 val loggingDeps = Seq(
   "ch.qos.logback" % "logback-classic" % "1.4.7",
@@ -46,21 +44,20 @@ lazy val core = (project in file("core"))
   .settings(
     name := "core",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % "2.0.13",
+      "dev.zio" %% "zio" % "2.0.20",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
-      "org.scanamo" %% "scanamo" % scanamoVersion,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
     ) ++ commonDeps,
   )
+  .dependsOn(dynamodecs, dynamoreeasytotest % "test->compile")
 
 lazy val lambda = (project in file("lambda"))
   .enablePlugins(JavaAppPackaging)
   .settings(
     name := "lambda",
     libraryDependencies ++= Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.2",
       "com.amazonaws" % "aws-lambda-java-events" % "3.11.1",
       "com.amazonaws" % "aws-xray-recorder-sdk-core" % "2.15.0",
@@ -86,7 +83,6 @@ lazy val integration = (project in file("integration"))
   .settings(
     name := "integration",
     libraryDependencies ++= Seq(
-      "org.scanamo" %% "scanamo-testkit" % scanamoVersion % Test,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion % Test,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion % Test,
     ) ++ commonDeps ++ loggingDeps,
@@ -99,14 +95,13 @@ lazy val integration = (project in file("integration"))
     Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
     Test / testOptions += dynamoDBLocalTestCleanup.value,
   )
-  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(core % "compile->compile;test->test", dynamoreeasytotest)
 
 lazy val devServer = (project in file("devserver"))
   .settings(
     name := "devserver",
     libraryDependencies ++= Seq(
       "io.javalin" % "javalin" % "5.6.3",
-      "org.scanamo" %% "scanamo-testkit" % scanamoVersion,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps ++ loggingDeps,
@@ -123,4 +118,23 @@ lazy val devServer = (project in file("devserver"))
     // allows browsing DB from http://localhost:8042/shell/
     dynamoDBLocalSharedDB := true,
   )
-  .dependsOn(core)
+  .dependsOn(core, dynamoreeasytotest)
+
+lazy val dynamodecs = (project in file("dynamodecs"))
+  .settings(
+    name := "dynamodecs",
+    libraryDependencies ++= Seq(
+      "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+    ) ++ commonDeps,
+  )
+
+lazy val dynamoreeasytotest = (project in file("dynamoreeasytotest"))
+  .settings(
+    name := "dynamoreeasytotest",
+    libraryDependencies ++= Seq(
+      "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
+    ) ++ commonDeps,
+  )

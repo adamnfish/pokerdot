@@ -26,7 +26,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "generates the same cards from the same seeds" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val round1 = generateRound(PreFlop, 0, seed)
         val round2 = generateRound(PreFlop, 0, seed)
         round1 shouldEqual round2
@@ -34,7 +34,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "there are no duplicate cards in a generated round" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val round = generateRound(PreFlop, 0, seed)
         val cards = List(round.burn1, round.flop1, round.flop2, round.flop3, round.burn2, round.turn, round.burn3, round.river)
         cards shouldEqual cards.distinct
@@ -42,7 +42,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "uses the provided small blind amount" in {
-      forAll { smallBlind: Int =>
+      forAll { (smallBlind: Int) =>
         val round = generateRound(PreFlop, smallBlind, 0L)
         round.smallBlind shouldEqual smallBlind
       }
@@ -58,7 +58,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "deckOrder" - {
     "returns the same deck order for the same seed" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val deck1 = deckOrder(seed)
         val deck2 = deckOrder(seed)
         deck1 shouldEqual deck2
@@ -91,7 +91,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     )
 
     "deals the same cards to each player each time, with the same seed" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val deck = deckOrder(seed)
         val players1 = dealHoles(players, deck)
         val players2 = dealHoles(players, deck)
@@ -100,7 +100,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "the round's cards are not dealt to players" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val round = generateRound(PreFlop, 0, seed)
         val allPlayerCards = dealHoles(players, deckOrder(seed))
           .flatMap { player =>
@@ -116,7 +116,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "players are never dealt the same cards as each other" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val allPlayerCards = dealHoles(players, deckOrder(seed))
           .flatMap { player =>
             player.hole.toList
@@ -753,7 +753,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "heads-up" - {
       "dealer is always small blind" in {
-        forAll { b: Boolean =>
+        forAll { (b: Boolean) =>
           val (newButtonIndex, players) =
             if (b) nextDealerAndBlinds(List(
               player1.copy(blind = BigBlind),
@@ -768,7 +768,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
       }
 
       "non-dealer is always big blind" in {
-        forAll { b: Boolean =>
+        forAll { (b: Boolean) =>
           val (newButtonIndex, players) =
             if (b) nextDealerAndBlinds(List(
               player1.copy(blind = BigBlind),
@@ -1166,7 +1166,7 @@ class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyCh
 
   "blindForNextRound" - {
     "returns the current small blind if no timer status is present" in {
-      forAll { sb: Int =>
+      forAll { (sb: Int) =>
         blindForNextRound(sb, 0, None) shouldEqual Right(sb)
       }
     }

@@ -1,11 +1,12 @@
 package io.adamnfish.pokerdot.models
 
-import cats.syntax.functor._
+import cats.syntax.functor.*
 import io.circe.Json.JString
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import io.circe.{Decoder, Encoder, Json, JsonObject, KeyEncoder, parser}
-import io.circe.syntax._
+import io.circe.{Codec, Decoder, Encoder, Json, JsonObject, KeyEncoder, parser}
+import io.circe.syntax.*
 import zio.IO
+import io.adamnfish.dynamodecs.{AttributeCodec, ItemCodec}
 
 
 object Serialisation {
@@ -219,8 +220,8 @@ object Serialisation {
         .mapObject(o => o.add("hand", Json.fromString("straight-flush")))
   }
 
-  private implicit val TimerStatusEncoder: Encoder[TimerStatus] = deriveEncoder[TimerStatus]
-  private implicit val TimerStatusDecoder: Decoder[TimerStatus] = deriveDecoder[TimerStatus]
+  private implicit val timerStatusEncoder: Encoder[TimerStatus] = deriveEncoder[TimerStatus]
+  private implicit val timerStatusDecoder: Decoder[TimerStatus] = deriveDecoder[TimerStatus]
   private implicit val roundPhaseEncoder: Encoder[RoundLevel] = deriveEncoder[RoundLevel]
   private implicit val roundPhaseDecoder: Decoder[RoundLevel] = deriveDecoder[RoundLevel]
   private implicit val breakEncoder: Encoder[BreakLevel] = deriveEncoder[BreakLevel]
@@ -416,5 +417,41 @@ object Serialisation {
     def encodeRequest(request: Request): Json = {
       request.asJson
     }
+  }
+
+  object db {
+    private given encodePhase: Encoder[Phase] = Encoder[String].contramap {
+      case PreFlop =>
+        "pre-flop"
+      case Flop =>
+        "flop"
+      case Turn =>
+        "turn"
+      case River =>
+        "river"
+      case Showdown =>
+        "showdown"
+    }
+    private given decodePhase: Decoder[Phase] = Decoder[String].emap {
+      case "pre-flop" =>
+        Right(PreFlop)
+      case "flop" =>
+        Right(Flop)
+      case "turn" =>
+        Right(Turn)
+      case "river" =>
+        Right(River)
+      case "showdown" =>
+        Right(Showdown)
+      case other =>
+        Left(s"Invalid phase: $other")
+    }
+    // AttributeCodec derivation requires Codec rather than encoder / decoder
+    private given Codec[Phase] = Codec.from(decodePhase, encodePhase)
+    private given Codec[TimerStatus] = Codec.from(timerStatusDecoder, timerStatusEncoder)
+    private given Codec[Hole] = Codec.from(holeDecoder, holeEncoder)
+
+    val gameDbCodec = summon[ItemCodec[GameDb]]
+    val playerDbCodec = summon[ItemCodec[PlayerDb]]
   }
 }

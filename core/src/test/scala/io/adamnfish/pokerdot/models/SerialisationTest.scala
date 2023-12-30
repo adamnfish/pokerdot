@@ -3,12 +3,12 @@ package io.adamnfish.pokerdot.models
 import io.adamnfish.pokerdot.TestHelpers
 import io.adamnfish.pokerdot.TestHelpers.parseReq
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.models.Serialisation.{parseUpdateBlindRequest, _}
-import io.circe.Json
+import io.adamnfish.pokerdot.models.Serialisation.{parseUpdateBlindRequest, *}
+import io.circe.{Decoder, Json}
 import io.circe.generic.semiauto.deriveDecoder
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import io.circe.syntax._
+import io.circe.syntax.*
 import org.scalatest.EitherValues
 
 
@@ -33,7 +33,7 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers {
 
   "extractJson" - {
     case class Test(field: String)
-    implicit val testDecoder = deriveDecoder[Test]
+    implicit val testDecoder: Decoder[Test] = deriveDecoder
 
     "succeeds if the JSON is valid" in {
       val result = extractJson(Json.fromFields(List(("field", Json.fromString("value")))), "Test message")

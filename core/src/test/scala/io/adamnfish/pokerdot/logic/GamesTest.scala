@@ -291,7 +291,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     val game = newGame("game name", false, TestClock, 123L)
 
     "sets up some key fields" in {
-      forAll { startTime: Long =>
+      forAll { (startTime: Long) =>
         start(game, startTime, None, None, None, game.players.map(_.playerId)) should have(
           "started" as true,
           "startTime" as startTime,
@@ -302,7 +302,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
     "trackStacks" - {
       "is true if initial stack levels are provided" in {
-        forAll { startingStacks: Int =>
+        forAll { (startingStacks: Int) =>
           start(game, 0L, None, None, Some(startingStacks), game.players.map(_.playerId)).trackStacks shouldEqual true
         }
       }
@@ -320,7 +320,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
           RoundLevel(10, 2),
         ))
         "start time uses the 'now'" in {
-          forAll { startTime: Long =>
+          forAll { (startTime: Long) =>
             val gameTimer = start(game, startTime, None, timerLevels, None, game.players.map(_.playerId)).timer.value
             gameTimer.timerStartTime shouldEqual startTime
           }
@@ -344,7 +344,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
     "sets up a round" - {
       "deals the same cards for the same seed" in {
-        forAll { initialSeed: Long =>
+        forAll { (initialSeed: Long) =>
           val seededGame = newGame("game name", false, TestClock, initialSeed)
           val round1 = start(seededGame, 1000L, None, None, None, game.players.map(_.playerId)).round
           val round2 = start(seededGame, 1000L, None, None, None, game.players.map(_.playerId)).round
@@ -406,7 +406,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
 
       "player holes are the same for the same seed" in {
-        forAll { seed: Long =>
+        forAll { (seed: Long) =>
           val players1 = start(game.copy(seed = seed, players = players), 1000L, None, None, None, game.players.map(_.playerId)).players
           val players2 = start(game.copy(seed = seed, players = players), 1000L, None, None, None, game.players.map(_.playerId)).players
           players1.map(_.hole) shouldEqual players2.map(_.hole)
@@ -558,7 +558,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
   "expiryTime" - {
     "expiry time is after the provided date" in {
-      forAll { now: Long =>
+      forAll { (now: Long) =>
         // let's not think ahead of the year 3000 to avoid Long overflow
         whenever(now < 32503680000000L) {
           expiryTime(now) should be > now
@@ -580,7 +580,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
 
     "sets the player's bet value to 0" in {
-      forAll { n: Int =>
+      forAll { (n: Int) =>
         resetPlayerForNextPhase(player.copy(bet = n)).bet shouldEqual 0
       }
     }
@@ -613,13 +613,13 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
 
     "if the player does not have a winnings entry, their stack is left as it was" in {
-      forAll { previousStack: Int =>
+      forAll { (previousStack: Int) =>
         resetPlayerForShowdown(Nil)(player.copy(stack = previousStack)).stack shouldEqual previousStack
       }
     }
 
     "forces player's checked state to true" in {
-      forAll { checked: Boolean =>
+      forAll { (checked: Boolean) =>
         resetPlayerForShowdown(Nil)(player.copy(checked = checked)).checked shouldEqual true
       }
     }
@@ -634,7 +634,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     val player = newPlayer(gameId, "player", false, PlayerAddress("address"), TestClock)
 
     "zeroes the player's pot contribution" in {
-      forAll { pot: Int =>
+      forAll { (pot: Int) =>
         resetPlayerForNextRound(player.copy(pot = pot)).pot shouldEqual 0
       }
     }
@@ -705,13 +705,13 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     val game = newGame("game name", false, TestClock, 123L)
 
     "is fine for a game with no players" in {
-      forAll { screenName: String =>
+      forAll { (screenName: String) =>
         ensureNoDuplicateScreenName(game, screenName).isRight shouldEqual true
       }
     }
 
     "is successful for a screen name that isn't already taken" in {
-      forAll { screenName: String =>
+      forAll { (screenName: String) =>
         whenever(screenName != "screenname") {
           val player = newPlayer(game.gameId, "screenname", false, PlayerAddress("address"), TestClock)
           val gameWithPlayer = addPlayer(game, player)
@@ -721,7 +721,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
 
     "fails for a screen name that is already in use in this game" in {
-      forAll { screenName: String =>
+      forAll { (screenName: String) =>
         val player = newPlayer(game.gameId, screenName, false, PlayerAddress("address"), TestClock)
         val gameWithPlayer = addPlayer(game, player)
         ensureNoDuplicateScreenName(gameWithPlayer, screenName).isLeft shouldEqual true
@@ -763,7 +763,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     val game = newGame("game name", false, TestClock, 123L)
 
     "succeeds for a player address that isn't already in use" in {
-      forAll { address: String =>
+      forAll { (address: String) =>
         whenever(address != "address1") {
           val player = newPlayer(game.gameId, "screenname", false, PlayerAddress("address1"), TestClock)
           val gameWithPlayer = addPlayer(game, player)
@@ -773,7 +773,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
 
     "fails for a player address that is already being used" in {
-      forAll { address: String =>
+      forAll { (address: String) =>
         val player = newPlayer(game.gameId, "screenname", false, PlayerAddress(address), TestClock)
         val gameWithPlayer = addPlayer(game, player)
         ensureNotAlreadyPlaying(gameWithPlayer.players, PlayerAddress(address)).isLeft shouldEqual true

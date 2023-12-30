@@ -137,19 +137,23 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
   "advancePhase" - {
     "for the simple phases" - {
       val game = newGame("Game name", trackStacks = true, TestClock, 1L)
-      val p1 :: p2 :: p3 :: p4 :: Nil = Play.dealHoles(
+
+      val (p1, p2, p3, p4) = Play.dealHoles(
         List(
           newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
+          newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
+          newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), TestClock)
             .copy(stack = 1000),
-            newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestClock)
+          newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), TestClock)
             .copy(stack = 1000),
         ),
         Play.deckOrder(game.seed),
-      )
+      ) match {
+        case p1 :: p2 :: p3 :: p4 :: Nil => (p1, p2, p3, p4)
+        case _ => fail("Unexpected player count")
+      }
 
       "game phase is advanced" in {
         val expected = Map(
@@ -549,14 +553,17 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "advanceFromFoldedFinish" - {
     val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
-    val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
+    val (p1, p2, p3) = Play.dealHoles(
       List(
         newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock),
         newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock),
         newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock),
       ),
       Play.deckOrder(rawGame.seed),
-    )
+    ) match {
+      case p1 :: p2 :: p3 :: Nil => (p1, p2, p3)
+      case _ => fail("Unexpected player count")
+    }
 
     "is correct for an example, heads-up" in {
       forAll(Gen.oneOf(PreFlop, Flop, Turn)) { phase =>
@@ -596,14 +603,17 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "startNewRound" - {
     val rawGame = newGame("Game name", trackStacks = true, TestClock, 1L)
-    val p1 :: p2 :: p3 :: Nil = Play.dealHoles(
+    val (p1, p2, p3) = Play.dealHoles(
       List(
         newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), TestClock),
         newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), TestClock),
         newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), TestClock),
       ),
       Play.deckOrder(rawGame.seed),
-    )
+    ) match {
+      case p1 :: p2 :: p3 :: Nil => (p1, p2, p3)
+      case _ => fail("Unexpected player count")
+    }
 
     "advances to a new PreFlop round" - {
       val round = Play.generateRound(Showdown, 5, rawGame.seed)

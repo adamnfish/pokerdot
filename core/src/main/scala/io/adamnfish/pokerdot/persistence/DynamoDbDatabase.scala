@@ -1,38 +1,48 @@
 package io.adamnfish.pokerdot.persistence
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import io.adamnfish.dynamodecs.ItemCodec
 import io.adamnfish.pokerdot.logic.Games
 import io.adamnfish.pokerdot.logic.Utils.{EitherUtils, RichList}
-import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb, Serialisation}
 import io.adamnfish.pokerdot.services.Database
-import org.scanamo._
-import org.scanamo.syntax._
-import org.scanamo.generic.auto._
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, DynamoDbRequest, DynamoDbResponse, GetItemRequest, GetItemResponse, PutItemRequest, PutItemResponse, QueryRequest, QueryResponse}
 import zio.ZIO
+
+import scala.jdk.CollectionConverters.*
 
 
 class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
-  // TODO: switch DB models to use PlayerId?
-  //  provide implicit to allow Scanamo to use those wrapper types
 
-  private val games = Table[GameDb](gameTableName)
-  private val players = Table[PlayerDb](playerTableName)
+//  private val games = Table[GameDb](gameTableName)
+//  private val players = Table[PlayerDb](playerTableName)
 
   // TODO: consider whether this should just derive a gameCode and call lookup
   override def getGame(gameId: GameId): Attempt[Option[GameDb]] = {
     val gameCode = Games.gameCode(gameId)
     for {
-      maybeResult <- execAsAttempt(games.get("gameCode" === gameCode and "gameId" === gameId.gid))
-      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](ZIO.succeed(None)) { result =>
-        resultToAttempt(result).map(Some(_))
-      }
-    } yield maybeGameDb
+      response <- sendRequest[GetItemRequest, GetItemResponse](
+        client.getItem,
+        GetItemRequest.builder()
+          .tableName(gameTableName)
+          .key(Map("gameCode" -> AttributeValue.fromS(gameCode), "gameId" -> AttributeValue.fromS(gameId.gid)).asJava)
+          .build()
+      )
+      // TODO: handle not found case
+    } yield Some(Serialisation.db.gameDbCodec.decode(response.item()))
   }
 
   override def lookupGame(gameCode: String): Attempt[Option[GameDb]] = {
     for {
-      results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
-      maybeResult <- results match {
+      response <- sendRequest[QueryRequest, QueryResponse](
+        client.query,
+        QueryRequest.builder()
+          .tableName(gameTableName)
+          .keyConditionExpression("gameCode = :gameCode")
+          .expressionAttributeValues(Map(":gameCode" -> AttributeValue.fromS(gameCode)).asJava)
+          .build()
+      )
+      maybeResult <- response.items().asScala.toList.map(Serialisation.db.gameDbCodec.decode(_)) match {
         case Nil =>
           ZIO.succeed(None)
         case result :: Nil =>
@@ -43,52 +53,67 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
             "couldn't find a game for that code",
           ).asIO
       }
-      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](ZIO.succeed(None)) { result =>
-        resultToAttempt(result).map(Some(_))
-      }
-    } yield maybeGameDb
+    } yield maybeResult
   }
 
 
   override def searchGameCode(gameCode: String): Attempt[List[GameDb]] = {
     for {
-      results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
-      gameDbs <- results.ioTraverse(resultToAttempt)
-    } yield gameDbs
+      response <- sendRequest[QueryRequest, QueryResponse](
+        client.query,
+        QueryRequest.builder()
+          .tableName(gameTableName)
+          .keyConditionExpression("gameCode = :gameCode")
+          .expressionAttributeValues(Map(":gameCode" -> AttributeValue.fromS(gameCode)).asJava)
+          .build()
+      )
+    } yield response.items().asScala.toList.map(Serialisation.db.gameDbCodec.decode(_))
   }
 
   override def getPlayers(gameId: GameId): Attempt[List[PlayerDb]] = {
     for {
-      results <- execAsAttempt(players.query("gameId" === gameId.gid))
-      players <- results.ioTraverse(resultToAttempt)
-    } yield players
+      response <- sendRequest[QueryRequest, QueryResponse](
+        client.query,
+        QueryRequest.builder()
+          .tableName(playerTableName)
+          .keyConditionExpression("gameId = :gameId")
+          .expressionAttributeValues(Map(":gameId" -> AttributeValue.fromS(gameId.gid)).asJava)
+          .build()
+      )
+    } yield response.items().asScala.toList.map(Serialisation.db.playerDbCodec.decode(_))
   }
 
   override def writeGame(gameDB: GameDb): Attempt[Unit] = {
+    val item = Serialisation.db.gameDbCodec.encode(gameDB)
     for {
-      result <- execAsAttempt(games.put(gameDB))
-    } yield result
+      result <- sendRequest[PutItemRequest, PutItemResponse](
+        (r: PutItemRequest) => client.putItem(r),
+        PutItemRequest.builder()
+          .tableName(gameTableName)
+          .item(item.asJava)
+          .build()
+      )
+    } yield ()
   }
 
   override def writePlayer(playerDB: PlayerDb): Attempt[Unit] = {
+    val item = Serialisation.db.playerDbCodec.encode(playerDB)
     for {
-      result <- execAsAttempt(players.put(playerDB))
-    } yield result
+      result <- sendRequest[PutItemRequest, PutItemResponse](
+        (r: PutItemRequest) => client.putItem(r),
+        PutItemRequest.builder()
+          .tableName(playerTableName)
+          .item(item.asJava)
+          .build()
+      )
+    } yield ()
   }
 
-  def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {
-    ZIO.attempt {
-      Scanamo(client).exec(op)
+  private def sendRequest[Req <: DynamoDbRequest, Res <: DynamoDbResponse](method: Req => Res, req: Req): Attempt[Res] = {
+    ZIO.attemptBlocking {
+      method(req)
     }.mapError { err =>
       Failures("Uncaught DB error", "I had a problem saving the game", None, Some(err))
-    }
-  }
-
-  private def resultToAttempt[A](result: Either[DynamoReadError, A]): Attempt[A] = {
-    ZIO.fromEither {
-      result.left.map { dre =>
-        Failures(s"DynamoReadError: $dre", "error with saved data", None, None)
-      }
     }
   }
 }

@@ -6,15 +6,24 @@ import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
 import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
 import io.javalin.Javalin
-import org.scanamo.LocalDynamoDB
+import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import zio.{Exit, Unsafe, ZIO}
 
+import java.net.URI
 import java.security.SecureRandom
 import java.util.UUID
 
 
 object DevServer extends LazyLogging {
-  val client = LocalDynamoDB.syncClient()
+  val client = DynamoDbClient.builder()
+    .endpointOverride(URI.create("http://localhost:8042"))
+    .region(Region.US_EAST_1) // not used for local dynamodb, but required
+    .credentialsProvider(StaticCredentialsProvider.create(
+      AwsBasicCredentials.create("dummykey", "dummysecret")))
+    .build()
+
   val db = new DynamoDbDatabase(client, "games", "players")
   DevServerDB.createGamesTable(client)
   DevServerDB.createPlayersTable(client)
@@ -87,9 +96,11 @@ object DevServer extends LazyLogging {
       }
     })
 
-    Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      logger.info("Stopping...")
-      app.stop()
-    }))
+    Runtime.getRuntime.addShutdownHook(new Thread {
+      override def run(): Unit = {
+        logger.info("Stopping...")
+        app.stop()
+      }
+    })
   }
 }

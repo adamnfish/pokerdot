@@ -28,7 +28,7 @@ class UtilsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
   "findIndex" - {
     "returned index is equal to the stdlib's index when present" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val rng = new Random(seed)
         val shuffled = rng.shuffle(List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         shuffled.findIndex(_ == 1) shouldEqual Some(shuffled.indexWhere(_ == 1))
