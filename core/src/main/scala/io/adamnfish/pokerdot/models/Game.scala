@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.models
 
-import io.adamnfish.pokerdot.services.{Database, Clock, Messaging, Rng}
+import io.adamnfish.pokerdot.services.{Database, Time, Messaging, Rng}
 
 
 case class Game(
@@ -72,11 +72,11 @@ case class PlayerKey(key: String) extends AnyVal
 
 case class TraceId(tid: String) extends AnyVal
 
-case class AppContext(
+case class AppContext[F[_]](
   playerAddress: PlayerAddress,
   traceId: TraceId,
-  db: Database,
-  messaging: Messaging,
-  clock: Clock,
-  rng: Rng,
+  db: Database[F],
+  messaging: Messaging[F],
+  time: Time[F],
+  rng: Rng[F],
 )

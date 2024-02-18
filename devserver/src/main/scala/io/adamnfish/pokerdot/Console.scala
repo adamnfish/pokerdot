@@ -1,6 +1,8 @@
 package io.adamnfish.pokerdot
 
+import cats.Applicative
 import io.adamnfish.pokerdot.Console.Direction
+import org.typelevel.log4cats.Logger
 
 import scala.io.AnsiColor
 import scala.util.Random
@@ -53,31 +55,31 @@ object Console {
     s"${AnsiColor.CYAN_B}${AnsiColor.BOLD}${AnsiColor.WHITE}",
   )
 
-  def logMessage(direction: Direction)(uid: String, body: String): Unit = {
+  def logMessage[F[_] : Logger](direction: Direction)(uid: String, body: String): F[Unit] = {
     val dir = direction match {
       case Inbound => "<-"
       case Outbound => "->"
     }
-    println(s"[DEBUG] Message: ${displayId(uid)} $dir $body")
+    Logger[F].debug(s"[DEBUG] Message: ${displayId(uid)} $dir $body")
   }
 
-  def noOpMessage(direction: Direction)(uid: String, body: String): Unit = {
-    ()
+  def noOpMessage[F[_] : Applicative](direction: Direction)(uid: String, body: String): F[Unit] = {
+    Applicative[F].unit
   }
 
   sealed trait Direction
   case object Inbound extends Direction
   case object Outbound extends Direction
 
-  def logConnection(uid: String, connected: Boolean): Unit = {
+  def logConnection[F[_] : Logger](uid: String, connected: Boolean): F[Unit] = {
     if (connected) {
-      println(s"[DEBUG] Connected: ${displayId(uid, fullId = true)}")
+      Logger[F].debug(s"[DEBUG] Connected: ${displayId(uid, fullId = true)}")
     } else {
-      println(s"[DEBUG] Disconnected: ${displayId(uid)}")
+      Logger[F].debug(s"[DEBUG] Disconnected: ${displayId(uid)}")
     }
   }
 
-  def noOpConnection(uid: String, connected: Boolean): Unit = {
-    ()
+  def noOpConnection[F[_]: Applicative](uid: String, connected: Boolean): F[Unit] = {
+    Applicative[F].unit
   }
 }

@@ -1,18 +1,19 @@
 package io.adamnfish.pokerdot.validation
 
-import io.adamnfish.pokerdot.TestHelpers
-import io.adamnfish.pokerdot.models._
+import io.adamnfish.pokerdot.models.*
 import io.adamnfish.pokerdot.validation.Validation.{extractAdvancePhase, extractBet, extractCheck, extractCreateGame, extractFold, extractJoinGame, extractPing, extractStartGame, extractUpdateBlind, validate}
 import io.circe.parser.parse
 import org.scalacheck.Gen
+import org.scalatest.{EitherValues, TryValues}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.util.UUID
+import scala.util.Try
 
 
-class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with ScalaCheckDrivenPropertyChecks {
+class ValidationTest extends AnyFreeSpec with Matchers with EitherValues with TryValues with ScalaCheckDrivenPropertyChecks {
   val gameId = UUID.randomUUID().toString
   val player1Id = UUID.randomUUID().toString
   val player2Id = UUID.randomUUID().toString
@@ -22,7 +23,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
   "extractCreateGame" in {
     val jsonStr = """{"operation":"create-game","screenName":"screen name","gameName":"game name"}"""
     val json = parse(jsonStr).value
-    extractCreateGame(json).value shouldEqual CreateGame(
+    extractCreateGame[Try](json).success.value shouldEqual CreateGame(
       screenName = "screen name",
       gameName = "game name",
     )
@@ -31,7 +32,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
   "extractJoinGame" in {
     val jsonStr = """{"operation":"join-game","gameCode":"abcd","screenName":"screen name"}"""
     val json = parse(jsonStr).value
-    extractJoinGame(json).value shouldEqual JoinGame(
+    extractJoinGame[Try](json).success.value shouldEqual JoinGame(
       gameCode = "abcd",
       screenName = "screen name",
     )
@@ -43,7 +44,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         s"""{"operation":"start-game","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey","playerOrder":["$player1Id","$player2Id","$player3Id"],
            |"timerConfig":[{"durationSeconds":300,"smallBlind":5},{"durationSeconds":60},{"durationSeconds":500,"smallBlind":10}]}""".stripMargin
       val json = parse(jsonStr).value
-      extractStartGame(json).value shouldEqual StartGame(
+      extractStartGame[Try](json).success.value shouldEqual StartGame(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         startingStack = None,
         initialSmallBlind = None,
@@ -57,7 +58,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         s"""{"operation":"start-game","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey","playerOrder":["$player1Id","$player2Id","$player3Id"],
            |"startingStack":100,"initialSmallBlind":1}""".stripMargin
       val json = parse(jsonStr).value
-      extractStartGame(json).value shouldEqual StartGame(
+      extractStartGame[Try](json).success.value shouldEqual StartGame(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         startingStack = Some(100),
         initialSmallBlind = Some(1),
@@ -72,7 +73,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
            |"timerConfig":[{"durationSeconds":300,"smallBlind":5},{"durationSeconds":60},{"durationSeconds":500,"smallBlind":10}],
            |"startingStack":100}""".stripMargin
       val json = parse(jsonStr).value
-      extractStartGame(json).value shouldEqual StartGame(
+      extractStartGame[Try](json).success.value shouldEqual StartGame(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         startingStack = Some(100),
         initialSmallBlind = None,
@@ -87,7 +88,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
       s"""{"operation":"bet","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
          |"betAmount":100}""".stripMargin
     val json = parse(jsonStr).value
-    extractBet(json).value shouldEqual Bet(
+    extractBet[Try](json).success.value shouldEqual Bet(
       GameId(gameId), PlayerKey(playerKey), PlayerId(player1Id),
       100,
     )
@@ -97,7 +98,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     val jsonStr =
       s"""{"operation":"check","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey"}""".stripMargin
     val json = parse(jsonStr).value
-    extractCheck(json).value shouldEqual Check(
+    extractCheck[Try](json).success.value shouldEqual Check(
       GameId(gameId), PlayerKey(playerKey), PlayerId(player1Id),
     )
   }
@@ -106,7 +107,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     val jsonStr =
       s"""{"operation":"fold","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey"}""".stripMargin
     val json = parse(jsonStr).value
-    extractFold(json).value shouldEqual Fold(
+    extractFold[Try](json).success.value shouldEqual Fold(
       GameId(gameId), PlayerKey(playerKey), PlayerId(player1Id),
     )
   }
@@ -115,7 +116,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     val jsonStr =
       s"""{"operation":"advance-phase","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey"}""".stripMargin
     val json = parse(jsonStr).value
-    extractAdvancePhase(json).value shouldEqual AdvancePhase(
+    extractAdvancePhase[Try](json).success.value shouldEqual AdvancePhase(
       GameId(gameId), PlayerKey(playerKey), PlayerId(player1Id),
     )
   }
@@ -127,7 +128,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
            |"timerLevels":[{"durationSeconds":300,"smallBlind":5},{"durationSeconds":60},{"durationSeconds":500,"smallBlind":10}],
            |"playing":true}""".stripMargin
       val json = parse(jsonStr).value
-      extractUpdateBlind(json).value shouldEqual UpdateBlind(
+      extractUpdateBlind[Try](json).success.value shouldEqual UpdateBlind(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = Some(List(RoundLevel(300, 5), BreakLevel(60), RoundLevel(500, 10))),
         smallBlind = None,
@@ -141,7 +142,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
            |"playing":true}""".stripMargin
       val json = parse(jsonStr).value
-      extractUpdateBlind(json).value shouldEqual UpdateBlind(
+      extractUpdateBlind[Try](json).success.value shouldEqual UpdateBlind(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = None,
         smallBlind = None,
@@ -156,7 +157,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
              |"progress":350}""".stripMargin
         val json = parse(jsonStr).value
-        extractUpdateBlind(json).value shouldEqual UpdateBlind(
+        extractUpdateBlind[Try](json).success.value shouldEqual UpdateBlind(
           GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
           timerLevels = None,
           smallBlind = None,
@@ -170,7 +171,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
              |"progress":-10}""".stripMargin
         val json = parse(jsonStr).value
-        extractUpdateBlind(json).isLeft shouldEqual true
+        extractUpdateBlind[Try](json).isFailure shouldEqual true
       }
     }
 
@@ -179,7 +180,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
         s"""{"operation":"update-blind","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey",
            |"smallBlind":50}""".stripMargin
       val json = parse(jsonStr).value
-      extractUpdateBlind(json).value shouldEqual UpdateBlind(
+      extractUpdateBlind[Try](json).success.value shouldEqual UpdateBlind(
         GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
         timerLevels = None,
         smallBlind = Some(50),
@@ -193,7 +194,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     val jsonStr =
       s"""{"operation":"ping","gameId":"$gameId","playerId":"$player1Id","playerKey":"$playerKey"}""".stripMargin
     val json = parse(jsonStr).value
-    extractPing(json).value shouldEqual Ping(
+    extractPing[Try](json).success.value shouldEqual Ping(
       GameId(gameId), PlayerId(player1Id), PlayerKey(playerKey),
     )
   }
@@ -201,46 +202,46 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
   "validate CreateGame" - {
     "returns the request for a valid create game request" in {
       val request = CreateGame("screen name", "game name")
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the screen name is empty" in {
-      validate(CreateGame("", "game name")).isLeft shouldEqual true
+      validate[Try](CreateGame("", "game name")).isFailure shouldEqual true
     }
 
     "returns a failure if the screen name is very long" in {
-      validate(CreateGame("a" * 60, "game name")).isLeft shouldEqual true
+      validate[Try](CreateGame("a" * 60, "game name")).isFailure shouldEqual true
     }
 
     "returns a failure if the game name is empty" in {
-      validate(CreateGame("screen name", "")).isLeft shouldEqual true
+      validate[Try](CreateGame("screen name", "")).isFailure shouldEqual true
     }
 
     "returns a failure if the game name is very long" in {
-      validate(CreateGame("screen name", "a" * 60)).isLeft shouldEqual true
+      validate[Try](CreateGame("screen name", "a" * 60)).isFailure shouldEqual true
     }
   }
 
   "validate JoinGame" - {
     "returns the request for a valid join game request" in {
       val request = JoinGame("abcde", "screen name")
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the game code is empty" in {
-      validate(JoinGame("", "game name")).isLeft shouldEqual true
+      validate[Try](JoinGame("", "game name")).isFailure shouldEqual true
     }
 
     "returns a failure if the game code doesn't look like a game code" in {
-      validate(JoinGame("n -ot A! gameCode", "game name")).isLeft shouldEqual true
+      validate[Try](JoinGame("n -ot A! gameCode", "game name")).isFailure shouldEqual true
     }
 
     "returns a failure if the screen name is empty" in {
-      validate(JoinGame("abcde", "")).isLeft shouldEqual true
+      validate[Try](JoinGame("abcde", "")).isFailure shouldEqual true
     }
 
     "returns a failure if the screen name is very long" in {
-      validate(JoinGame("abcde", "a" * 60)).isLeft shouldEqual true
+      validate[Try](JoinGame("abcde", "a" * 60)).isFailure shouldEqual true
     }
   }
 
@@ -259,7 +260,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           initialSmallBlind = None,
           timerConfig = None,
         )
-        validate(request).value shouldEqual request
+        validate[Try](request).success.value shouldEqual request
       }
 
       "with timer but no stack information" in {
@@ -268,7 +269,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           initialSmallBlind = None,
           timerConfig = Some(timerExample),
         )
-        validate(request).value shouldEqual request
+        validate[Try](request).success.value shouldEqual request
       }
 
       "with stack and timer information" in {
@@ -277,7 +278,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           timerConfig = Some(timerExample),
           initialSmallBlind = None,
         )
-        validate(request).value shouldEqual request
+        validate[Try](request).success.value shouldEqual request
       }
 
       "with stack and small blind information" in {
@@ -286,24 +287,24 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           timerConfig = None,
           initialSmallBlind = Some(1),
         )
-        validate(request).value shouldEqual request
+        validate[Try](request).success.value shouldEqual request
       }
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(rawRequest.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(rawRequest.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(rawRequest.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if player order is empty" in {
-      validate(rawRequest.copy(playerOrder = Nil)).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(playerOrder = Nil)).isFailure shouldEqual true
     }
 
     "if the game is tracking stacks" - {
@@ -313,7 +314,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           timerConfig = None,
           initialSmallBlind = None,
         )
-        validate(request).isLeft shouldEqual true
+        validate[Try](request).isFailure shouldEqual true
       }
 
       "if the game is tracking stacks, fails if both timer config and initial stack amount are provided" in {
@@ -322,7 +323,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           timerConfig = Some(timerExample),
           initialSmallBlind = Some(1),
         )
-        validate(request).isLeft shouldEqual true
+        validate[Try](request).isFailure shouldEqual true
       }
 
       "fails if stacks are 0" in {
@@ -331,7 +332,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           timerConfig = None,
           initialSmallBlind = Some(10),
         )
-        validate(request).isLeft shouldEqual true
+        validate[Try](request).isFailure shouldEqual true
       }
 
       "fails if initial blind is 0" in {
@@ -340,7 +341,7 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
           timerConfig = None,
           initialSmallBlind = Some(0),
         )
-        validate(request).isLeft shouldEqual true
+        validate[Try](request).isFailure shouldEqual true
       }
 
     }
@@ -358,43 +359,43 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     "returns the request for a valid update timer requests" - {
       "with timer levels" in {
         val timerLevelsRequest = rawRequest.copy(timerLevels = Some(List(RoundLevel(300, 1), BreakLevel(60), RoundLevel(300, 2))))
-        validate(timerLevelsRequest).value shouldEqual timerLevelsRequest
+        validate[Try](timerLevelsRequest).success.value shouldEqual timerLevelsRequest
       }
 
       "without timer levels" in {
         val requestWithoutTimerLevels = rawRequest.copy(timerLevels = None, smallBlind = Some(10))
-        validate(requestWithoutTimerLevels).value shouldEqual requestWithoutTimerLevels
+        validate[Try](requestWithoutTimerLevels).success.value shouldEqual requestWithoutTimerLevels
       }
 
       "with manual blind update" in {
         val requestWithSmallBlindAmount = rawRequest.copy(smallBlind = Some(50))
-        validate(requestWithSmallBlindAmount).value shouldEqual requestWithSmallBlindAmount
+        validate[Try](requestWithSmallBlindAmount).success.value shouldEqual requestWithSmallBlindAmount
       }
 
       "with a new timer progress" in {
         val requestWithTimerProgress = rawRequest.copy(progress = Some(500))
-        validate(requestWithTimerProgress).value shouldEqual requestWithTimerProgress
+        validate[Try](requestWithTimerProgress).success.value shouldEqual requestWithTimerProgress
       }
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(rawRequest.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(rawRequest.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(rawRequest.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the timer levels are present and empty" in {
-      validate(rawRequest.copy(timerLevels = Some(Nil))).isLeft shouldEqual true
+      validate[Try](rawRequest.copy(timerLevels = Some(Nil))).isFailure shouldEqual true
     }
 
     "returns a failure if the update blind request is 'empty'" in {
-      validate(rawRequest).isLeft shouldEqual true
+      validate[Try](rawRequest).isFailure shouldEqual true
     }
   }
 
@@ -405,28 +406,28 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     )
 
     "returns the request for a valid bet request" in {
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if bet amount is 0" in {
-      validate(request.copy(betAmount = 0)).isLeft shouldEqual true
+      validate[Try](request.copy(betAmount = 0)).isFailure shouldEqual true
     }
 
     "returns a failure if bet amount is -ve" in {
       forAll(Gen.negNum[Int]) { betAmount =>
-        validate(request.copy(betAmount = betAmount)).isLeft shouldEqual true
+        validate[Try](request.copy(betAmount = betAmount)).isFailure shouldEqual true
       }
     }
   }
@@ -437,19 +438,19 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     )
 
     "returns the request for a valid bet request" in {
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
   }
 
@@ -459,19 +460,19 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     )
 
     "returns the request for a valid bet request" in {
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
   }
 
@@ -481,19 +482,19 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     )
 
     "returns the request for a valid bet request" in {
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
   }
 
@@ -503,19 +504,19 @@ class ValidationTest extends AnyFreeSpec with Matchers with TestHelpers with Sca
     )
 
     "returns the request for a valid bet request" in {
-      validate(request).value shouldEqual request
+      validate[Try](request).success.value shouldEqual request
     }
 
     "returns a failure if the game id is not valid" in {
-      validate(request.copy(gameId = GameId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(gameId = GameId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player id is not valid" in {
-      validate(request.copy(playerId = PlayerId("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerId = PlayerId("invalid!"))).isFailure shouldEqual true
     }
 
     "returns a failure if the player key is not valid" in {
-      validate(request.copy(playerKey = PlayerKey("invalid!"))).isLeft shouldEqual true
+      validate[Try](request.copy(playerKey = PlayerKey("invalid!"))).isFailure shouldEqual true
     }
   }
 }

@@ -7,7 +7,6 @@ import org.scalatest.exceptions.TestFailedException
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import zio.{Exit, IO, Unsafe, ZIO}
 
 import scala.util.Random
 
@@ -37,34 +36,6 @@ class UtilsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
     "returns None if the predicate is not satisfied" in {
       List(1, 2, 3).findIndex(_ == 4) shouldEqual None
-    }
-  }
-
-  "ioTraverse" - {
-    val testRuntime = zio.Runtime.default
-
-    "returns successful accumulated result" in {
-      val io = List(1, 2, 3).ioTraverse(i => ZIO.succeed(i - 1))
-      Unsafe.unsafe { implicit unsafe =>
-        testRuntime.unsafe.run(io) match {
-          case Exit.Success(value) =>
-            value shouldEqual List(0, 1, 2)
-          case Exit.Failure(cause) =>
-            fail(s"expected successful attempt, got $cause")
-        }
-      }
-    }
-
-    "returns all errors for failing `f`" in {
-      val io = List(1, 2, 3).ioTraverse(i => ZIO.fail(Failures(s"fail $i", "failure")))
-      Unsafe.unsafe { implicit unsafe =>
-        testRuntime.unsafe.run(io) match {
-          case Exit.Success(value) =>
-            fail(s"expected failed attempt, got $value")
-          case Exit.Failure(cause) =>
-            cause.failures.head.failures.map(_.logMessage) shouldEqual List("fail 1", "fail 2", "fail 3")
-        }
-      }
     }
   }
 }

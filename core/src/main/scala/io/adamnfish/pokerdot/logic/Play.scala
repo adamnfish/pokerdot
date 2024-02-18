@@ -1,10 +1,14 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.models._
+import cats.MonadThrow
+import io.adamnfish.pokerdot.models.*
 
 import scala.util.Random
 import io.adamnfish.pokerdot.logic.Utils.RichList
-import io.adamnfish.pokerdot.services.Clock
+import io.adamnfish.pokerdot.services.Time
+import cats.*
+import cats.syntax.*
+import cats.implicits.*
 
 import scala.annotation.tailrec
 
@@ -260,18 +264,18 @@ object Play {
    * If the timer is not present, the existing blind is re-used.
    * If we're on a break, advancing to the next round should fail.
    */
-  def blindForNextRound(currentSmallBlind: Int, now: Long, maybeTimerStatus: Option[TimerStatus]): Either[Failures, Int] = {
+  def blindForNextRound[F[_] : MonadThrow](currentSmallBlind: Int, now: Long, maybeTimerStatus: Option[TimerStatus]): F[Int] = {
     maybeTimerStatus match {
       case None =>
-        Right(currentSmallBlind)
+        MonadThrow[F].pure(currentSmallBlind)
       case Some(TimerStatus(_, Some(_), _)) =>
         // cannot advance to new round while game is paused
-        Left(Failures("Cannot advance paused game", "you can't start a new round while the game is paused"))
+        MonadThrow[F].raiseError(Failures("Cannot advance paused game", "you can't start a new round while the game is paused"))
       case Some(timerStatus) =>
         timerSmallBlind(timerStatus, now).flatMap { case (nextSmallBlind, onABreak) =>
           if (onABreak)
-            Left(Failures("Cannot advance while on a break","wait for the break to end before starting a new round", None, None))
-          else Right(nextSmallBlind)
+            MonadThrow[F].raiseError(Failures("Cannot advance while on a break","wait for the break to end before starting a new round", None, None))
+          else MonadThrow[F].pure(nextSmallBlind)
         }
     }
   }
@@ -281,7 +285,7 @@ object Play {
    *
    * This is used when rounds advance, and whenever the timer is edited.
    */
-  def timerSmallBlind(timerStatus: TimerStatus, now: Long): Either[Failures, (Int, Boolean)] = {
+  def timerSmallBlind[F[_] : MonadThrow](timerStatus: TimerStatus, now: Long): F[(Int, Boolean)] = {
     // this is important to take care of paused timers
     val adjustedTimerStartTime =
       timerStatus.pausedTime match {
@@ -333,9 +337,11 @@ object Play {
           )
         }
       }
-    mAnswer.orElse(mFallback)
-      .map(rl => (rl.smallBlind, break))
-      .toRight(Failures("No valid timer level, empty timer?", "the timer is broken so we can't move to the next round"))
+    MonadThrow[F].fromEither(
+      mAnswer.orElse(mFallback)
+        .map(rl => (rl.smallBlind, break))
+        .toRight(Failures("No valid timer level, empty timer?", "the timer is broken so we can't move to the next round"))
+    )
   }
 
   private[logic] def nextActiveFromIndex(players: List[Player], index: Int): Option[PlayerId] = {

@@ -1,9 +1,9 @@
 package io.adamnfish.pokerdot.services
 
-import io.adamnfish.pokerdot.models.{Attempt, Failures, Message, PlayerAddress}
+import io.adamnfish.pokerdot.models.{Failures, Message, PlayerAddress}
 
-trait Messaging {
-  def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit]
+trait Messaging[F[_]] {
+  def sendMessage(playerAddress: PlayerAddress, message: Message): F[Unit]
 
-  def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit]
+  def sendError(playerAddress: PlayerAddress, message: Failures): F[Unit]
 }

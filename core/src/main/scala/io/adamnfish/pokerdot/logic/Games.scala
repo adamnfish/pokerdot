@@ -1,10 +1,13 @@
 package io.adamnfish.pokerdot.logic
 
+import cats.MonadThrow
 import io.adamnfish.pokerdot.logic.Play.dealHoles
 import io.adamnfish.pokerdot.logic.Utils.orderFromList
-import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.{Database, Clock}
-import zio.ZIO
+import io.adamnfish.pokerdot.models.*
+import io.adamnfish.pokerdot.services.{Time, Database}
+import cats.*
+import cats.syntax.*
+import cats.implicits.*
 
 import java.time.{Duration, Instant}
 import java.util.UUID
@@ -14,13 +17,13 @@ import java.util.UUID
  * Game implementation functionality.
  */
 object Games {
-  def newGame(gameName: String, trackStacks: Boolean, clock: Clock, initialState: Long): Game = {
+  def newGame(gameName: String, trackStacks: Boolean, now: Long, initialState: Long): Game = {
     val round = Play.generateRound(PreFlop, 0, initialState)
     val gameId = GameId(UUID.randomUUID().toString)
     Game(
       gameId = gameId,
       gameCode = gameCode(gameId), // try this, we can replace it with a longer unique prefix if required
-      expiry = expiryTime(clock.now()),
+      expiry = expiryTime(now),
       gameName = gameName,
       players = Nil,
       spectators = Nil,
@@ -29,19 +32,19 @@ object Games {
       inTurn = None,
       button = 0,
       started = false,
-      startTime = clock.now(),
+      startTime = now,
       trackStacks = trackStacks,
       timer = None,
     )
   }
 
-  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, clock: Clock): Player = {
+  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, now: Long): Player = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Player(
       gameId = gameId,
       playerId = playerId,
-      expiry = expiryTime(clock.now()),
+      expiry = expiryTime(now),
       screenName = screenName,
       playerAddress = playerAddress,
       playerKey = playerKey,
@@ -59,13 +62,13 @@ object Games {
     )
   }
 
-  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, clock: Clock): Spectator = {
+  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, now: Long): Spectator = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Spectator(
       gameId = gameId,
       playerId = playerId,
-      expiry = expiryTime(clock.now()),
+      expiry = expiryTime(now),
       playerAddress = playerAddress,
       playerKey = playerKey,
       screenName = screenName,
@@ -118,17 +121,17 @@ object Games {
     )
   }
 
-  def makeUniquePrefix(gameId: GameId, persistence: Database, fn: (GameId, Int, Database) => Attempt[Boolean]): Attempt[String] = {
+  def makeUniquePrefix[F[_] : MonadThrow](gameId: GameId, persistence: Database[F], fn: (GameId, Int, Database[F]) => F[Boolean]): F[String] = {
     val min = 4
     val max = 10
-    def loop(prefixLength: Int): Attempt[String] = {
+    def loop(prefixLength: Int): F[String] = {
       fn(gameId, prefixLength, persistence).flatMap {
         case true =>
-          ZIO.succeed(gameId.gid.take(prefixLength))
+          MonadThrow[F].pure(gameId.gid.take(prefixLength))
         case false if prefixLength < max =>
           loop(prefixLength + 1)
         case _ =>
-          ZIO.fail(
+          MonadThrow[F].raiseError(
             Failures("Couldn't create unique prefix of GameID", "couldn't set up game with a join code")
           )
       }
@@ -203,15 +206,15 @@ object Games {
     )
   }
 
-  def updateBlindAction(updateBlind: UpdateBlind): Either[Failures, ActionSummary] = {
+  def updateBlindAction[F[_] : MonadThrow](updateBlind: UpdateBlind): F[ActionSummary] = {
     if (updateBlind.timerLevels.isDefined || updateBlind.progress.isDefined) {
-      Right(EditTimerSummary())
+      MonadThrow[F].pure(EditTimerSummary())
     } else if (updateBlind.playing.isDefined) {
-      Right(TimerStatusSummary(updateBlind.playing.contains(true)))
+      MonadThrow[F].pure(TimerStatusSummary(updateBlind.playing.contains(true)))
     } else if (updateBlind.smallBlind.isDefined) {
-      Right(EditBlindSummary())
+      MonadThrow[F].pure(EditBlindSummary())
     } else {
-      Left(Failures("Couldn't determine action from update blind request", "couldn't update the blinds."))
+      MonadThrow[F].raiseError(Failures("Couldn't determine action from update blind request", "couldn't update the blinds."))
     }
   }
 
@@ -264,12 +267,12 @@ object Games {
     } else resetPlayer
   }
 
-  def requireGame(gameDbOpt: Option[GameDb], gid: String): Either[Failures, GameDb] = {
+  def requireGame[F[_] : MonadThrow](gameDbOpt: Option[GameDb], gid: String): F[GameDb] = {
     gameDbOpt match {
       case Some(gameDb) =>
-        Right(gameDb)
+        MonadThrow[F].pure(gameDb)
       case None =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             s"Game not found for lookup $gid",
             "couldn't find game, it may have been automatically deleted if it is old?",
@@ -278,19 +281,19 @@ object Games {
     }
   }
 
-  def ensureNotStarted(game: Game): Either[Failures, Unit] = {
-    if (game.started) Left {
+  def ensureNotStarted[F[_] : MonadThrow](game: Game): F[Unit] = {
+    if (game.started) MonadThrow[F].raiseError {
       Failures(
         "game has already started",
         "the game has already started.",
       )
     }
-    else Right(())
+    else MonadThrow[F].pure(())
   }
 
-  def ensureStarted(game: Game): Either[Failures, Unit] = {
-    if (game.started) Right(())
-    else Left {
+  def ensureStarted[F[_] : MonadThrow](game: Game): F[Unit] = {
+    if (game.started) MonadThrow[F].pure(())
+    else MonadThrow[F].raiseError {
       Failures(
         "game has not started",
         "the game has not started.",
@@ -298,9 +301,9 @@ object Games {
     }
   }
 
-  def ensureNoDuplicateScreenName(game: Game, screenName: String): Either[Failures, Unit] = {
+  def ensureNoDuplicateScreenName[F[_] : MonadThrow](game: Game, screenName: String): F[Unit] = {
     if (game.players.exists(_.screenName == screenName))
-      Left {
+      MonadThrow[F].raiseError {
         Failures(
           "Duplicate screen name, joining game failed",
           "someone else already has the same name.",
@@ -308,27 +311,27 @@ object Games {
         )
       }
     else
-      Right(())
+      MonadThrow[F].pure(())
   }
 
-  def ensurePlayerCount(n: Int): Either[Failures, Unit] = {
+  def ensurePlayerCount[F[_] : MonadThrow](n: Int): F[Unit] = {
     if (n >= 20) {
-      Left {
+      MonadThrow[F].raiseError {
         Failures(
           "Max player count exceeded",
           "there are already 20 players in this game, which is the maximum number.",
         )
       }
     } else {
-      Right(())
+      MonadThrow[F].pure(())
     }
   }
 
-  def ensureStartingPlayerCount(n: Int): Either[Failures, Unit] = {
+  def ensureStartingPlayerCount[F[_] : MonadThrow](n: Int): F[Unit] = {
     if (n > 1) {
-      Right(())
+      MonadThrow[F].pure(())
     } else {
-      Left {
+      MonadThrow[F].raiseError {
         Failures(
           "Cannot start with one player",
           "a game requires at least 2 players.",
@@ -337,31 +340,31 @@ object Games {
     }
   }
 
-  def ensureNotAlreadyPlaying(players: List[Player], playerAddress: PlayerAddress): Either[Failures, Unit] = {
+  def ensureNotAlreadyPlaying[F[_] : MonadThrow](players: List[Player], playerAddress: PlayerAddress): F[Unit] = {
     if (players.exists(_.playerAddress == playerAddress))
-      Left {
+      MonadThrow[F].raiseError {
         Failures(
           "Duplicate player address, joining game failed",
           "you can't join the same game twice.",
         )
       }
     else
-      Right(())
+      MonadThrow[F].pure(())
   }
 
-  def ensurePlayerKey(players: List[Player], playerId: PlayerId, playerKey: PlayerKey): Either[Failures, Player] = {
+  def ensurePlayerKey[F[_] : MonadThrow](players: List[Player], playerId: PlayerId, playerKey: PlayerKey): F[Player] = {
     players.find(_.playerId == playerId) match {
       case None =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Couldn't validate key for player that does not exist",
             "couldn't find you in the game.",
           )
         }
       case Some(player) if player.playerKey == playerKey =>
-        Right(player)
+        MonadThrow[F].pure(player)
       case _ =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Invalid player key",
             "couldn't authenticate you for this game.",
@@ -370,19 +373,19 @@ object Games {
     }
   }
 
-  def ensureSpectatorKey(spectators: List[Spectator], playerId: PlayerId, playerKey: PlayerKey): Either[Failures, Spectator] = {
+  def ensureSpectatorKey[F[_] : MonadThrow](spectators: List[Spectator], playerId: PlayerId, playerKey: PlayerKey): F[Spectator] = {
     spectators.find(_.playerId == playerId) match {
       case None =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Couldn't validate key for spectator that does not exist",
             "couldn't find you in the game.",
           )
         }
       case Some(spectator) if spectator.playerKey == playerKey =>
-        Right(spectator)
+        MonadThrow[F].pure(spectator)
       case _ =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Invalid spectator key",
             "couldn't authenticate you for this game.",
@@ -391,19 +394,19 @@ object Games {
     }
   }
 
-  def ensureHost(players: List[Player], playerKey: PlayerKey): Either[Failures, Player] = {
+  def ensureHost[F[_] : MonadThrow](players: List[Player], playerKey: PlayerKey): F[Player] = {
     players.find(_.playerKey == playerKey) match {
       case None =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Couldn't validate host key for player that does not exist",
             "couldn't find you in the game.",
           )
         }
       case Some(player) if player.isHost =>
-        Right(player)
+        MonadThrow[F].pure(player)
       case _ =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Invalid player key, not the host",
             "you are not the game's host."
@@ -412,19 +415,19 @@ object Games {
     }
   }
 
-  def ensureAdmin(players: List[Player], playerKey: PlayerKey): Either[Failures, Player] = {
+  def ensureAdmin[F[_] : MonadThrow](players: List[Player], playerKey: PlayerKey): F[Player] = {
     players.find(_.playerKey == playerKey) match {
       case None =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Couldn't validate host key for player that does not exist",
             "couldn't find you in the game.",
           )
         }
       case Some(player) if player.isHost =>
-        Right(player)
+        MonadThrow[F].pure(player)
       case _ =>
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             "Invalid player key, not an admin",
             "you are not a game admin."
@@ -433,11 +436,11 @@ object Games {
     }
   }
 
-  def ensureActive(inTurn: Option[PlayerId], playerId: PlayerId): Either[Failures, Unit] = {
+  def ensureActive[F[_] : MonadThrow](inTurn: Option[PlayerId], playerId: PlayerId): F[Unit] = {
     if (inTurn.contains(playerId)) {
-      Right(())
+      MonadThrow[F].pure(())
     } else {
-      Left {
+      MonadThrow[F].raiseError {
         Failures(
           "Active player check failed",
           "it is not your turn to act.",

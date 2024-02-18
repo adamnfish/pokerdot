@@ -1,13 +1,15 @@
 package io.adamnfish.pokerdot.services
 
-import io.adamnfish.pokerdot.models._
+import cats.MonadThrow
+import io.adamnfish.pokerdot.models.*
 import io.javalin.websocket.WsContext
-import zio.ZIO
 
 import scala.collection.mutable
+import cats.effect.{IO, Sync}
+import cats.syntax.all.*
 
 
-class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
+class DevMessaging[F[_] : Sync : MonadThrow](logMessage: (String, String) => F[Unit]) extends Messaging[F] {
   private val connections = new mutable.HashMap[String, WsContext]
 
   def connect(wctx: WsContext): String = {
@@ -22,11 +24,11 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
     }
   }
 
-  override def sendMessage(playerAddress: PlayerAddress, message: Message): Attempt[Unit] = {
+  override def sendMessage(playerAddress: PlayerAddress, message: Message): F[Unit] = {
     send(playerAddress.address, Serialisation.encodeMessage(message))
   }
 
-  override def sendError(playerAddress: PlayerAddress, message: Failures): Attempt[Unit] = {
+  override def sendError(playerAddress: PlayerAddress, message: Failures): F[Unit] = {
     send(playerAddress.address, Serialisation.encodeFailure(message))
   }
 
@@ -34,27 +36,29 @@ class DevMessaging(logMessage: (String, String) => Unit) extends Messaging {
    * send failures are internal so clients are not distracted by
    * constant warnings after someone leaves the game.
    */
-  private def send(recipientId: String, body: String): Attempt[Unit] = {
+  private def send(recipientId: String, body: String): F[Unit] = {
     for {
-      wctx <- ZIO.fromOption(connections.get(recipientId)).mapError(_ =>
+      wctx <- MonadThrow[F].fromOption(
+        connections.get(recipientId),
         Failures("User not connected", "connection not found", internal = true)
       )
       _ <-
         if (wctx.session.isOpen) {
-          ZIO.unit
+          MonadThrow[F].unit
         } else {
-          ZIO.fail {
+          MonadThrow[F].raiseError {
             Failures("Connection has closed", "connection closed", internal = true)
           }
         }
-      result <-
-        ZIO.attempt {
+      result <- {
+        Sync[F].blocking {
           wctx.send(body)
           ()
-        }.mapError { err =>
+        }.adaptError { case err =>
           Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err), internal = true)
         }
-      _ <- ZIO.attempt(logMessage(recipientId, body)).mapError { err =>
+      }
+      _ <- Sync[F].blocking(logMessage(recipientId, body)).adaptError { err =>
         Failures("Error logging websocket message", "could not log message", exception = Some(err), internal = true)
       }
     } yield result

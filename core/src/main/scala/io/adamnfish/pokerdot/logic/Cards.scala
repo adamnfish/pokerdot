@@ -6,7 +6,7 @@ import io.adamnfish.pokerdot.models.{Ace, Card, Clubs, Diamonds, Eight, Five, Fo
 
 object Cards {
   implicit class RichRank(rank: Rank) {
-    def of(suit: Suit): Card = {
+    infix def of(suit: Suit): Card = {
       Card(rank, suit)
     }
   }

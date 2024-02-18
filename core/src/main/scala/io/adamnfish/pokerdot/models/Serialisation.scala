@@ -5,8 +5,7 @@ import io.circe.Json.JString
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Codec, Decoder, Encoder, Json, JsonObject, KeyEncoder, parser}
 import io.circe.syntax.*
-import zio.IO
-import io.adamnfish.dynamodecs.{AttributeCodec, ItemCodec}
+import cats.MonadThrow
 
 
 object Serialisation {
@@ -18,64 +17,68 @@ object Serialisation {
     failures.asJson.noSpaces
   }
 
-  def parse(jsonStr: String, userMessage: String, context: Option[String]): Either[Failures, Json] = {
-    parser.parse(jsonStr).left.map { parsingFailure =>
-      Failures(
-        s"Failed to parse request body JSON: ${parsingFailure.message}",
-        userMessage,
-        context,
-        Some(parsingFailure)
-      )
+  def parse[F[_] : MonadThrow](jsonStr: String, userMessage: String, context: Option[String]): F[Json] = {
+    MonadThrow[F].fromEither {
+      parser.parse(jsonStr).left.map { parsingFailure =>
+        Failures(
+          s"Failed to parse request body JSON: ${parsingFailure.message}",
+          userMessage,
+          context,
+          Some(parsingFailure)
+        )
+      }
     }
   }
 
-  def extractJson[A](json: Json, userMessage: String)(implicit decoder: Decoder[A]): Either[Failures, A] = {
-    json.as[A].left.map { decodingFailure =>
-      Failures(
-        s"Failed to parse JSON as expected type: ${decodingFailure.message}",
-        userMessage,
-        Some(decodingFailure.history.mkString("|")),
-        Some(decodingFailure)
-      )
+  def extractJson[F[_] : MonadThrow, A](json: Json, userMessage: String)(implicit decoder: Decoder[A]): F[A] = {
+    MonadThrow[F].fromEither {
+      json.as[A].left.map { decodingFailure =>
+        Failures(
+          s"Failed to parse JSON as expected type: ${decodingFailure.message}",
+          userMessage,
+          Some(decodingFailure.history.mkString("|")),
+          Some(decodingFailure)
+        )
+      }
     }
   }
 
   // REQUEST PARSERS
 
-  def parseCreateGameRequest(json: Json): Either[Failures, CreateGame] = {
-    extractJson[CreateGame](json, "Could not understand the create game request")
+  def parseCreateGameRequest[F[_] : MonadThrow](json: Json): F[CreateGame] = {
+    extractJson[F, CreateGame](json, "Could not understand the create game request")
   }
 
-  def parseJoinGameRequest(json: Json): Either[Failures, JoinGame] = {
-    extractJson[JoinGame](json, "Could not understand the join game request")
+  def parseJoinGameRequest[F[_] : MonadThrow](json: Json): F[JoinGame] = {
+    extractJson[F, JoinGame](json, "Could not understand the join game request")
   }
 
-  def parseStartGameRequest(json: Json): Either[Failures, StartGame] = {
-    extractJson[StartGame](json, "Could not understand the start game request")
+  def parseStartGameRequest[F[_] : MonadThrow](json: Json): F[StartGame] = {
+    extractJson[F, StartGame](json, "Could not understand the start game request")
   }
 
-  def parseUpdateBlindRequest(json: Json): Either[Failures, UpdateBlind] = {
-    extractJson[UpdateBlind](json, "Could not understand the update blind request")
+  def parseUpdateBlindRequest[F[_] : MonadThrow](json: Json): F[UpdateBlind] = {
+    extractJson[F, UpdateBlind](json, "Could not understand the update blind request")
   }
 
-  def parseBetRequest(json: Json): Either[Failures, Bet] = {
-    extractJson[Bet](json, "Could not understand the bet request")
+  def parseBetRequest[F[_] : MonadThrow](json: Json): F[Bet] = {
+    extractJson[F, Bet](json, "Could not understand the bet request")
   }
 
-  def parseCheckRequest(json: Json): Either[Failures, Check] = {
-    extractJson[Check](json, "Could not understand the check request")
+  def parseCheckRequest[F[_] : MonadThrow](json: Json): F[Check] = {
+    extractJson[F, Check](json, "Could not understand the check request")
   }
 
-  def parseFoldRequest(json: Json): Either[Failures, Fold] = {
-    extractJson[Fold](json, "Could not understand the fold request")
+  def parseFoldRequest[F[_] : MonadThrow](json: Json): F[Fold] = {
+    extractJson[F, Fold](json, "Could not understand the fold request")
   }
 
-  def parseAdvancePhaseRequest(json: Json): Either[Failures, AdvancePhase] = {
-    extractJson[AdvancePhase](json, "Could not understand the advance phase request")
+  def parseAdvancePhaseRequest[F[_] : MonadThrow](json: Json): F[AdvancePhase] = {
+    extractJson[F, AdvancePhase](json, "Could not understand the advance phase request")
   }
 
-  def parsePingRequest(json: Json): Either[Failures, Ping] = {
-    extractJson[Ping](json, "Could not understand the ping request")
+  def parsePingRequest[F[_] : MonadThrow](json: Json): F[Ping] = {
+    extractJson[F, Ping](json, "Could not understand the ping request")
   }
 
 
@@ -367,7 +370,11 @@ object Serialisation {
         )
     }
   }
-  private implicit val failuresEncoder: Encoder[Failures] = deriveEncoder
+  private implicit val failuresEncoder: Encoder[Failures] = Encoder.instance { failures =>
+    Json.obj(
+      "failures" -> Json.fromValues(failures.failures.map(failureEncoder.apply)),
+    )
+  }
 
   object RequestEncoders {
     private implicit val createGameEncoder: Encoder[CreateGame] = deriveEncoder[CreateGame]
@@ -451,7 +458,7 @@ object Serialisation {
     private given Codec[TimerStatus] = Codec.from(timerStatusDecoder, timerStatusEncoder)
     private given Codec[Hole] = Codec.from(holeDecoder, holeEncoder)
 
-    val gameDbCodec = summon[ItemCodec[GameDb]]
-    val playerDbCodec = summon[ItemCodec[PlayerDb]]
+//    val gameDbCodec = summon[ItemCodec[GameDb]]
+//    val playerDbCodec = summon[ItemCodec[PlayerDb]]
   }
 }

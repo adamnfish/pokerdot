@@ -1,106 +1,146 @@
-package io.adamnfish.pokerdot
-
-import com.typesafe.scalalogging.LazyLogging
-import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
-import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
-import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
-import io.javalin.Javalin
-import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import zio.{Exit, Unsafe, ZIO}
-
-import java.net.URI
-import java.security.SecureRandom
-import java.util.UUID
-
-
-object DevServer extends LazyLogging {
-  val client = DynamoDbClient.builder()
-    .endpointOverride(URI.create("http://localhost:8042"))
-    .region(Region.US_EAST_1) // not used for local dynamodb, but required
-    .credentialsProvider(StaticCredentialsProvider.create(
-      AwsBasicCredentials.create("dummykey", "dummysecret")))
-    .build()
-
-  val db = new DynamoDbDatabase(client, "games", "players")
-  DevServerDB.createGamesTable(client)
-  DevServerDB.createPlayersTable(client)
-
-  def main(args: Array[String]): Unit = {
-    val runtime = zio.Runtime.default
-
-    // initials seed defaults to 0, but can be changed at server start time
-    val initialSeed = args.filterNot(_ == "--debug").headOption
-      .map { seed =>
-        if (seed.toLowerCase == "rng")
-          new SecureRandom().nextLong()
-        else
-          seed.toLong
-      }
-      .getOrElse(0L)
-    logger.info(s"initial seed: $initialSeed")
-    val rng = new DevRng(initialSeed)
-
-    val messagePrinter: Direction => (String, String) => Unit =
-      if (args.contains("--debug")) {
-        logger.info("debug mode - connection events and messages will be printed")
-        logMessage
-      } else {
-        noOpMessage
-      }
-    val connectionPrinter: (String, Boolean) => Unit =
-      if (args.contains("--debug")) {
-        logConnection
-      } else {
-        noOpConnection
-      }
-
-    val messaging = new DevMessaging(messagePrinter(Outbound))
-
-    val app = Javalin.create()
-    app.start(7000)
-    app.ws("/api", { ws =>
-      ws.onConnect { wctx =>
-        val id = messaging.connect(wctx)
-        connectionPrinter(id, true)
-      }
-      ws.onClose { wctx =>
-        messaging.disconnect(wctx)
-        connectionPrinter(wctx.getSessionId, false)
-      }
-      ws.onMessage { wctx =>
-        val traceId = TraceId(UUID.randomUUID().toString)
-
-        messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
-        val appContext = AppContext(PlayerAddress(wctx.getSessionId), traceId, db, messaging, Clock, rng)
-        Unsafe.unsafe { implicit unsafe =>
-          runtime.unsafe.run {
-            PokerDot.pokerdot(wctx.message, appContext)
-          }
-        } match {
-          case Exit.Success(operation) =>
-            logger.info(s"completed $operation")
-          case Exit.Failure(cause) =>
-            cause.failures.foreach { fs =>
-              logger.error(s"error: ${fs.logString}")
-              fs.exception.foreach { e =>
-                logger.error(s"exception: ${e.printStackTrace()}")
-              }
-            }
-            cause.defects.foreach { err =>
-              logger.error(s"Fatal error: ${err.getMessage}", err)
-            }
-        }
-      }
-    })
-
-    Runtime.getRuntime.addShutdownHook(new Thread {
-      override def run(): Unit = {
-        logger.info("Stopping...")
-        app.stop()
-      }
-    })
-  }
-}
+//package io.adamnfish.pokerdot
+//
+//import com.typesafe.scalalogging.LazyLogging
+//import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
+//import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
+//import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
+//import io.adamnfish.pokerdot.services.{Time, DevMessaging, DevRng, DevServerDB}
+//import io.javalin.Javalin
+//import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
+//import software.amazon.awssdk.regions.Region
+//import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+//import zio.{Exit, Unsafe, ZIO}
+//import cats.effect.{ExitCode, IO, IOApp, Resource}
+//
+//import java.net.URI
+//import java.security.SecureRandom
+//import java.util.UUID
+//
+//
+////object DevServer extends IOApp with LazyLogging {
+////  def appContext(args: List[String]): Resource[IO, String => AppContext[IO]] =
+////    val initialSeed = args.filterNot(_ == "--debug").headOption
+////      .map { seed =>
+////        if (seed.toLowerCase == "rng")
+////          new SecureRandom().nextLong()
+////        else
+////          seed.toLong
+////      }
+////      .getOrElse(0L)
+////    val messagePrinter: Direction => (String, String) => Unit =
+////      if (args.contains("--debug")) {
+////        logger.info("debug mode - connection events and messages will be printed")
+////        logMessage
+////      } else {
+////        noOpMessage
+////      }
+////    val connectionPrinter: (String, Boolean) => Unit =
+////      if (args.contains("--debug")) {
+////        logConnection
+////      } else {
+////        noOpConnection
+////      }
+////    for
+////      client <- DynamoDbClient.builder()
+////        .endpointOverride(URI.create("http://localhost:8042"))
+////        .region(Region.US_EAST_1) // not used for local dynamodb, but required
+////        .credentialsProvider(StaticCredentialsProvider.create(
+////          AwsBasicCredentials.create("dummykey", "dummysecret")))
+////        .build()
+////      db <- Resource.eval:
+////        for
+////          _ <- DevServerDB.createGamesTable(client)
+////          _ <- DevServerDB.createPlayersTable(client)
+////        yield new DynamoDbDatabase(client, "games", "players")
+////    yield
+////      traceId: String =>
+////        AppContext[IO](PlayerAddress("dev"), TraceId(traceId), db, new DevMessaging(messagePrinter(Outbound)), Clock, DevRng(initialSeed))
+////  
+////  override def run(args: List[String]): IO[ExitCode] =
+////    ???
+////  
+////  val client = DynamoDbClient.builder()
+////    .endpointOverride(URI.create("http://localhost:8042"))
+////    .region(Region.US_EAST_1) // not used for local dynamodb, but required
+////    .credentialsProvider(StaticCredentialsProvider.create(
+////      AwsBasicCredentials.create("dummykey", "dummysecret")))
+////    .build()
+////
+////  val db = new DynamoDbDatabase(client, "games", "players")
+////  DevServerDB.createGamesTable(client)
+////  DevServerDB.createPlayersTable(client)
+////
+////  def main2(args: Array[String]): Unit = {
+////    val runtime = zio.Runtime.default
+////
+////    // initials seed defaults to 0, but can be changed at server start time
+////    val initialSeed = args.filterNot(_ == "--debug").headOption
+////      .map { seed =>
+////        if (seed.toLowerCase == "rng")
+////          new SecureRandom().nextLong()
+////        else
+////          seed.toLong
+////      }
+////      .getOrElse(0L)
+////    logger.info(s"initial seed: $initialSeed")
+////    val rng = new DevRng(initialSeed)
+////
+////    val messagePrinter: Direction => (String, String) => Unit =
+////      if (args.contains("--debug")) {
+////        logger.info("debug mode - connection events and messages will be printed")
+////        logMessage
+////      } else {
+////        noOpMessage
+////      }
+////    val connectionPrinter: (String, Boolean) => Unit =
+////      if (args.contains("--debug")) {
+////        logConnection
+////      } else {
+////        noOpConnection
+////      }
+////
+////    val app = Javalin.create()
+////    app.start(7000)
+////    app.ws("/api", { ws =>
+////      ws.onConnect { wctx =>
+////        val id = messaging.connect(wctx)
+////        connectionPrinter(id, true)
+////      }
+////      ws.onClose { wctx =>
+////        messaging.disconnect(wctx)
+////        connectionPrinter(wctx.getSessionId, false)
+////      }
+////      ws.onMessage { wctx =>
+////        val traceId = TraceId(UUID.randomUUID().toString)
+////
+////        messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
+////        val appContext = AppContext(PlayerAddress(wctx.getSessionId), traceId, db, messaging, Clock, rng)
+////        Unsafe.unsafe { implicit unsafe =>
+////          runtime.unsafe.run {
+////            PokerDot.pokerdot(wctx.message, appContext)
+////          }
+////        } match {
+////          case Exit.Success(operation) =>
+////            logger.info(s"completed $operation")
+////          case Exit.Failure(cause) =>
+////            cause.failures.foreach { fs =>
+////              logger.error(s"error: ${fs.logString}")
+////              fs.exception.foreach { e =>
+////                logger.error(s"exception: ${e.printStackTrace()}")
+////              }
+////            }
+////            cause.defects.foreach { err =>
+////              logger.error(s"Fatal error: ${err.getMessage}", err)
+////            }
+////        }
+////      }
+////    })
+////
+////    Runtime.getRuntime.addShutdownHook(new Thread {
+////      override def run(): Unit = {
+////        logger.info("Stopping...")
+////        app.stop()
+////      }
+////    })
+////  }
+////}

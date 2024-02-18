@@ -1,30 +1,39 @@
 package io.adamnfish.pokerdot.models
 
-import zio.{IO, ZIO}
 
-
-case class Failures(failures: List[Failure]) {
-  def logString: String = failures.map { failure =>
-    List(
-      Some(failure.logMessage),
-      failure.context.map(c => s"context: $c"),
-      failure.exception.map(e => "err: " + e.getStackTrace.mkString("\n")),
-      failure.exception.flatMap(e => Option(e.getCause).map(c => "caused by: " + c.getStackTrace.mkString("\n")))
-    ).flatten.mkString(" | ")
-  }.mkString(", ")
-
+case class Failures private(
+  failures: List[Failure], logString: String, exception: Option[Throwable]
+) extends Throwable(logString, exception.orNull) {
   val externalFailures: List[Failure] = failures.filterNot(_.internal)
-
-  def exception: Option[Throwable] =
-    failures.find(_.exception.isDefined).flatMap(_.exception)
+  
+  def externalOnly: Failures = Failures(externalFailures)
 }
 object Failures {
+  private def findException(failures: List[Failure]): Option[Throwable] =
+    failures.find(_.exception.isDefined).flatMap(_.exception)
+
+  private def generateLogString(failures: List[Failure]): String =
+    failures.map { failure =>
+      List(
+        Some(failure.logMessage),
+        failure.context.map(c => s"context: $c"),
+        failure.exception.map(e => "err: " + e.getStackTrace.mkString("\n")),
+        failure.exception.flatMap(e => Option(e.getCause).map(c => "caused by: " + c.getStackTrace.mkString("\n")))
+      ).flatten.mkString(" | ")
+    }.mkString(", ")
+
   def apply(error: Failure): Failures = {
-    Failures(List(error))
+    val failures = List(error)
+    Failures(failures, generateLogString(failures), findException(failures))
   }
 
-  def apply(errors: Seq[Failure]): Failures = {
-    Failures(errors.toList)
+  def apply(failures: Failure*): Failures = {
+    val lFailures = failures.toList
+    new Failures(lFailures, generateLogString(lFailures), findException(lFailures))
+  }
+
+  def apply(failures: List[Failure]): Failures = {
+    Failures(failures, generateLogString(failures), findException(failures))
   }
 
   def apply(
@@ -34,7 +43,7 @@ object Failures {
     exception: Option[Throwable] = None,
     internal: Boolean = false,
   ): Failures = {
-    Failures(List(Failure(logMessage, userMessage, context, exception, internal)))
+    Failures(List(Failure(logMessage, userMessage, context, exception, internal)), logMessage, exception)
   }
 }
 
@@ -46,6 +55,5 @@ case class Failure(
   exception: Option[Throwable] = None,
   internal: Boolean = false
 ) {
-  def asIO: IO[Failures, Nothing] = ZIO.fail(Failures(this))
   def asFailures: Failures = Failures(this)
 }

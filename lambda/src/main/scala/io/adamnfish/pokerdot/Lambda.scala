@@ -1,120 +1,116 @@
 package io.adamnfish.pokerdot
 
 
+import cats.effect.std.Env
+import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Resource}
+import com.amazonaws.services.lambda.runtime.Context as AwsContext
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayV2WebSocketEvent, APIGatewayV2WebSocketResponse}
-import com.amazonaws.services.lambda.runtime.{Context => AwsContext}
 import com.amazonaws.xray.AWSXRay
-import com.amazonaws.xray.entities.Subsegment
-import com.typesafe.scalalogging.LazyLogging
 import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Clock, RandomRng}
+import io.adamnfish.pokerdot.services.{RandomRng, RealTime}
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider
+import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.apigatewaymanagementapi.ApiGatewayManagementApiClient
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import zio.{Exit, Runtime, Unsafe, ZIO}
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbClient}
 
+import java.time.Duration
 import java.net.URI
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Properties
 
 
-class Lambda extends LazyLogging {
-  // initialise everything on every request so that ENV vars can be updated without restarting the lambda
-  val appContextBuilder: (PlayerAddress, TraceId) => AppContext = {
-    (for {
-      // AWS ASK configuration
-      regionStr <- Properties.envOrNone("REGION")
-        .toRight("region not configured")
-      region = Region.of(regionStr)
-      // API Gateway client configuration
-      apiGatewayEndpointStr <- Properties.envOrNone("API_ORIGIN_LOCATION")
-        .toRight("API Gateway endpoint name not configured")
-      apiGatewayEndpointUri = new URI(s"https://$apiGatewayEndpointStr")
-      // table names
-      gamesTableName <- Properties.envOrNone("GAMES_TABLE")
-        .toRight("games table name not configured")
-      playersTableName <- Properties.envOrNone("PLAYERS_TABLE")
-        .toRight("players table name not configured")
-      // create SDK clients
-      apiGatewayManagementClient = ApiGatewayManagementApiClient.builder()
-        .endpointOverride(apiGatewayEndpointUri)
-        .region(region)
-        .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-        .httpClientBuilder(UrlConnectionHttpClient.builder())
-        .build()
-      dynamoDbClient = DynamoDbClient.builder()
-        .region(region)
-        .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-        .httpClientBuilder(UrlConnectionHttpClient.builder())
-        .build()
-      db = new DynamoDbDatabase(dynamoDbClient, gamesTableName, playersTableName)
-      rng = new RandomRng
-    } yield { (playerAddress: PlayerAddress, traceId: TraceId) =>
-      val messaging = new AwsMessaging(apiGatewayManagementClient, traceId)
-      AppContext(playerAddress, traceId, db, messaging, Clock, rng)
-    }).fold(
-      { errMsg =>
-        throw new RuntimeException(errMsg)
-      },
-      identity
-    )
-  }
+class Lambda:
+  implicit def logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-  def handleRequest(event: APIGatewayV2WebSocketEvent, awsContext: AwsContext): APIGatewayV2WebSocketResponse = {
-    val subsegment = AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest")
-    val traceId = AWSXRay.currentFormattedId()
-    logger.info(s"<$traceId> route: ${event.getRequestContext.getRouteKey}")
-    // Debugging
-    // logger.debug(s"<$handlerTraceId> request body: ${event.getBody}")
-    // logger.debug(s"<$handlerTraceId> connection ID: ${event.getRequestContext.getConnectionId}")
+  val app: Resource[IO, (PlayerAddress, TraceId) => AppContext[IO]] =
+    for
+      // DB table names
+      gamesTableName <- Env[IO].get("GAMES_TABLE").flatMap {
+        case Some(gamesTableName) => IO.pure(gamesTableName)
+        case None => IO.raiseError(new RuntimeException("GAMES_TABLE not set"))
+      }.toResource
+      playersTableName <- Env[IO].get("PLAYERS_TABLE").flatMap {
+        case Some(playersTableName) => IO.pure(playersTableName)
+        case None => IO.raiseError(new RuntimeException("PLAYERS_TABLE not set"))
+      }.toResource
+      // TODO: maybe use this Async http client for all SDKs and switch to async everywhere?
+      crtAsyncHttpClient <- Resource.make(IO {
+        AwsCrtAsyncHttpClient.builder()
+          .connectionTimeout(Duration.ofSeconds(3))
+          .maxConcurrency(100)
+          .build()
+      })(client => IO(client.close()))
+      // AWS clients
+      dynamoDbClient <- Resource.make(IO {
+        DynamoDbAsyncClient.builder()
+          .region(Region.EU_WEST_1)
+          .httpClient(crtAsyncHttpClient)
+          .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
+          .build()
+      })(client => IO(client.close()))
+      apiGatewayManagementApiClient <- Resource.make(IO {
+        ApiGatewayManagementApiClient.builder()
+          .region(Region.EU_WEST_1)
+          .httpClient(UrlConnectionHttpClient.create())
+          .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
+          .endpointOverride(URI.create(Properties.envOrElse("APIGATEWAY_ENDPOINT", "http://localhost:3001")))
+          .build()
+      })(client => IO(client.close()))
+      // create services
+      database = new DynamoDbDatabase[IO](dynamoDbClient, gamesTableName, playersTableName)
+      time = new RealTime[IO]
+      rng = new RandomRng[IO]
+    yield (playerAddress, traceId) =>
+      val messaging = new AwsMessaging[IO](apiGatewayManagementApiClient, traceId)
+      AppContext(playerAddress, traceId, database, messaging, time, rng)
+  
+  def handleRequest(event: APIGatewayV2WebSocketEvent, context: AwsContext): APIGatewayV2WebSocketResponse =
+    program(event, context).unsafeRunSync()
 
-    event.getRequestContext.getRouteKey match {
-      case "$connect" =>
-        // ignore this for now
-      case "$disconnect" =>
-        // ignore this for now
-      case "$default" =>
-        val playerAddress = PlayerAddress(event.getRequestContext.getConnectionId)
-        val appContext = appContextBuilder(playerAddress, TraceId(traceId))
-
-        Unsafe.unsafe { implicit unsafe =>
-          Runtime.default.unsafe.run(
-            PokerDot.pokerdot(event.getBody, appContext)
-          )
-        } match {
-          case Exit.Success(operation) =>
-            logger.info(s"<$traceId> completed $operation")
-            subsegment.putAnnotation("operation", operation)
-          case Exit.Failure(cause) =>
-            cause.failures.foreach { fs =>
-              logger.error(s"<$traceId> error: ${fs.logString}")
-              fs.exception match {
-                case Some(e) =>
-                  logger.error(s"<$traceId> exception: ${e.getMessage}", e)
-                  subsegment.addException(e)
-                case None =>
-                  subsegment.setFault(true)
-              }
-            }
-            cause.defects.foreach { err =>
-              logger.error(s"<$traceId> Fatal error: ${err.getMessage}", err)
-              subsegment.addException(err)
-            }
-        }
-        logger.info(s"<$traceId> Finished handling request")
-    }
-
-    subsegment.end()
-    AWSXRay.endSubsegment(subsegment)
-    AWSXRay.sendSubsegment(subsegment)
-
-    val response = new APIGatewayV2WebSocketResponse()
-    response.setStatusCode(200)
-    response.setHeaders(Map("content-type" -> "application/json").asJava)
-    response.setBody("")
-    response
-  }
-}
+  def program(event: APIGatewayV2WebSocketEvent, context: AwsContext): IO[APIGatewayV2WebSocketResponse] =
+    app.use: appContextBuilder =>
+      for
+        subsegment <- IO(AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest"))
+        traceId <- IO(AWSXRay.currentFormattedId())
+        _ <- logger.info(s"<$traceId> route: ${event.getRequestContext.getRouteKey}")
+        
+        _ <- event.getRequestContext.getRouteKey match
+          case "$connect" =>
+            // ignore this for now
+            IO.unit
+          case "$disconnect" =>
+            // ignore this for now
+            IO.unit
+          case "$default" =>
+            val playerAddress = PlayerAddress(event.getRequestContext.getConnectionId)
+            val appContext = appContextBuilder(playerAddress, TraceId(traceId))
+            for 
+              operation <- PokerDot.pokerdot[IO](event.getBody, appContext)
+                .onError: e =>
+                  logger.error(e)(s"<$traceId> Error: ${e.getMessage}") &>
+                    IO.blocking(subsegment.addException(e))
+              _ <- logger.info(s"<$traceId> completed $operation")
+              _ <- IO(subsegment.putAnnotation("operation", operation))
+            yield
+              ()
+          case routeKey =>
+            logger.error(s"<$traceId> Unhandled route: $routeKey")
+  
+        _ <- logger.info(s"<$traceId> Finished handling request")
+  
+        _ <- IO:
+          subsegment.end()
+          AWSXRay.endSubsegment(subsegment)
+          AWSXRay.sendSubsegment(subsegment)
+      yield
+        val response = new APIGatewayV2WebSocketResponse()
+        response.setStatusCode(200)
+        response.setHeaders(Map("content-type" -> "application/json").asJava)
+        response.setBody("")
+        response

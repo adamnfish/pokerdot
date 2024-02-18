@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{TestClock, TestHelpers}
+import io.adamnfish.pokerdot.{TestTime, TestHelpers}
 import io.adamnfish.pokerdot.logic.Games.{addPlayer, newGame, newPlayer}
 import io.adamnfish.pokerdot.models.{NoActionSummary, PlayerAddress}
 import org.scalatest.OptionValues
@@ -10,14 +10,14 @@ import org.scalatest.matchers.should.Matchers
 
 class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with TestHelpers {
   "welcome" - {
-    val rawGame = newGame("game name", false, TestClock, 0)
+    val rawGame = newGame("game name", false, 0L, 0)
     val hostAddress = PlayerAddress("host-address")
-    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestClock)
+    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, 0L)
     val game = addPlayer(rawGame, host)
 
     "generates a welcome message for the new player" - {
       val playerAddress = PlayerAddress("player-address")
-      val player = newPlayer(game.gameId, "player", false, playerAddress, TestClock)
+      val player = newPlayer(game.gameId, "player", false, playerAddress, 0L)
 
       "the welcome message is on the response" in {
         val response = Responses.welcome(game, player, playerAddress)
@@ -45,7 +45,7 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
 
     "does not generate a status message for the new player" in {
       val playerAddress = PlayerAddress("player-address")
-      val player = newPlayer(game.gameId, "player", false, playerAddress, TestClock)
+      val player = newPlayer(game.gameId, "player", false, playerAddress, 0L)
       val response = Responses.welcome(game, player, playerAddress)
 
       response.statuses.keys should not contain playerAddress
@@ -53,7 +53,7 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
 
     "generates a status message for the host" in {
       val playerAddress = PlayerAddress("player-address")
-      val player = newPlayer(game.gameId, "player", false, playerAddress, TestClock)
+      val player = newPlayer(game.gameId, "player", false, playerAddress, 0L)
       val response = Responses.welcome(game, player, playerAddress)
 
       response.statuses.keys should contain(hostAddress)
@@ -61,13 +61,13 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
   }
 
   "gameStatuses" - {
-    val rawGame = newGame("game name", false, TestClock, 0)
+    val rawGame = newGame("game name", false, 0L, 0)
     val hostAddress = PlayerAddress("host-address")
-    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestClock)
+    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, 0L)
     val player1Address = PlayerAddress("player-1-address")
-    val player1 = newPlayer(rawGame.gameId, "player1", false, player1Address, TestClock)
+    val player1 = newPlayer(rawGame.gameId, "player1", false, player1Address, 0L)
     val player2Address = PlayerAddress("player-2-address")
-    val player2 = newPlayer(rawGame.gameId, "player2", false, player2Address, TestClock)
+    val player2 = newPlayer(rawGame.gameId, "player2", false, player2Address, 0L)
 
     val game = addPlayer(addPlayer(addPlayer(rawGame,
       host),
@@ -96,13 +96,13 @@ class ResponsesTest extends AnyFreeSpec with Matchers with OptionValues with Tes
   }
 
   "roundWinnings" - {
-    val rawGame = newGame("game name", false, TestClock, 0)
+    val rawGame = newGame("game name", false, 0L, 0)
     val hostAddress = PlayerAddress("host-address")
-    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, TestClock)
+    val host = newPlayer(rawGame.gameId, "host", true, hostAddress, 0L)
     val player1Address = PlayerAddress("player-1-address")
-    val player1 = newPlayer(rawGame.gameId, "player1", false, player1Address, TestClock)
+    val player1 = newPlayer(rawGame.gameId, "player1", false, player1Address, 0L)
     val player2Address = PlayerAddress("player-2-address")
-    val player2 = newPlayer(rawGame.gameId, "player2", false, player2Address, TestClock)
+    val player2 = newPlayer(rawGame.gameId, "player2", false, player2Address, 0L)
 
     val game = addPlayer(addPlayer(addPlayer(rawGame,
       host),
