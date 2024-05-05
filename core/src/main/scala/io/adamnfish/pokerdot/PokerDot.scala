@@ -356,7 +356,7 @@ object PokerDot {
       _ <- Games.ensureStarted(game).attempt
       player <- Games.ensurePlayerKey(game.players, undo.playerId, undo.playerKey).attempt
       now <- appContext.clock.now
-      phaseEventDbs <- appContext.db.getPhaseGameLog(GameId(rawGameDb.gameId))
+      phaseEventDbs <- appContext.db.getPhaseGameEvents(GameId(rawGameDb.gameId))
       phaseEvents <- phaseEventDbs.eitherTraverse(Representations.eventRecordFromDb).attempt
       updatedGame <- PlayerActions.undo(game, player, phaseEvents).attempt
     } yield Responses.tbd()

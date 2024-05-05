@@ -1,11 +1,9 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.TestHelpers
-import io.adamnfish.pokerdot.logic.Utils.orderFromList
-import io.adamnfish.pokerdot.logic.Utils.RichList
+import io.adamnfish.pokerdot.logic.Utils.{RichList, orderFromList}
 import io.adamnfish.pokerdot.models.Failures
 import org.scalacheck.Gen
-import org.scalatest.exceptions.TestFailedException
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks

@@ -29,19 +29,19 @@ case class Round(
   river: Card,
 )
 
-sealed trait Phase extends Product
+sealed trait Phase extends Product with Serializable
 case object PreFlop  extends Phase
 case object Flop     extends Phase
 case object Turn     extends Phase
 case object River    extends Phase
 case object Showdown extends Phase
 
-sealed trait Blind extends Product
+sealed trait Blind extends Product with Serializable
 case object NoBlind    extends Blind
 case object SmallBlind extends Blind
 case object BigBlind   extends Blind
 
-sealed trait Rank extends Product {
+sealed trait Rank extends Product with Serializable {
   override def toString: String = Cards.rankStr(this)
 }
 case object Two   extends Rank
@@ -58,7 +58,7 @@ case object Queen extends Rank
 case object King  extends Rank
 case object Ace   extends Rank
 
-sealed trait Suit extends Product {
+sealed trait Suit extends Product with Serializable {
   override def toString: String = Cards.suitStr(this)
 }
 case object Clubs    extends Suit
@@ -66,7 +66,7 @@ case object Diamonds extends Suit
 case object Spades   extends Suit
 case object Hearts   extends Suit
 
-sealed trait Hand extends Product
+sealed trait Hand extends Product with Serializable
 case class HighCard(
   highCard: Card,
   kicker1: Card,

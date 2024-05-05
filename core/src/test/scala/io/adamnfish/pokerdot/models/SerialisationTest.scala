@@ -12,7 +12,7 @@ import io.circe.syntax._
 import org.scalatest.EitherValues
 
 
-class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with EitherValues {
+class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers {
   "parse" - {
     "for invalid input" - {
       "fails" in {
@@ -20,12 +20,12 @@ class SerialisationTest extends AnyFreeSpec with Matchers with TestHelpers with 
       }
 
       "uses the provided message in the failure" in {
-        val failures = parse("""nope""", "Test message", None).left.value
+        val failures = parse("""nope""", "Test message", None).leftValue
         failures.failures.exists(_.userMessage == "Test message") shouldEqual true
       }
 
       "uses the provided context in the failure" in {
-        val failures = parse("""nope""", "Test message", Some("context")).left.value
+        val failures = parse("""nope""", "Test message", Some("context")).leftValue
         failures.failures.exists(_.context.contains("context")) shouldEqual true
       }
     }

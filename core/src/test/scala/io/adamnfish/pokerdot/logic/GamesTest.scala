@@ -1,12 +1,12 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Cards.RichRank
-import io.adamnfish.pokerdot.{PokerGenerators, TestClock, TestHelpers}
+import io.adamnfish.pokerdot.logic.Games._
 import io.adamnfish.pokerdot.logic.Play.generateRound
 import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.logic.Games._
+import io.adamnfish.pokerdot.{PokerGenerators, TestHelpers}
 import org.scalacheck.Gen
-import org.scalatest.{EitherValues, OptionValues}
+import org.scalatest.OptionValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -14,7 +14,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.util.Random
 
 
-class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues with PokerGenerators {
+class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with OptionValues with PokerGenerators {
   "newGame" - {
     "initialises the basic fields correctly" in {
       forAll { (gameName: String, trackStacks: Boolean, seed: Long) =>
@@ -714,7 +714,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     }
 
     "fails with a note about the GID, if the game wasn't found" in {
-      val failures = requireGame(None, "GID").left.value
+      val failures = requireGame(None, "GID").leftValue
       failures.logString should include("GID")
     }
   }

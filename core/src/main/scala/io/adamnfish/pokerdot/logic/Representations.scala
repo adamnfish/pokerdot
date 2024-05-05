@@ -371,6 +371,21 @@ object Representations {
     }
   }
 
+  def phaseAsString(phase: Phase): String = {
+    phase match {
+      case PreFlop =>
+        "pre-flop"
+      case Flop =>
+        "flop"
+      case Turn =>
+        "turn"
+      case River =>
+        "river"
+      case Showdown =>
+        "showdown"
+    }
+  }
+
   def phaseAsLogString(phase: Phase): String = {
     phase match {
       case PreFlop => "p"

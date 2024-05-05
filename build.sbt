@@ -15,13 +15,13 @@ ThisBuild / scalacOptions ++= Seq(
 )
 
 
-val circeVersion = "0.14.0-M3"
+val circeVersion = "0.14.2"
 val scanamoVersion = "1.0-M14"
-val awsJavaSdkVersion = "2.15.72"
+val awsJavaSdkVersion = "2.17.209"
 val commonDeps = Seq(
-  "org.scalatest" %% "scalatest" % "3.2.2" % Test,
-  "org.scalacheck" %% "scalacheck" % "1.14.1" % Test,
-  "org.scalatestplus" %% "scalacheck-1-14" % "3.1.1.1" % Test,
+  "org.scalatest" %% "scalatest" % "3.2.12" % Test,
+  "org.scalacheck" %% "scalacheck" % "1.16.0" % Test,
+  "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0" % Test,
   "com.github.alexarchambault" %% "scalacheck-shapeless_1.15" % "1.3.0" % Test,
 )
 
@@ -44,12 +44,14 @@ lazy val core = (project in file("core"))
   .settings(
     name := "core",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % "1.0.4",
+      "dev.zio" %% "zio" % "1.0.15",
+      "org.typelevel" %% "cats-core" % "2.7.0",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "org.scanamo" %% "scanamo" % scanamoVersion,
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
+      "org.systemfw" %% "dynosaur-core" % "0.4.0",
     ) ++ commonDeps,
   )
 
@@ -58,9 +60,9 @@ lazy val lambda = (project in file("lambda"))
   .settings(
     name := "lambda",
     libraryDependencies ++= Seq(
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.1",
-      "com.amazonaws" % "aws-lambda-java-events" % "3.7.0",
+      "com.amazonaws" % "aws-lambda-java-events" % "3.11.0",
       "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
     ) ++ commonDeps,
@@ -68,14 +70,7 @@ lazy val lambda = (project in file("lambda"))
     Universal / topLevelDirectory := None,
     Universal / packageName := "pokerdot-lambda",
     Compile / packageDoc / mappings := Seq(),
-    Universal / mappings := (Universal / mappings).value.filter {
-      case (_, path) =>
-        // these are only used at compile time to generate code, I think?
-//          !path.contains("org.scala-lang.scala-compiler") && // required :-(
-//          !path.contains("org.scala-lang.scala-reflect") && // required :-(
-          !path.contains("net.java.dev.jna.jna") &&
-          !path.contains("org.jline.jline")
-    }
+
   )
   .dependsOn(core)
 

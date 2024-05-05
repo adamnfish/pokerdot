@@ -274,13 +274,14 @@ object PlayerActions {
    * Everything that happened in this round so far gets rolled back, and the cards are re-dealt.
    */
   def abandonRound(game: Game, rng: Rng): Game = {
-    val resetPlayers = game.players.map(resetPlayerForAbandonedRound)
     val nextState = rng.nextState(game.seed)
     val deck = Play.deckOrder(nextState)
+    val resetPlayers = dealHoles(game.players.map(resetPlayerForAbandonedRound), deck)
     game.copy(
-      players = dealHoles(resetPlayers, deck),
+      players = resetPlayers,
       round = Play.generateRound(PreFlop, game.round.smallBlind, nextState),
       seed = nextState,
+      inTurn = Play.nextPlayer(resetPlayers, None, game.button)
     )
   }
 

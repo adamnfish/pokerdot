@@ -611,6 +611,10 @@ actionDecoder =
 
 playerDecoder : Json.Decode.Decoder Player
 playerDecoder =
+    let
+        tmp =
+            Json.Decode.map5
+    in
     Json.Decode.succeed Player
         |> required "playerId" playerIdDecoder
         |> required "screenName" Json.Decode.string

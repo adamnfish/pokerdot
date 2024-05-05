@@ -1215,6 +1215,10 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
           abandonRound(game.copy(seed = seed), TestRng).seed should not equal seed
         }
       }
+
+      "the in-turn player is reset" ignore {}
+
+      "the round's phase is set to PreFlop" ignore {}
     }
   }
 

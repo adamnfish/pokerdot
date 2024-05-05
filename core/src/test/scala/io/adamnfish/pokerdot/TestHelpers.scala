@@ -36,6 +36,18 @@ trait TestHelpers extends Matchers {
         identity
       )
     }
+
+    def leftValue(implicit pos: Position): L = {
+      e.fold(
+        identity,
+        { r =>
+          throw new TestFailedException(
+            _ => Some(s"The Either on which value was invoked was not a Left, got Right($r)"),
+            None, pos
+          )
+        }
+      )
+    }
   }
 
   /**

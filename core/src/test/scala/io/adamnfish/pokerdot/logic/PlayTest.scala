@@ -1,21 +1,18 @@
 package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.TestHelpers
-import org.scalatest.freespec.AnyFreeSpec
-import io.adamnfish.pokerdot.logic.Play._
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.newPlayer
-import io.adamnfish.pokerdot.models.{Ace, BigBlind, BreakLevel, Clubs, Diamonds, Flop, GameId, Hole, NoBlind, Player, PlayerAddress, PlayerId, PreFlop, River, RoundLevel, Showdown, SmallBlind, Three, TimerStatus, Turn, Two}
-import io.adamnfish.pokerdot.services.Clock
+import io.adamnfish.pokerdot.logic.Play._
+import io.adamnfish.pokerdot.models._
 import org.scalacheck.Gen
-import org.scalatest.{EitherValues, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-import scala.util.Random
 
-
-class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with EitherValues with OptionValues {
+class PlayTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers with OptionValues {
   "generateRound" - {
     "generates different cards for different seeds" in {
       forAll { (seed: Long) =>
