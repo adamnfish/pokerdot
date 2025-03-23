@@ -1,6 +1,9 @@
 package io.adamnfish.pokerdot.models
 
 
+/**
+ * TODO: should we use a secondary index for gameCode, to support initial joining?
+ */
 case class GameDb(
   gameCode: String, // partition
   gameId: String,   // sort

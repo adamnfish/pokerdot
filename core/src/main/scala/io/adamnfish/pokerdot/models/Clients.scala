@@ -177,7 +177,7 @@ case class Wake(
 ) extends Request
 
 // Variance is required because advancePhase returns different messages depending on the phase
-// this my be a sign that the advancePhase endpoint should be split up.
+// this may be a sign that the advancePhase endpoint should be split up.
 // However, with features like "auto-advance" this may be required in the future, so it isn't
 // worth refactoring around this requirement for now.
 case class Response[+M <: Message](

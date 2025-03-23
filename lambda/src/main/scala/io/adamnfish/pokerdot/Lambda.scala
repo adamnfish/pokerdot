@@ -76,8 +76,8 @@ class Lambda:
   def program(event: APIGatewayV2WebSocketEvent, context: AwsContext): IO[APIGatewayV2WebSocketResponse] =
     app.use: appContextBuilder =>
       for
-        subsegment <- IO(AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest"))
-        traceId <- IO(AWSXRay.currentFormattedId())
+        subsegment <- IO.blocking(AWSXRay.beginSubsegment("io.adamnfish.pokerdot.Lambda::handleRequest"))
+        traceId <- IO.blocking(AWSXRay.currentFormattedId())
         _ <- logger.info(s"<$traceId> route: ${event.getRequestContext.getRouteKey}")
         
         _ <- event.getRequestContext.getRouteKey match
@@ -92,11 +92,12 @@ class Lambda:
             val appContext = appContextBuilder(playerAddress, TraceId(traceId))
             for 
               operation <- PokerDot.pokerdot[IO](event.getBody, appContext)
-                .onError: e =>
+                .onError { e =>
                   logger.error(e)(s"<$traceId> Error: ${e.getMessage}") &>
                     IO.blocking(subsegment.addException(e))
+                }
               _ <- logger.info(s"<$traceId> completed $operation")
-              _ <- IO(subsegment.putAnnotation("operation", operation))
+              _ <- IO.blocking(subsegment.putAnnotation("operation", operation))
             yield
               ()
           case routeKey =>
@@ -104,10 +105,11 @@ class Lambda:
   
         _ <- logger.info(s"<$traceId> Finished handling request")
   
-        _ <- IO:
+        _ <- IO.blocking {
           subsegment.end()
           AWSXRay.endSubsegment(subsegment)
           AWSXRay.sendSubsegment(subsegment)
+        }
       yield
         val response = new APIGatewayV2WebSocketResponse()
         response.setStatusCode(200)

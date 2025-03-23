@@ -29,7 +29,6 @@ trait IntegrationComponents {
       AwsBasicCredentials.create("dummykey", "dummysecret")))
     .build();
 
-  // change this to a Resource
   def appContextRes: Resource[IO, (PlayerAddress => AppContext[IO], Database[IO])] =
     for {
       randomSuffix <- IO(randomUUID().toString).toResource
@@ -69,40 +68,6 @@ trait IntegrationComponents {
         )
       }
     } yield (addressToContext, testDb)
-  
-  
-  def withAppContext[A](f: (PlayerAddress => AppContext[IO], Database[IO]) => IO[A] /* Assertion */): IO[A] /* Assertion */ = {
-    val randomSuffix = randomUUID().toString
-    val gameTableName = s"games-$randomSuffix"
-    val playerTableName = s"players-$randomSuffix"
-    val testDb = new DynamoDbDatabase[IO](client, gameTableName, playerTableName)
-    val testRng = new TestRng[IO]
-
-    LocalDynamoDB.withTable(client)(gameTableName)("gameCode" -> S, "gameId" -> S) {
-      LocalDynamoDB.withTable(client)(playerTableName)("gameId" -> S, "playerId" -> S) {
-        val addressToContext = { (playerAddress: PlayerAddress) =>
-          AppContext(
-            playerAddress,
-            TraceId("trace-id"),
-            testDb,
-            // TODO: keep track of sent messages so we can perform assertions on that as well
-            new Messaging[IO] {
-              override def sendMessage(playerAddress: PlayerAddress, message: Message): IO[Unit] = {
-                IO.unit
-              }
-
-              override def sendError(playerAddress: PlayerAddress, message: Failures): IO[Unit] = {
-                IO.unit
-              }
-            },
-            new TestTime[IO],
-            testRng,
-          )
-        }
-        f(addressToContext, testDb)
-      }
-    }
-  }
 }
 object IntegrationComponents {
   def betRequest(betAmount: Int, welcome: Welcome): String = {

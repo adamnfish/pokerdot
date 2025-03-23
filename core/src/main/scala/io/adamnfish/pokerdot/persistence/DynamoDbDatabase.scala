@@ -45,46 +45,66 @@ class DynamoDbDatabase[F[_]: Async](
   }
 
   override def lookupGame(gameCode: String): F[Option[GameDb]] = {
-    for {
-      results <- handleDbErr(
-        scanamo.exec(
-          games.query(
-            "gameCode" === gameCode and ("gameId" beginsWith gameCode)
-          )
+    if (gameCode.isEmpty)
+      Async[F].raiseError(
+        Failures(
+          "empty gameCode provided to searchGameCode",
+          "error fetching saved data",
+          exception = None
         )
       )
-      maybeResult <- results match {
-        case Nil =>
-          Async[F].pure(None)
-        case result :: Nil =>
-          Async[F].pure(Some(result))
-        case _ =>
-          Async[F].raiseError(
-            Failure(
-              s"Multiple games found for code `$gameCode`",
-              "couldn't find a game for that code"
-            ).asFailures
+    else {
+      for {
+        results <- handleDbErr(
+          scanamo.exec(
+            games.query(
+              "gameCode" === gameCode and ("gameId" beginsWith gameCode)
+            )
           )
-      }
-      maybeGameDb <- maybeResult.fold[F[Option[GameDb]]](
-        Async[F].pure(None)
-      ) { result =>
-        handleDbReadErr(result).map(Some(_))
-      }
-    } yield maybeGameDb
+        )
+        maybeResult <- results match {
+          case Nil =>
+            Async[F].pure(None)
+          case result :: Nil =>
+            Async[F].pure(Some(result))
+          case _ =>
+            Async[F].raiseError(
+              Failure(
+                s"Multiple games found for code `$gameCode`",
+                "couldn't find a game for that code"
+              ).asFailures
+            )
+        }
+        maybeGameDb <- maybeResult.fold[F[Option[GameDb]]](
+          Async[F].pure(None)
+        ) { result =>
+          handleDbReadErr(result).map(Some(_))
+        }
+      } yield maybeGameDb
+    }
   }
 
   override def searchGameCode(gameCode: String): F[List[GameDb]] = {
-    for {
-      results <- handleDbErr(
-        scanamo.exec(
-          games.query(
-            "gameCode" === gameCode and ("gameId" beginsWith gameCode)
-          )
+    if (gameCode.isEmpty)
+      Async[F].raiseError(
+        Failures(
+          "empty gameCode provided to searchGameCode",
+          "error fetching saved data",
+          exception = None
         )
       )
-      gameDbs <- results.traverse(handleDbReadErr)
-    } yield gameDbs
+    else {
+      for {
+        results <- handleDbErr(
+          scanamo.exec(
+            games.query(
+              "gameCode" === gameCode and ("gameId" beginsWith gameCode)
+            )
+          )
+        )
+        gameDbs <- results.traverse(handleDbReadErr)
+      } yield gameDbs
+    }
   }
 
   override def getPlayers(gameId: GameId): F[List[PlayerDb]] = {

@@ -108,6 +108,10 @@ object Games {
     )
   }
 
+  /**
+   * TODO: this limits pokerdot to `16^4` concurrent games, and less than that in practice.
+   * Instead, the game code needs to be persisted as a unique prefix, however long that needs to be
+   */
   def gameCode(gameId: GameId): String = {
     gameId.gid.take(4)
   }

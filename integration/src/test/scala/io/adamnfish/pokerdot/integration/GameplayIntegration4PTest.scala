@@ -146,7 +146,7 @@ class GameplayIntegration4PTest extends AsyncFreeSpec with AsyncIOSpec with Matc
         _ <- PokerDot.pokerdot(betRequest(50, p1Welcome), context(player1Address))
         // p2 has two-pair, decides to call
         _ <- PokerDot.pokerdot(betRequest(50, p2Welcome), context(player2Address))
-        // host only has pair of queens and will let these two fight it out
+        // host only has a pair of queens and will let these two fight it out
         _ <- PokerDot.pokerdot(foldRequest(hostWelcome), context(hostAddress))
         // phase is complete
         playerDbsRiver <- db.getPlayers(hostWelcome.gameId).map(playerDbs =>
@@ -213,7 +213,7 @@ class GameplayIntegration4PTest extends AsyncFreeSpec with AsyncIOSpec with Matc
           PotWinnings(160, Set(p1Welcome.playerId, p2Welcome.playerId), Set(p1Welcome.playerId))
         )
 
-          // advance to next round
+        // advance to next round
         _ <- PokerDot.advancePhase(parseReq(advancePhaseRequest(hostWelcome)), context(hostAddress))
 
         // players should be reset for the new round
