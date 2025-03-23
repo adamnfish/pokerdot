@@ -10,6 +10,8 @@ ThisBuild / scalacOptions ++= Seq(
   "-encoding",
   "UTF-8",
   "-deprecation",
+  "-java-output-version",
+  "21",
   // avoid a scanamo derivation error message
   "-Xmax-inlines",
   "64"

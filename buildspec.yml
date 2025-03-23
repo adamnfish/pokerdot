@@ -7,8 +7,8 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 20
-      java: corretto17
+      nodejs: 22
+      java: corretto21
 
   pre_build:
     commands:
@@ -27,7 +27,7 @@ phases:
 
       # Install software for frontend build
       - cd frontend
-      - npm install
+      - npm ci
       - cd ..
 
       - echo "[STATUS] pre build step finished"

@@ -13,6 +13,7 @@
     "test": "elm-test"
   },
   "devDependencies": {
+    "@parcel/optimizer-svgo": "2.13.3",
     "@parcel/packager-raw-url": "2.13.3",
     "@parcel/packager-xml": "2.13.3",
     "@parcel/transformer-elm": "^2.13.3",
@@ -24,7 +25,8 @@
     "elm-review": "^2.12.0",
     "elm-test": "^0.19.1-revision7",
     "parcel": "^2.13.3",
-    "parcel-plugin-browserconfig": "^1.0.5"
+    "parcel-plugin-browserconfig": "^1.0.5",
+    "svgo": "^3.3.2"
   },
   "dependencies": {
     "reconnecting-websocket": "^4.4.0"

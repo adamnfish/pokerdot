@@ -154,7 +154,7 @@ Resources:
       Handler: "io.adamnfish.pokerdot.Lambda::handleRequest"
       Timeout: 20
       MemorySize: 1024
-      Runtime: java17
+      Runtime: java21
       Tracing: Active
       Environment:
         Variables:
