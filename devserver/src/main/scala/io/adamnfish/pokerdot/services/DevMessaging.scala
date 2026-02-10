@@ -13,9 +13,9 @@ class DevMessaging[F[_] : Sync : MonadThrow](logMessage: (String, String) => F[U
   private val connections = new mutable.HashMap[String, WsContext]
 
   def connect(wctx: WsContext): String = {
-    val id = wctx.getSessionId
-    connections.put(id, wctx)
-    id
+    val playerAddress = wctx.getSessionId
+    connections.put(playerAddress, wctx)
+    playerAddress
   }
 
   def disconnect(wctx: WsContext): Unit = {
