@@ -67,7 +67,7 @@ class GameplayIntegration4PTest extends AsyncFreeSpec with AsyncIOSpec with Matc
           "bet" as 10,
           "pot" as 0,
         )
-        _ =playerDbsPreFlop.get(p3Welcome.playerId).value should have(
+        _ = playerDbsPreFlop.get(p3Welcome.playerId).value should have(
           "folded" as true,
           "bet" as 0,
           "pot" as 0,
