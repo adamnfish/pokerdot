@@ -26,6 +26,7 @@
     "elm-test": "^0.19.1-revision7",
     "parcel": "^2.13.3",
     "parcel-plugin-browserconfig": "^1.0.5",
+    "process": "^0.11.10",
     "svgo": "^3.3.2"
   },
   "dependencies": {
