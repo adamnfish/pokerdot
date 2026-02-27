@@ -6,6 +6,20 @@ Parameters:
   Stage:
     Type: String
     Default: prod
+  GitHubOIDCProviderArn:
+    Type: String
+    Description: ARN of the GitHub OIDC identity provider in this account
+  GitHubOrg:
+    Type: String
+    Description: GitHub organisation or username (e.g. adamnfish)
+    Default: adamnfish
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name (e.g. pokerdot)
+    Default: pokerdot
+  DistBucket:
+    Type: String
+    Description: Name of the S3 bucket that holds API build artifacts (to scope OIDC access for CI/CD)
 
 Resources:
   WebrootAccessIdentityID:
@@ -95,6 +109,62 @@ Resources:
         - Key: "table"
           Value: "games"
 
+  # GitHub Actions OIDC role for CI/CD deployments
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "pokerdot-gha-deploy-${Stage}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+      Policies:
+        - PolicyName: pokerdot-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Upload lambda artifact to dist bucket
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${DistBucket}/pokerdot/${Stage}/*"
+              # Sync frontend assets to webroot bucket
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${WebrootBucket}"
+                  - !Sub "arn:aws:s3:::${WebrootBucket}/*"
+              # Update lambda function code
+              - Effect: Allow
+                Action:
+                  - lambda:UpdateFunctionCode
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*PokerdotApiBackend*"
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/app: pokerdot
+                    aws:ResourceTag/stage: !Ref Stage
+              # Invalidate CloudFront distribution
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/*"
+      Tags:
+        - Key: "app"
+          Value: "pokerdot"
+        - Key: "stage"
+          Value: !Ref Stage
+
 
 Outputs:
   WebrootAccessIdentityID:
@@ -112,3 +182,7 @@ Outputs:
   WebrootBucketName:
     Description: "Webroot bucket's name"
     Value: !Ref WebrootBucket
+
+  GitHubActionsRoleArn:
+    Description: "ARN of the GitHub Actions deployment role (use in GHA workflow)"
+    Value: !GetAtt GitHubActionsRole.Arn
