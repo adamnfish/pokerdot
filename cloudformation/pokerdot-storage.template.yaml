@@ -11,11 +11,11 @@ Parameters:
     Description: ARN of the GitHub OIDC identity provider in this account
   GitHubOrg:
     Type: String
-    Description: GitHub organisation or username (e.g. adamnfish)
+    Description: GitHub organisation or username for CI/CD (e.g. adamnfish)
     Default: adamnfish
   GitHubRepo:
     Type: String
-    Description: GitHub repository name (e.g. pokerdot)
+    Description: GitHub repository name for CI/CD (e.g. pokerdot)
     Default: pokerdot
   DistBucket:
     Type: String
@@ -39,6 +39,8 @@ Resources:
           Value: "pokerdot"
         - Key: "stage"
           Value: !Ref Stage
+        - Key: "resource"
+          Value: "webroot"
 
   WebrootBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -78,7 +80,7 @@ Resources:
           Value: "pokerdot"
         - Key: "stage"
           Value: !Ref Stage
-        - Key: "table"
+        - Key: "resource"
           Value: "games"
 
   PlayersTable:
@@ -106,8 +108,8 @@ Resources:
           Value: "pokerdot"
         - Key: "stage"
           Value: !Ref Stage
-        - Key: "table"
-          Value: "games"
+        - Key: "resource"
+          Value: "players"
 
   # GitHub Actions OIDC role for CI/CD deployments
   GitHubActionsRole:
@@ -131,6 +133,11 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              # Discover resources by tag
+              - Effect: Allow
+                Action:
+                  - tag:GetResources
+                Resource: "*"
               # Upload lambda artifact to dist bucket
               - Effect: Allow
                 Action:
