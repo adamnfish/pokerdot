@@ -177,6 +177,7 @@ Resources:
       Tags:
         app: pokerdot
         stage: !Ref Stage
+        resource: backend
 
   BackendInvocationPermission:
     Type: AWS::Lambda::Permission

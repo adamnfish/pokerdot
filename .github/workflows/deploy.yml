@@ -1,0 +1,128 @@
+name: Deploy Pokerdot
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Deployment stage
+        required: true
+        type: choice
+        options:
+          - test
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      STAGE: ${{ inputs.stage }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Build tools
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Scala
+        uses: guardian/setup-scala@v1
+
+      # Backend build and test
+      - name: Backend tests and packaging
+        run: sbt test lambda/Universal/packageBin
+
+      # Frontend build and test
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend tests
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      # AWS credentials - configured as late as possible to limit scope
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ inputs.stage == 'prod' && secrets.AWS_ROLE_ARN_PROD || secrets.AWS_ROLE_ARN_TEST }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Discover resources by tags
+      - name: Discover resources
+        id: discover
+        run: |
+          # Mask AWS account ID
+          ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
+          echo "::add-mask::${ACCOUNT_ID}"
+
+          echo "Looking up resources for app:pokerdot stage:${STAGE}"
+
+          # Lambda function
+          FUNCTION_ARN=$(aws resourcegroupstaggingapi get-resources \
+            --tag-filters Key=app,Values=pokerdot Key=stage,Values=${STAGE} Key=resource,Values=backend \
+            --resource-type-filters lambda:function \
+            --query 'ResourceTagMappingList[0].ResourceARN' \
+            --output text)
+          FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F: '{print $NF}')
+          echo "function_name=${FUNCTION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Discovered lambda: ${FUNCTION_NAME}"
+
+          # Webroot S3 bucket
+          WWW_ARN=$(aws resourcegroupstaggingapi get-resources \
+            --tag-filters Key=app,Values=pokerdot Key=stage,Values=${STAGE} Key=resource,Values=webroot \
+            --resource-type-filters s3:bucket \
+            --query 'ResourceTagMappingList[0].ResourceARN' \
+            --output text)
+          WWW_BUCKET=$(echo "$WWW_ARN" | awk -F::: '{print $NF}')
+          echo "www_bucket=${WWW_BUCKET}" >> "$GITHUB_OUTPUT"
+          echo "Discovered webroot bucket: ${WWW_BUCKET}"
+
+          # CloudFront distribution
+          DIST_ARN=$(aws resourcegroupstaggingapi get-resources \
+            --tag-filters Key=app,Values=pokerdot Key=stage,Values=${STAGE} \
+            --resource-type-filters cloudfront:distribution \
+            --query 'ResourceTagMappingList[0].ResourceARN' \
+            --region us-east-1 \
+            --output text)
+          DIST_ID=$(echo "$DIST_ARN" | awk -F/ '{print $NF}')
+          echo "distribution_id=${DIST_ID}" >> "$GITHUB_OUTPUT"
+          echo "Discovered CloudFront distribution: ${DIST_ID}"
+
+      # Deploy backend
+      - name: Upload lambda artifact
+        run: |
+          aws s3 cp lambda/target/universal/pokerdot-lambda.zip \
+            s3://${{ secrets.DIST_BUCKET }}/pokerdot/${STAGE}/pokerdot-lambda.zip
+
+      - name: Update lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ steps.discover.outputs.function_name }} \
+            --s3-bucket ${{ secrets.DIST_BUCKET }} \
+            --s3-key pokerdot/${STAGE}/pokerdot-lambda.zip
+
+      # Deploy frontend
+      - name: Sync frontend to S3
+        run: |
+          aws s3 sync frontend/dist \
+            s3://${{ steps.discover.outputs.www_bucket }}
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.discover.outputs.distribution_id }} \
+            --paths "/*"

@@ -156,11 +156,12 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:UpdateFunctionCode
-                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*PokerdotApiBackend*"
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*"
                 Condition:
                   StringEquals:
                     aws:ResourceTag/app: pokerdot
                     aws:ResourceTag/stage: !Ref Stage
+                    aws:ResourceTag/resource: backend
               # Invalidate CloudFront distribution
               - Effect: Allow
                 Action:
