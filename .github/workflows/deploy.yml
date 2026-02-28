@@ -93,7 +93,7 @@ jobs:
 
           # CloudFront distribution
           DIST_ARN=$(aws resourcegroupstaggingapi get-resources \
-            --tag-filters Key=app,Values=pokerdot Key=stage,Values=${STAGE} \
+            --tag-filters Key=app,Values=pokerdot Key=stage,Values=${STAGE} Key=resource,Values=cdn \
             --resource-type-filters cloudfront:distribution \
             --query 'ResourceTagMappingList[0].ResourceARN' \
             --region us-east-1 \

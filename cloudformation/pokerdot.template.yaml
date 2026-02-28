@@ -73,6 +73,7 @@ Resources:
       Tags:
         app: pokerdot
         stage: !Ref Stage
+        resource: websocket-api
 
   ApiGatewayStage:
     Type: AWS::ApiGatewayV2::Stage
@@ -248,6 +249,8 @@ Resources:
           Value: pokerdot
         - Key: stage
           Value: !Ref Stage
+        - Key: resource
+          Value: cdn
 
   DNS:
     Type: AWS::Route53::RecordSetGroup
