@@ -30,8 +30,7 @@ Parameters:
     Description: Domain for the application (hosted zone must exist and be registered)
   Stage:
     Type: String
-    Description: Environment name
-    Default: prod
+    Description: Environment name - must correspond to a GitHub environment (e.g. test, prod)
   WebrootTLSCert:
     Type: String
     Description: ARN of TLS certificate **in US-EAST-1** (must work for `pokerdot.${DomainName}`)
@@ -215,7 +214,7 @@ Resources:
           - !Sub pokerdot.${DomainName}
         Origins:
           - Id: pokerdot-static
-            DomainName: !Sub ${WebrootBucket}.s3.amazonaws.com
+            DomainName: !Sub ${WebrootBucket}.s3.${AWS::Region}.amazonaws.com
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${WebrootAccessIdentityID}
         DefaultCacheBehavior:

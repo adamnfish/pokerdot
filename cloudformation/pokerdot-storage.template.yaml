@@ -5,7 +5,6 @@ Description: Persistent storage for Pokerdot application
 Parameters:
   Stage:
     Type: String
-    Default: prod
     Description: Stage name - must match the name of a GitHub environment (e.g. test, prod)
   GitHubOIDCProviderArn:
     Type: String
