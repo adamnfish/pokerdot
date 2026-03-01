@@ -6,17 +6,18 @@ Parameters:
   Stage:
     Type: String
     Default: prod
+    Description: Stage name - must match the name of a GitHub environment (e.g. test, prod)
   GitHubOIDCProviderArn:
     Type: String
     Description: ARN of the GitHub OIDC identity provider in this account
   GitHubOrg:
     Type: String
-    Description: GitHub organisation or username for CI/CD (e.g. adamnfish)
     Default: adamnfish
+    Description: GitHub organisation or username for CI/CD (e.g. adamnfish)
   GitHubRepo:
     Type: String
-    Description: GitHub repository name for CI/CD (e.g. pokerdot)
     Default: pokerdot
+    Description: GitHub repository name for CI/CD (e.g. pokerdot)
   DistBucket:
     Type: String
     Description: Name of the S3 bucket that holds API build artifacts (to scope OIDC access for CI/CD)
