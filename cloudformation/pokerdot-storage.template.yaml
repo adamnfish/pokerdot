@@ -157,6 +157,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:UpdateFunctionCode
+                  - lambda:GetFunctionConfiguration
                 Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*"
                 Condition:
                   StringEquals:
