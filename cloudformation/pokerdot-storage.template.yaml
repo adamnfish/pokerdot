@@ -141,7 +141,8 @@ Resources:
               # Upload lambda artifact to dist bucket
               - Effect: Allow
                 Action:
-                  - s3:PutObject
+                  - s3:GetObject # for the lambda:update-function command
+                  - s3:PutObject # for saving the lambda artifact to the dist bucket
                 Resource: !Sub "arn:aws:s3:::${DistBucket}/pokerdot/${Stage}/*"
               # Sync frontend assets to webroot bucket
               - Effect: Allow
