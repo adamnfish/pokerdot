@@ -1,17 +1,26 @@
 package io.adamnfish.pokerdot.persistence
 
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import cats.*
+import cats.effect.Async
+import cats.implicits.*
+import cats.syntax.all.*
 import io.adamnfish.pokerdot.logic.Games
-import io.adamnfish.pokerdot.logic.Utils.{EitherUtils, RichList}
-import io.adamnfish.pokerdot.models.{Attempt, Failure, Failures, GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.*
 import io.adamnfish.pokerdot.services.Database
-import org.scanamo._
-import org.scanamo.syntax._
-import org.scanamo.generic.auto._
-import zio.ZIO
+import org.scanamo.*
+import org.scanamo.generic.auto.*
+import org.scanamo.syntax.*
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
+import scala.jdk.CollectionConverters.*
+import scala.util.control.NonFatal
 
-class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTableName: String) extends Database {
+class DynamoDbDatabase[F[_]: Async](
+    client: DynamoDbAsyncClient,
+    gameTableName: String,
+    playerTableName: String
+) extends Database[F] {
+  private val scanamo = ScanamoCats[F](client)
   // TODO: switch DB models to use PlayerId?
   //  provide implicit to allow Scanamo to use those wrapper types
 
@@ -19,76 +28,127 @@ class DynamoDbDatabase(client: DynamoDbClient, gameTableName: String, playerTabl
   private val players = Table[PlayerDb](playerTableName)
 
   // TODO: consider whether this should just derive a gameCode and call lookup
-  override def getGame(gameId: GameId): Attempt[Option[GameDb]] = {
+  override def getGame(gameId: GameId): F[Option[GameDb]] = {
     val gameCode = Games.gameCode(gameId)
     for {
-      maybeResult <- execAsAttempt(games.get("gameCode" === gameCode and "gameId" === gameId.gid))
-      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](ZIO.succeed(None)) { result =>
-        resultToAttempt(result).map(Some(_))
+      maybeResult <- handleDbErr(
+        scanamo.exec[Option[Either[DynamoReadError, GameDb]]](
+          games.get("gameCode" === gameCode and "gameId" === gameId.gid)
+        )
+      )
+      maybeGameDb <- maybeResult.fold[F[Option[GameDb]]](Async[F].pure(None)) {
+        result =>
+          handleDbReadErr(result).map(Some(_))
       }
     } yield maybeGameDb
+
   }
 
-  override def lookupGame(gameCode: String): Attempt[Option[GameDb]] = {
-    for {
-      results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
-      maybeResult <- results match {
-        case Nil =>
-          ZIO.succeed(None)
-        case result :: Nil =>
-          ZIO.succeed(Some(result))
-        case _ =>
-          Failure(
-            s"Multiple games found for code `$gameCode`",
-            "couldn't find a game for that code",
-          ).asIO
-      }
-      maybeGameDb <- maybeResult.fold[Attempt[Option[GameDb]]](ZIO.succeed(None)) { result =>
-        resultToAttempt(result).map(Some(_))
-      }
-    } yield maybeGameDb
+  override def lookupGame(gameCode: String): F[Option[GameDb]] = {
+    if (gameCode.isEmpty)
+      Async[F].raiseError(
+        Failures(
+          "empty gameCode provided to searchGameCode",
+          "error fetching saved data",
+          exception = None
+        )
+      )
+    else {
+      for {
+        results <- handleDbErr(
+          scanamo.exec(
+            games.query(
+              "gameCode" === gameCode and ("gameId" beginsWith gameCode)
+            )
+          )
+        )
+        maybeResult <- results match {
+          case Nil =>
+            Async[F].pure(None)
+          case result :: Nil =>
+            Async[F].pure(Some(result))
+          case _ =>
+            Async[F].raiseError(
+              Failure(
+                s"Multiple games found for code `$gameCode`",
+                "couldn't find a game for that code"
+              ).asFailures
+            )
+        }
+        maybeGameDb <- maybeResult.fold[F[Option[GameDb]]](
+          Async[F].pure(None)
+        ) { result =>
+          handleDbReadErr(result).map(Some(_))
+        }
+      } yield maybeGameDb
+    }
   }
 
-
-  override def searchGameCode(gameCode: String): Attempt[List[GameDb]] = {
-    for {
-      results <- execAsAttempt(games.query("gameCode" === gameCode and ("gameId" beginsWith gameCode)))
-      gameDbs <- results.ioTraverse(resultToAttempt)
-    } yield gameDbs
+  override def searchGameCode(gameCode: String): F[List[GameDb]] = {
+    if (gameCode.isEmpty)
+      Async[F].raiseError(
+        Failures(
+          "empty gameCode provided to searchGameCode",
+          "error fetching saved data",
+          exception = None
+        )
+      )
+    else {
+      for {
+        results <- handleDbErr(
+          scanamo.exec(
+            games.query(
+              "gameCode" === gameCode and ("gameId" beginsWith gameCode)
+            )
+          )
+        )
+        gameDbs <- results.traverse(handleDbReadErr)
+      } yield gameDbs
+    }
   }
 
-  override def getPlayers(gameId: GameId): Attempt[List[PlayerDb]] = {
+  override def getPlayers(gameId: GameId): F[List[PlayerDb]] = {
     for {
-      results <- execAsAttempt(players.query("gameId" === gameId.gid))
-      players <- results.ioTraverse(resultToAttempt)
+      results <- handleDbErr(
+        scanamo.exec(players.query("gameId" === gameId.gid))
+      )
+      players <- results.traverse(handleDbReadErr)
     } yield players
   }
 
-  override def writeGame(gameDB: GameDb): Attempt[Unit] = {
+  override def writeGame(gameDB: GameDb): F[Unit] = {
     for {
-      result <- execAsAttempt(games.put(gameDB))
+      result <- handleDbErr(scanamo.exec(games.put(gameDB)))
     } yield result
   }
 
-  override def writePlayer(playerDB: PlayerDb): Attempt[Unit] = {
+  override def writePlayer(playerDB: PlayerDb): F[Unit] = {
     for {
-      result <- execAsAttempt(players.put(playerDB))
+      result <- handleDbErr(scanamo.exec(players.put(playerDB)))
     } yield result
   }
 
-  def execAsAttempt[A](op: ops.ScanamoOps[A]): Attempt[A] = {
-    ZIO.attempt {
-      Scanamo(client).exec(op)
-    }.mapError { err =>
-      Failures("Uncaught DB error", "I had a problem saving the game", None, Some(err))
-    }
-  }
-
-  private def resultToAttempt[A](result: Either[DynamoReadError, A]): Attempt[A] = {
-    ZIO.fromEither {
+  private def handleDbReadErr[A](
+      result: Either[DynamoReadError, A]
+  ): F[A] = {
+    Async[F].fromEither {
       result.left.map { dre =>
-        Failures(s"DynamoReadError: $dre", "error with saved data", None, None)
+        Failures(
+          s"DynamoReadError: $dre",
+          "error reading saved data",
+          None,
+          None
+        )
       }
     }
   }
+
+  private def handleDbErr[A](fa: F[A]): F[A] =
+    Async[F].adaptError(fa) { case NonFatal(err) =>
+      Failures(
+        "unhandled DynamoDB error",
+        "error fetching saved data",
+        exception = Some(err)
+      )
+    }
 }

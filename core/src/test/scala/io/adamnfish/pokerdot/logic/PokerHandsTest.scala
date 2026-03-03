@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.{PokerGenerators, TestClock, TestHelpers}
+import io.adamnfish.pokerdot.{PokerGenerators, TestTime, TestHelpers}
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.newPlayer
 import io.adamnfish.pokerdot.logic.PokerHands.{bestHand, bestHands, cardOrd, findDuplicateRanks, findDuplicateSuits, flush, fourOfAKind, fullHouse, handOrd, highCard, pair, playerWinnings, rankOrd, straight, straightFlush, suitOrd, threeOfAKind, twoPair, winnings}
@@ -298,7 +298,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -317,7 +317,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -336,7 +336,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -633,42 +633,51 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
         "2 players" in {
           forAll { (rawP1Pot: Int, rawP2Pot: Int, seed: Long) =>
             val (p1Pot, p2Pot) = (abs(rawP1Pot), abs(rawP2Pot))
-            val deck = Play.deckOrder(seed)
-            val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: _ = deck
-            val player1 = testPlayerHand(p1Pot, c9, c10, "1")
-            val player2 = testPlayerHand(p2Pot, c11, c12, "2")
+            Play.deckOrder(seed) match {
+              case c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: _ =>
+                val player1 = testPlayerHand(p1Pot, c9, c10, "1")
+                val player2 = testPlayerHand(p2Pot, c11, c12, "2")
 
-            val results = winnings(List(player1, player2))
-            results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot)
+                val results = winnings(List(player1, player2))
+                results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot)
+              case _ =>
+                fail("Couldn't draw enough cards from deck (should be impossible!)")
+            }
           }
         }
 
         "3 players" in {
           forAll { (rawP1Pot: Int, rawP2Pot: Int, rawP3Pot: Int, seed: Long) =>
             val (p1Pot, p2Pot, p3Pot) = (abs(rawP1Pot), abs(rawP2Pot), abs(rawP3Pot))
-            val deck = Play.deckOrder(seed)
-            val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: _ = deck
-            val player1 = testPlayerHand(p1Pot, c9, c10, "1")
-            val player2 = testPlayerHand(p2Pot, c11, c12, "2")
-            val player3 = testPlayerHand(p3Pot, c13, c14, "3")
+            Play.deckOrder(seed) match {
+              case c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: _ =>
+                val player1 = testPlayerHand(p1Pot, c9, c10, "1")
+                val player2 = testPlayerHand(p2Pot, c11, c12, "2")
+                val player3 = testPlayerHand(p3Pot, c13, c14, "3")
 
-            val results = winnings(List(player1, player2, player3))
-            results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot)
+                val results = winnings(List(player1, player2, player3))
+                results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot)
+              case _ =>
+                fail("Couldn't draw enough cards from deck (should be impossible!)")
+            }
           }
         }
 
         "4 players" in {
           forAll { (rawP1Pot: Int, rawP2Pot: Int, rawP3Pot: Int, rawP4Pot: Int, seed: Long) =>
             val (p1Pot, p2Pot, p3Pot, p4Pot) = (abs(rawP1Pot), abs(rawP2Pot), abs(rawP3Pot), abs(rawP4Pot))
-            val deck = Play.deckOrder(seed)
-            val c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: c15 :: c16 :: _ = deck
-            val player1 = testPlayerHand(p1Pot, c9, c10, "1")
-            val player2 = testPlayerHand(p2Pot, c11, c12, "2")
-            val player3 = testPlayerHand(p3Pot, c13, c14, "3")
-            val player4 = testPlayerHand(p4Pot, c15, c16, "4")
+            Play.deckOrder(seed) match {
+              case c1 :: c2 :: c3 :: c4 :: c5 :: c6 :: c7 :: c8 :: c9 :: c10 :: c11 :: c12 :: c13 :: c14 :: c15 :: c16 :: _ =>
+                val player1 = testPlayerHand(p1Pot, c9, c10, "1")
+                val player2 = testPlayerHand(p2Pot, c11, c12, "2")
+                val player3 = testPlayerHand(p3Pot, c13, c14, "3")
+                val player4 = testPlayerHand(p4Pot, c15, c16, "4")
 
-            val results = winnings(List(player1, player2, player3, player4))
-            results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot + p4Pot)
+                val results = winnings(List(player1, player2, player3, player4))
+                results.map(_.potSize).sum shouldEqual (p1Pot + p2Pot + p3Pot + p4Pot)
+              case _ =>
+                fail("Couldn't draw enough cards from deck (should be impossible!)")
+            }
           }
         }
       }
@@ -1449,7 +1458,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
 
     "Equal rank cards are sorted by suit" in {
-      forAll { rank: Rank =>
+      forAll { (rank: Rank) =>
         val cardsOfRank = List(rank of Clubs, rank of Diamonds, rank of Hearts, rank of Spades)
         val shuffled = Random.shuffle(cardsOfRank)
         shuffled.sortBy(cardOrd(true)) shouldEqual cardsOfRank
@@ -1459,7 +1468,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
   "rankOrd" - {
     "orders ranks with ace low" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val shuffledRanks = new Random(seed).shuffle(
           Cards.deck.map(_.rank).distinct
         )
@@ -1470,7 +1479,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     }
 
     "orders ranks with ace high" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val shuffledRanks = new Random(seed).shuffle(
           Cards.deck.map(_.rank).distinct
         )
@@ -1483,7 +1492,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
 
   "suitOrd" - {
     "orders suits sensibly" in {
-      forAll { seed: Long =>
+      forAll { (seed: Long) =>
         val shuffledSuits = new Random(seed).shuffle(
           List(Diamonds, Clubs, Hearts, Spades)
         )

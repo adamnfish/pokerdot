@@ -1,16 +1,20 @@
 package io.adamnfish.pokerdot.logic
 
-import io.adamnfish.pokerdot.logic.Games._
+import cats.MonadThrow
+import io.adamnfish.pokerdot.logic.Games.*
 import io.adamnfish.pokerdot.logic.Play.{dealHoles, playerIsActive, playerIsInvolved}
-import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.services.{Clock, Rng}
+import io.adamnfish.pokerdot.models.*
+import io.adamnfish.pokerdot.services.{Time, Rng}
+import cats.*
+import cats.syntax.*
+import cats.implicits.*
 
 
 /**
  * This logic is quite complex so it gets its own object and tests.
  */
 object PlayerActions {
-  def bet(game: Game, bet: Int, player: Player): Either[Failures, (Game, ActionSummary)] = {
+  def bet[F[_] : MonadThrow](game: Game, bet: Int, player: Player): F[(Game, ActionSummary)] = {
     val allIn = bet == player.stack
     val betTotal = player.bet + bet
     val currentBetAmount = Play.currentBetAmount(game.players)
@@ -19,15 +23,15 @@ object PlayerActions {
     for {
       // ensure bet amount does not exceed stack
       _ <-
-        if (bet > player.stack) Left {
+        if (bet > player.stack) MonadThrow[F].raiseError {
           Failures(
             "Bet cannot exceed player stack",
             "You can't afford that bet.",
           )
-        } else Right(())
+        } else MonadThrow[F].unit
       // ensure bet matches other players' contributions this round
       _ <-
-        if (!allIn && betTotal < currentBetAmount) Left {
+        if (!allIn && betTotal < currentBetAmount) MonadThrow[F].raiseError {
           if (currentBetAmount > player.stack) {
             Failures(
               "Player needs to go all-in to bet",
@@ -39,23 +43,23 @@ object PlayerActions {
               "your bet must be at least as much as the other players have paid.",
             )
           }
-        } else Right(())
+        } else MonadThrow[F].unit
       // ensure raise amount matches previous raise
       _ <-
-        if (!allIn && isRaise && (betTotal - currentBetAmount) < Play.currentRaiseAmount(game.players)) Left {
+        if (!allIn && isRaise && (betTotal - currentBetAmount) < Play.currentRaiseAmount(game.players)) MonadThrow[F].raiseError {
           Failures(
             "Raise amount does not meet previous raises",
             "you must raise by at least as much as the last bet or raise.",
           )
-        } else Right(())
+        } else MonadThrow[F].unit
       // ensure raise amount matches minimum raise (big blind)
       _ <-
-        if (!allIn && isRaise && (betTotal - currentBetAmount) < game.round.smallBlind * 2) Left {
+        if (!allIn && isRaise && (betTotal - currentBetAmount) < game.round.smallBlind * 2) MonadThrow[F].raiseError {
           Failures(
             "Player needs to raise by at least the Big Blind",
             "the minimum raise is the Big Blind.",
           )
-        } else Right(())
+        } else MonadThrow[F].unit
       updatedPlayers = game.players.map {
         case thisPlayer if thisPlayer.playerId == player.playerId =>
           // use updated active player in game
@@ -83,24 +87,24 @@ object PlayerActions {
     )
   }
 
-  def check(game: Game, player: Player): Either[Failures, Game] = {
+  def check[F[_] : MonadThrow](game: Game, player: Player): F[Game] = {
     val currentBetAmount = Play.currentBetAmount(game.players)
     for {
       // ensure player is allowed to check
       _ <-
-        if (player.bet < currentBetAmount) Left {
+        if (player.bet < currentBetAmount) MonadThrow[F].raiseError {
           Failures(
             "Player cannot check until they have called other players",
             "you have to at least call other players before checking.",
           )
-        } else Right(())
+        } else MonadThrow[F].unit
       _ <-
-        if (player.checked) Left {
+        if (player.checked) MonadThrow[F].raiseError {
           Failures(
             "Player is already checked",
             "you have already checked.",
           )
-        } else Right(())
+        } else MonadThrow[F].unit
       updatedPlayers = game.players.map {
         case p if p.playerId == player.playerId =>
           // use updated active player in game
@@ -142,7 +146,7 @@ object PlayerActions {
    * Checks the round is ready to be advanced, then delegates
    * to the current round's advancement logic.
    */
-  def advancePhase(game: Game, clock: Clock, rng: Rng): Either[Failures, (Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
+  def advancePhase[F[_] : MonadThrow](game: Game, now: Long, rng: Rng[F]): F[(Game, Set[PlayerId], Option[(List[PlayerWinnings], List[PotWinnings])])] = {
     for {
       _ <- ensurePlayersHaveFinishedActing(game)
       nonBustedPlayerIds = game.players.filterNot(_.busted).map(_.playerId).toSet
@@ -152,48 +156,48 @@ object PlayerActions {
         // only progress through standard phases while players are still playing
         case (false, PreFlop) =>
           val newGame = advanceFromPreFlop(game)
-          Right((newGame, nonBustedPlayerIds, None))
+          MonadThrow[F].pure((newGame, nonBustedPlayerIds, None))
         case (false, Flop) =>
           val newGame = advanceFromFlop(game)
-          Right((newGame, nonBustedPlayerIds, None))
+          MonadThrow[F].pure((newGame, nonBustedPlayerIds, None))
         case (false, Turn) =>
           val newGame = advanceFromTurn(game)
-          Right((newGame, nonBustedPlayerIds, None))
+          MonadThrow[F].pure((newGame, nonBustedPlayerIds, None))
         case (false, River) =>
           val (newGame, playerWinnings, potWinnings) = advanceFromRiver(game)
-          Right((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings)))
+          MonadThrow[F].pure((newGame, nonBustedPlayerIds, Some(playerWinnings, potWinnings)))
         case (_, Showdown) =>
           // we can proceed from showdown whenever 2 or more players are still in the game
-          startNewRound(game, clock, rng).map { newGame =>
+          startNewRound(game, now, rng).map { newGame =>
             val allPlayerIds = game.players.map(_.playerId).toSet
             (newGame, allPlayerIds, None)
           }
         case (true, _) =>
           // skip straight to showdown from any phase if everyone else has folded
           val (newGame, playerWinning, potWinning) = advanceFromFoldedFinish(game)
-          Right((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning))))
+          MonadThrow[F].pure((newGame, nonBustedPlayerIds, Some(List(playerWinning), List(potWinning))))
       }
     } yield result
   }
 
-  def updateBlind(game: Game, updateBlind: UpdateBlind, now: Long): Either[Failures, Game] = {
+  def updateBlind[F[_] : MonadThrow](game: Game, updateBlind: UpdateBlind, now: Long): F[Game] = {
     for {
       newGame <- (updateBlind.smallBlind, updateBlind.timerLevels, updateBlind.playing, updateBlind.progress, game.timer) match {
         case (Some(_), _, Some(playing), _, _) =>
           val status = if (playing) "start" else "pause"
-          Left(Failures(s"Cannot $status a timer when using manual blinds", s"you can't $status a timer if you're using manual blinds"))
+          MonadThrow[F].raiseError(Failures(s"Cannot $status a timer when using manual blinds", s"you can't $status a timer if you're using manual blinds"))
         case (Some(_), Some(_), _, _, _) =>
-          Left(Failures("Cannot set timer levels when using manual blinds", "you can't create a timer if you're using manual blinds"))
+          MonadThrow[F].raiseError(Failures("Cannot set timer levels when using manual blinds", "you can't create a timer if you're using manual blinds"))
         case (Some(_), _, _, Some(_), _) =>
-          Left(Failures("Cannot set timer progress when using manual blinds", "you can't update a timer if you're using manual blinds"))
+          MonadThrow[F].raiseError(Failures("Cannot set timer progress when using manual blinds", "you can't update a timer if you're using manual blinds"))
         case (None, None, Some(playing), None, None) =>
           val status = if (playing) "start" else "pause"
-          Left(Failures(s"Cannot $status timer that does not exist", s"there's no timer running so we can't $status it"))
+          MonadThrow[F].raiseError(Failures(s"Cannot $status timer that does not exist", s"there's no timer running so we can't $status it"))
         case (None, None, _, Some(_), None) =>
-          Left(Failures(s"Cannot update progress on a timer that does not exist", s"there's no timer running so we can't update it"))
+          MonadThrow[F].raiseError(Failures(s"Cannot update progress on a timer that does not exist", s"there's no timer running so we can't update it"))
         case (Some(manualSmallBlind), None, None, None, _) =>
           // use manual blinds
-          Right {
+          MonadThrow[F].pure {
             game.copy(
               round = game.round.copy(smallBlind = manualSmallBlind),
               timer = None,
@@ -210,7 +214,7 @@ object PlayerActions {
             timerLevels
               .collectFirst { case RoundLevel(_, smallBlind) => smallBlind }
               .getOrElse(0) // this should be excluded by validation
-          Right {
+          MonadThrow[F].pure {
             game.copy(
               round = game.round.copy(smallBlind = initialBlind),
               timer = Some(TimerStatus(startTime, pausedTime, timerLevels)),
@@ -224,7 +228,7 @@ object PlayerActions {
             case None =>
               existingTimer.copy(timerStartTime = now - (newProgress * 1000))
           }
-          Right {
+          MonadThrow[F].pure {
             game.copy(
               timer = Some(newTimer),
             )
@@ -249,22 +253,22 @@ object PlayerActions {
           )
         case (None, None, None, None, None) =>
           // ?? should be excluded by validation of the update blind request
-          Right(game)
+          MonadThrow[F].pure(game)
       }
     } yield newGame
   }
 
-  private def updateBlindTimer(currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], maybeProgress: Option[Int], newLevels: Option[List[TimerLevel]]): Either[Failures, TimerStatus] = {
+  private def updateBlindTimer[F[_] : MonadThrow](currentTimerStatus: TimerStatus, now: Long, maybeSetPlayingStatus: Option[Boolean], maybeProgress: Option[Int], newLevels: Option[List[TimerLevel]]): F[TimerStatus] = {
     (currentTimerStatus.pausedTime, maybeSetPlayingStatus) match {
       case (Some(_), Some(false)) =>
         // already paused
-        Left(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
+        MonadThrow[F].raiseError(Failures("Cannot pause timer when it's already paused", "the timer is already paused."))
       case (None, Some(true)) =>
         // already playing
-        Left(Failures("Cannot start timer when it's already running", "the timer is already running."))
+        MonadThrow[F].raiseError(Failures("Cannot start timer when it's already running", "the timer is already running."))
       case (Some(currentPausedTime), Some(true)) =>
         // unpause, which adjusts the start time to put the timer in the right place
-        Right {
+        MonadThrow[F].pure {
           TimerStatus(
             timerStartTime = maybeProgress match {
               case Some(progress) =>
@@ -278,7 +282,7 @@ object PlayerActions {
         }
       case (None, Some(false)) =>
         // pause
-        Right {
+        MonadThrow[F].pure {
           TimerStatus(
             timerStartTime = maybeProgress match {
               case Some(progress) =>
@@ -292,7 +296,7 @@ object PlayerActions {
         }
       case (_, None) =>
         // not setting the play/pause status, so we can just go ahead and update the progress and levels
-        Right {
+        MonadThrow[F].pure {
           TimerStatus(
             timerStartTime = maybeProgress match {
               case Some(progress) =>
@@ -307,7 +311,7 @@ object PlayerActions {
       case _ =>
         // to get here implies a contradiction between the current and desired play/pause states
         // this should be excluded earlier in the request lifecycle, so nothing to do here
-        Left {
+        MonadThrow[F].raiseError {
           Failures(
             s"Unexpected application state. is playing: ${currentTimerStatus.pausedTime.isEmpty}, desired playing state ${maybeSetPlayingStatus}",
             "couldn't understand the timer update, maybe try refreshing?"
@@ -316,7 +320,7 @@ object PlayerActions {
     }
   }
 
-  private[logic] def ensurePlayersHaveFinishedActing(game: Game): Either[Failures, Unit] = {
+  private[logic] def ensurePlayersHaveFinishedActing[F[_] : MonadThrow](game: Game): F[Unit] = {
     val betAmount = Play.currentBetAmount(game.players)
     val playersYetToAct = game.players.filter(Play.playerIsYetToAct(betAmount, game.players))
     if (playersYetToAct.nonEmpty) {
@@ -327,14 +331,14 @@ object PlayerActions {
           case _ =>
             s"${playersYetToAct.size} players still need to act"
         }
-      Left(
+      MonadThrow[F].raiseError(
         Failures(
           s"Cannot advance phase when players have not yet acted: ${playersYetToAct.map(_.playerId.pid)}",
           message,
         )
       )
     } else {
-      Right(())
+      MonadThrow[F].unit
     }
   }
 
@@ -445,31 +449,32 @@ object PlayerActions {
    *
    * If fewer than 2 players remain, the game is finished and we should not proceed.
    */
-  private[logic] def startNewRound(game: Game, clock: Clock, rng: Rng): Either[Failures, Game] = {
+  private[logic] def startNewRound[F[_] : MonadThrow](game: Game, now: Long, rng: Rng[F]): F[Game] = {
     // finalise player payments, reset (and bust) players
     // shuffle, deal new cards, set up new round
-    val nextState = rng.nextState(game.seed)
-    val nextDeck = Play.deckOrder(nextState)
-    val updatedPlayers = game.players.map(resetPlayerForNextRound)
-    if (updatedPlayers.count(!_.busted) < 2) {
-      Left(Failures(
-        "Cannot advance from finished game showdown",
-        "you can't start a new round because the game has finished",
-      ))
-    } else {
-      // TODO: check whether blind amounts should change based on timer
-      Play.blindForNextRound(game.round.smallBlind, clock.now(), game.timer).map { newSmallBlind =>
-        val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, newSmallBlind)
-        game.copy(
-          round = game.round.copy(
-            phase = PreFlop,
-            smallBlind = newSmallBlind,
-          ),
-          button = newButton, // dealer advances
-          inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
-          players = dealHoles(blindUpdatedPlayers, nextDeck),
-          seed = nextState
-        )
+    rng.nextState(game.seed).flatMap { nextState =>
+      val nextDeck = Play.deckOrder(nextState)
+      val updatedPlayers = game.players.map(resetPlayerForNextRound)
+      if (updatedPlayers.count(!_.busted) < 2) {
+        MonadThrow[F].raiseError(Failures(
+          "Cannot advance from finished game showdown",
+          "you can't start a new round because the game has finished",
+        ))
+      } else {
+        // TODO: check whether blind amounts should change based on timer
+        Play.blindForNextRound(game.round.smallBlind, now, game.timer).map { newSmallBlind =>
+          val (newButton, blindUpdatedPlayers) = Play.nextDealerAndBlinds(updatedPlayers, game.button, newSmallBlind)
+          game.copy(
+            round = game.round.copy(
+              phase = PreFlop,
+              smallBlind = newSmallBlind,
+            ),
+            button = newButton, // dealer advances
+            inTurn = Play.nextPlayer(blindUpdatedPlayers, None, newButton),
+            players = dealHoles(blindUpdatedPlayers, nextDeck),
+            seed = nextState
+          )
+        }
       }
     }
   }

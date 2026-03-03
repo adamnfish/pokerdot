@@ -1,36 +1,80 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.models.{Attempt, Failures}
+import cats.effect.IO
+import io.adamnfish.pokerdot.models.Failures
 import io.circe.{Json, parser}
 import org.scalacheck.Gen
 import org.scalactic.source.Position
+import org.scalatest.compatible.Assertion
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.matchers.HavePropertyMatcher
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, Failed, Succeeded}
-import zio.{Exit, Unsafe}
-
 
 trait TestHelpers extends Matchers {
-  val testRuntime = zio.Runtime.default
+  val TODO: IO[Assertion] = IO.pure(assert(true))
 
-  def having[A](propertyName: String, propertyValue: A): HavePropertyMatcher[AnyRef, Any] = {
-    Symbol(propertyName) (propertyValue)
+  /** Date millis in a semi-sensible range (we don't need to worry about Long
+    * overflow, for example)
+    */
+  val dateGen: Gen[Long] =
+    Gen.chooseNum(0L, 4102444800000L)
+
+  def having[A](
+      propertyName: String,
+      propertyValue: A
+  ): HavePropertyMatcher[AnyRef, Any] = {
+    Symbol(propertyName)(propertyValue)
   }
 
   implicit class HavingTestHelperString(propertyName: String) {
-    def as[A](propertyValue: A)(implicit pos: Position): HavePropertyMatcher[AnyRef, Any] = {
-      Symbol(propertyName) (propertyValue)
+    infix def as[A](
+        propertyValue: A
+    )(implicit pos: Position): HavePropertyMatcher[AnyRef, Any] = {
+      Symbol(propertyName)(propertyValue)
     }
   }
 
   implicit class RichEither[L, R](e: Either[L, R]) {
+    def succeeded(implicit pos: Position) =
+      e.fold(
+        { l =>
+          throw new TestFailedException(
+            _ =>
+              Some(
+                s"The Either on which succeeded was invoked was not a Right, got Left($l)"
+              ),
+            None,
+            pos
+          )
+        },
+        _ => ()
+      )
+
+    def failed(implicit pos: Position) =
+      e.fold(
+        _ => (),
+        { r =>
+          throw new TestFailedException(
+            _ =>
+              Some(
+                s"The Either on which failed was invoked was not a Left, got Right($r)"
+              ),
+            None,
+            pos
+          )
+        }
+      )
+
     def value(implicit pos: Position): R = {
       e.fold(
         { l =>
           throw new TestFailedException(
-            _ => Some(s"The Either on which value was invoked was not a Right, got Left($l)"),
-            None, pos
+            _ =>
+              Some(
+                s"The Either on which value was invoked was not a Right, got Left($l)"
+              ),
+            None,
+            pos
           )
         },
         identity
@@ -42,76 +86,41 @@ trait TestHelpers extends Matchers {
         identity,
         { r =>
           throw new TestFailedException(
-            _ => Some(s"The Either on which leftValue was invoked was not a Left, got Right($r)"),
-            None, position
+            _ =>
+              Some(
+                s"The Either on which leftValue was invoked was not a Left, got Right($r)"
+              ),
+            None,
+            position
+          )
+        }
+      )
+    }
+
+    def failures()(implicit pos: Position): Failures = {
+      e.fold(
+        {
+          case f: Failures => f
+          case l =>
+            throw new TestFailedException(
+              _ => Some(s"Expected Failures in Left, got $l"),
+              None,
+              pos
+            )
+        },
+        { r =>
+          throw new TestFailedException(
+            _ =>
+              Some(
+                s"The Either on which leftValue was invoked was not a Left, got Right($r)"
+              ),
+            None,
+            pos
           )
         }
       )
     }
   }
-
-  /**
-   * For testing 'pure' attempts (i.e. `Either[Failures, ?]`).
-   */
-  implicit class RichEitherFailures[R](er: Either[Failures, R]) {
-    def is(attemptStatus: AttemptStatus)(implicit pos: Position): Assertion = {
-      er match {
-        case Right(a) =>
-          if (attemptStatus == ASuccess) Succeeded
-          else Failed(s"Expected failed either but got success `$a`").toSucceeded
-        case Left(left) =>
-          if (attemptStatus == AFailure) Succeeded
-          else Failed(s"Expected successful either, got failure: ${left.logString}").toSucceeded
-      }
-    }
-  }
-
-  implicit class RichAttempt[A](aa: Attempt[A]) {
-    def value()(implicit pos: Position): A = {
-      Unsafe.unsafe { implicit unsafe =>
-        testRuntime.unsafe.run(aa) match {
-          case Exit.Success(a) =>
-            a
-          case Exit.Failure(cause) =>
-            throw new TestFailedException(
-              _ => Some(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}"),
-              None, pos
-            )
-        }
-      }
-    }
-
-    def failures()(implicit pos: Position): Failures = {
-      Unsafe.unsafe { implicit unsafe =>
-        testRuntime.unsafe.run(aa) match {
-          case Exit.Success(a) =>
-            throw new TestFailedException(
-              _ => Some(s"Expected failed attempt, got successful result: $a"),
-              None, pos
-            )
-          case Exit.Failure(cause) =>
-            Failures(cause.failures.flatMap(_.failures))
-        }
-      }
-    }
-
-    def is(attemptStatus: AttemptStatus)(implicit pos: Position): Assertion = {
-      Unsafe.unsafe { implicit unsafe =>
-        testRuntime.unsafe.run(aa) match {
-          case Exit.Success(a) =>
-            if (attemptStatus == ASuccess) Succeeded
-            else Failed(s"Expected failed attempt but got success `$a`").toSucceeded
-          case Exit.Failure(cause) =>
-            if (attemptStatus == AFailure) Succeeded
-            else Failed(s"Expected successful attempt, got failures: ${cause.failures.map(_.logString).mkString(" || ")}").toSucceeded
-        }
-      }
-    }
-  }
-
-  sealed trait AttemptStatus
-  case object ASuccess extends AttemptStatus
-  case object AFailure extends AttemptStatus
 }
 object TestHelpers {
   def parseReq(jsonStr: String)(implicit pos: Position): Json = {

@@ -1,22 +1,26 @@
 package io.adamnfish.pokerdot.services
 
 import org.scanamo.LocalDynamoDB
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType._
-
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType.*
+import cats.effect.IO
 
 object DevServerDB {
-  def createGamesTable(client: DynamoDbClient): Unit = {
-    LocalDynamoDB.createTable(client)("games")(
-      "gameCode" -> S,
-      "gameId" -> S,
-    )
+  def createGamesTable(client: DynamoDbAsyncClient): IO[Unit] = {
+    IO.blocking {
+      LocalDynamoDB.createTable(client)("games")(
+        "gameCode" -> S,
+        "gameId" -> S
+      )
+    }
   }
 
-  def createPlayersTable(client: DynamoDbClient): Unit = {
-    LocalDynamoDB.createTable(client)("players")(
-      "gameId" -> S,
-      "playerId" -> S,
-    )
+  def createPlayersTable(client: DynamoDbAsyncClient): IO[Unit] = {
+    IO.blocking {
+      LocalDynamoDB.createTable(client)("players")(
+        "gameId" -> S,
+        "playerId" -> S
+      )
+    }
   }
 }

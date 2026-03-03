@@ -4,6 +4,12 @@
             <pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} -%kvp- %msg%n</pattern>
         </encoder>
     </appender>
+
+    <!-- Enable debug logging for pokerdot's codebase, in case the debug flag is provided -->
+    <logger name="io.adamnfish.pokerdot" level="debug" additivity="false">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
     <root level="info">
         <appender-ref ref="STDOUT" />
     </root>

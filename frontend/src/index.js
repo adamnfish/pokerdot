@@ -1,5 +1,5 @@
 import { Elm } from './Main.elm';
-import ReconnectingWebSocket from 'reconnecting-websocket';
+import { WebSocket } from "partysocket";
 import { getGameLibrary, removeGame, saveGame } from './persistence';
 
 
@@ -21,7 +21,7 @@ window.addEventListener('blur', (event) => {
 
 // Server communication
 
-const socket = new ReconnectingWebSocket(apiUri(location.hostname));
+const socket = new WebSocket(apiUri(location.hostname));
 
 window.addEventListener('beforeunload', function(){
   console.log("Disconnecting WS")

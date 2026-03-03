@@ -1,7 +1,11 @@
 package io.adamnfish.pokerdot.logic
 
+import cats.MonadThrow
 import io.adamnfish.pokerdot.logic.Utils.RichList
 import io.adamnfish.pokerdot.models.{ActionSummary, BigBlind, Failures, Flop, FlopSummary, Game, GameDb, GameId, GameStatus, GameSummary, NoBlind, Player, PlayerAddress, PlayerDb, PlayerId, PlayerKey, PlayerSummary, PlayerWinnings, PotWinnings, PreFlop, PreFlopSummary, River, RiverSummary, Round, RoundSummary, RoundWinnings, SelfSummary, Showdown, ShowdownSummary, SmallBlind, Spectator, SpectatorSummary, Turn, TurnSummary}
+import cats.*
+import cats.implicits.*
+import cats.syntax.*
 
 
 object Representations {
@@ -85,28 +89,28 @@ object Representations {
     }
   }
 
-  def filteredPlayerDbs(players: List[Player], allowlist: Set[PlayerId]): Either[Failures, List[PlayerDb]] = {
+  def filteredPlayerDbs[F[_] : MonadThrow](players: List[Player], allowlist: Set[PlayerId]): F[List[PlayerDb]] = {
     val filtered = allPlayerDbs(players.filter(p => allowlist.contains(p.playerId)))
     if (filtered.isEmpty) {
-      Left {
+      MonadThrow[F].raiseError {
         Failures(
           "Trying to get playerDb for player ID that does not exist",
           "there was a problem trying to save a user that could not be found.",
         )
       }
     } else {
-      Right(filtered)
+      MonadThrow[F].pure(filtered)
     }
   }
 
-  def gameFromDb(gameDb: GameDb, playerDbs: List[PlayerDb]): Either[Failures, Game] = {
+  def gameFromDb[F[_] : MonadThrow](gameDb: GameDb, playerDbs: List[PlayerDb]): F[Game] = {
     for {
       // checks we have a player db for each player / spectator ID in the game
-      playerDbs <- gameDb.playerIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
-      spectatorDbs <- gameDb.spectatorIds.eTraverse(lookupPlayerDb(gameDb.gameId, playerDbs))
+      playerDbs <- gameDb.playerIds.traverse(lookupPlayerDb(gameDb.gameId, playerDbs))
+      spectatorDbs <- gameDb.spectatorIds.traverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       // make sure the current player exists
       inTurn <- gameDb.inTurn
-        .fold[Either[Failures, Option[PlayerDb]]](Right(None)) { playerId =>
+        .fold[F[Option[PlayerDb]]](MonadThrow[F].pure(None)) { playerId =>
           lookupPlayerDb(gameDb.gameId, playerDbs)(playerId).map(Some(_))
         }
       round = Play.generateRound(gameDb.phase, gameDb.smallBlind, gameDb.seed)
@@ -169,8 +173,8 @@ object Representations {
     )
   }
 
-  private def lookupPlayerDb(gameId: String, playerDbs: List[PlayerDb])(playerId: String): Either[Failures, PlayerDb] = {
-    playerDbs
+  private def lookupPlayerDb[F[_] : MonadThrow](gameId: String, playerDbs: List[PlayerDb])(playerId: String): F[PlayerDb] = {
+    MonadThrow[F].fromEither(playerDbs
       .find(_.playerId == playerId)
       .toRight {
         Failures(
@@ -178,6 +182,7 @@ object Representations {
           s"could not load all players",
         )
       }
+    )
   }
 
   def gameStatus(game: Game, player: Player, actionSummary: ActionSummary): GameStatus = {

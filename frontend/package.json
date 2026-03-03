@@ -13,17 +13,23 @@
     "test": "elm-test"
   },
   "devDependencies": {
-    "@parcel/packager-raw-url": "2.10.3",
-    "@parcel/packager-xml": "2.10.3",
-    "@parcel/transformer-elm": "^2.10.3",
-    "@parcel/transformer-webmanifest": "2.10.3",
-    "@parcel/transformer-xml": "2.10.3",
+    "@parcel/optimizer-svgo": "2.13.3",
+    "@parcel/packager-raw-url": "2.13.3",
+    "@parcel/packager-xml": "2.13.3",
+    "@parcel/transformer-elm": "^2.13.3",
+    "@parcel/transformer-webmanifest": "2.13.3",
+    "@parcel/transformer-xml": "2.13.3",
     "elm": "^0.19.1-6",
+    "elm-format": "^0.8.7",
+    "elm-json": "^0.2.13",
+    "elm-review": "^2.12.0",
     "elm-test": "^0.19.1-revision7",
-    "parcel": "^2.10.3",
-    "parcel-plugin-browserconfig": "^1.0.5"
+    "parcel": "^2.13.3",
+    "parcel-plugin-browserconfig": "^1.0.5",
+    "process": "^0.11.10",
+    "svgo": "^3.3.2"
   },
   "dependencies": {
-    "reconnecting-websocket": "^4.4.0"
+    "partysocket": "^1.1.13"
   }
 }

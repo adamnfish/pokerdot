@@ -1,95 +1,170 @@
 package io.adamnfish.pokerdot
 
-import com.typesafe.scalalogging.LazyLogging
-import io.adamnfish.pokerdot.Console.{Direction, Inbound, Outbound, displayId, logConnection, logMessage, noOpConnection, noOpMessage}
-import io.adamnfish.pokerdot.models.{AppContext, PlayerAddress, TraceId}
+import cats.effect.unsafe.implicits.global
+import cats.effect.*
+import io.adamnfish.pokerdot.Console.*
+import io.adamnfish.pokerdot.models.{
+  AppContext,
+  Failures,
+  PlayerAddress,
+  TraceId
+}
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Clock, DevMessaging, DevRng, DevServerDB}
+import io.adamnfish.pokerdot.services.*
 import io.javalin.Javalin
-import org.scanamo.LocalDynamoDB
-import zio.{Exit, Unsafe, ZIO}
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
+import software.amazon.awssdk.auth.credentials.{
+  AwsBasicCredentials,
+  StaticCredentialsProvider
+}
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.dynamodb.{
+  DynamoDbAsyncClient,
+  DynamoDbClient
+}
 
+import java.net.URI
 import java.security.SecureRandom
 import java.util.UUID
 
+object CatsDevServer extends IOApp:
+  implicit def logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-object DevServer extends LazyLogging {
-  val client = LocalDynamoDB.syncClient()
-  val db = new DynamoDbDatabase(client, "games", "players")
-  DevServerDB.createGamesTable(client)
-  DevServerDB.createPlayersTable(client)
-
-  def main(args: Array[String]): Unit = {
-    val runtime = zio.Runtime.default
-
-    // initials seed defaults to 0, but can be changed at server start time
-    val initialSeed = args.filterNot(_ == "--debug").headOption
-      .map { seed =>
-        if (seed.toLowerCase == "rng")
-          new SecureRandom().nextLong()
-        else
-          seed.toLong
-      }
-      .getOrElse(0L)
-    logger.info(s"initial seed: $initialSeed")
-    val rng = new DevRng(initialSeed)
-
-    val messagePrinter: Direction => (String, String) => Unit =
-      if (args.contains("--debug")) {
-        logger.info("debug mode - connection events and messages will be printed")
-        logMessage
-      } else {
-        noOpMessage
-      }
-    val connectionPrinter: (String, Boolean) => Unit =
-      if (args.contains("--debug")) {
-        logConnection
-      } else {
-        noOpConnection
-      }
-
-    val messaging = new DevMessaging(messagePrinter(Outbound))
-
-    val app = Javalin.create()
-    app.start(7000)
-    app.ws("/api", { ws =>
-      ws.onConnect { wctx =>
-        val id = messaging.connect(wctx)
-        connectionPrinter(id, true)
-      }
-      ws.onClose { wctx =>
-        messaging.disconnect(wctx)
-        connectionPrinter(wctx.getSessionId, false)
-      }
-      ws.onMessage { wctx =>
-        val traceId = TraceId(UUID.randomUUID().toString)
-
-        messagePrinter(Inbound)(wctx.getSessionId, wctx.message)
-        val appContext = AppContext(PlayerAddress(wctx.getSessionId), traceId, db, messaging, Clock, rng)
-        Unsafe.unsafe { implicit unsafe =>
-          runtime.unsafe.run {
-            PokerDot.pokerdot(wctx.message, appContext)
-          }
-        } match {
-          case Exit.Success(operation) =>
-            logger.info(s"completed $operation")
-          case Exit.Failure(cause) =>
-            cause.failures.foreach { fs =>
-              logger.error(s"error: ${fs.logString}")
-              fs.exception.foreach { e =>
-                logger.error(s"exception: ${e.printStackTrace()}")
-              }
-            }
-            cause.defects.foreach { err =>
-              logger.error(s"Fatal error: ${err.getMessage}", err)
-            }
+  private def components(
+      args: List[String]
+  ): Resource[IO, DevServerComponents] =
+    for
+      messagePrinter <-
+        (if (args.contains("--debug")) {
+           for _ <- logger.info(
+               "debug mode - connection events and messages will be printed"
+             )
+           yield logMessage[IO]
+         } else {
+           IO.pure(noOpMessage[IO])
+         }).toResource
+      connectionPrinter =
+        if (args.contains("--debug")) {
+          logConnection[IO]
+        } else {
+          noOpConnection[IO]
         }
-      }
-    })
+      messaging <- IO(new DevMessaging(messagePrinter(Outbound))).toResource
 
-    Runtime.getRuntime.addShutdownHook(new Thread(() => {
-      logger.info("Stopping...")
-      app.stop()
-    }))
-  }
-}
+      initialSeed <- args
+        .filterNot(_ == "--debug")
+        .headOption
+        .fold(IO.pure(0L)) { seed =>
+          if (seed.toLowerCase == "rng")
+            IO(new SecureRandom().nextLong())
+          else
+            IO.pure(seed.toLong)
+        }
+        .toResource
+      rng = new DevRng[IO](initialSeed)
+
+      client <- Resource.make(IO.blocking {
+        DynamoDbAsyncClient
+          .builder()
+          .endpointOverride(URI.create("http://localhost:8042"))
+          .region(Region.US_EAST_1) // not used for local dynamodb, but required
+          .credentialsProvider(
+            StaticCredentialsProvider.create(
+              AwsBasicCredentials.create("dummykey", "dummysecret")
+            )
+          )
+          .build()
+      })(client => IO.blocking(client.close()))
+      _ <- DevServerDB.createGamesTable(client).toResource
+      _ <- DevServerDB.createPlayersTable(client).toResource
+      db = new DynamoDbDatabase[IO](client, "games", "players")
+      time = new RealTime[IO]
+
+      appContextBuilder =
+        (address: PlayerAddress, traceId: TraceId) =>
+          AppContext(address, traceId, db, messaging, time, rng)
+
+      app <- Resource.make {
+        IO.blocking {
+          val app = Javalin.create()
+          app.start(7000)
+          app
+        }
+      } { app =>
+        IO.blocking(app.stop())
+      }
+    yield DevServerComponents(
+      app,
+      appContextBuilder,
+      messagePrinter,
+      connectionPrinter,
+      messaging
+      // TODO add separate comection manager here?
+    )
+
+  override def run(args: List[String]): IO[ExitCode] =
+    components(args).use: components =>
+      IO {
+        components.app.ws(
+          "/api",
+          { ws =>
+            ws.onConnect { wctx =>
+              val traceId = TraceId("connect")
+              val appContext = components.appContextBuilder(
+                PlayerAddress(wctx.getSessionId),
+                traceId
+              )
+              val result = for {
+                _ <- components.connectionPrinter(wctx.getSessionId, true)
+                _ <- IO.blocking(components.messaging.connect(wctx))
+              } yield ()
+              result.unsafeRunSync()
+            }
+            ws.onClose { wctx =>
+              val traceId = TraceId("close")
+              val appContext = components.appContextBuilder(
+                PlayerAddress(wctx.getSessionId),
+                traceId
+              )
+              val result = for {
+                _ <- components.connectionPrinter(wctx.getSessionId, false)
+                _ <- IO.blocking(components.messaging.disconnect(wctx))
+              } yield ()
+              result.unsafeRunSync()
+            }
+            ws.onMessage { wctx =>
+              val result =
+                for
+                  _ <- components.messagePrinter(Inbound)(
+                    wctx.getSessionId,
+                    wctx.message
+                  )
+                  traceId <- IO(TraceId(UUID.randomUUID().toString))
+                  appContext = components.appContextBuilder(
+                    PlayerAddress(wctx.getSessionId),
+                    traceId
+                  )
+                  operation <- PokerDot.pokerdot(wctx.message, appContext)
+                  _ <- logger.info(s"completed $operation")
+                yield ()
+              result
+                .onError {
+                  case failures: Failures =>
+                    logger.error(failures)(s"error: ${failures.logString}")
+                  case err =>
+                    logger.error(err)(s"exception: ${err.getMessage}")
+                }
+                .unsafeRunSync()
+            }
+          }
+        )
+      }.as(ExitCode.Success) >> IO.never
+
+case class DevServerComponents(
+    app: Javalin,
+    appContextBuilder: (PlayerAddress, TraceId) => AppContext[IO],
+    messagePrinter: Direction => (String, String) => IO[Unit],
+    connectionPrinter: (String, Boolean) => IO[Unit],
+    messaging: DevMessaging[IO]
+)

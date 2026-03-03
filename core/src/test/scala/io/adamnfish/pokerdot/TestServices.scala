@@ -1,17 +1,18 @@
 package io.adamnfish.pokerdot
 
-import io.adamnfish.pokerdot.services.{Clock, Rng}
+import cats.Applicative
+import io.adamnfish.pokerdot.services.{Time, Rng}
 
 
-object TestClock extends Clock {
-  override val now: () => Long = () => 0L
+class TestTime[F[_] : Applicative] extends Time[F] {
+  override val now: F[Long] = Applicative[F].pure(0L)
 }
 
-class ConfigurableTestClock(currentTime: Long) extends Clock {
-  override val now: () => Long = () => currentTime
+class ConfigurableTestTime[F[_] : Applicative](currentTime: Long) extends Time[F] {
+  override val now: F[Long] = Applicative[F].pure(currentTime)
 }
 
-object TestRng extends Rng {
-  override def randomState(): Long = 1L
-  override def nextState(state: Long): Long = state + 1L
+class TestRng[F[_] : Applicative] extends Rng[F] {
+  override def randomState: F[Long] = Applicative[F].pure(1L)
+  override def nextState(state: Long): F[Long] = Applicative[F].pure(state + 1L)
 }

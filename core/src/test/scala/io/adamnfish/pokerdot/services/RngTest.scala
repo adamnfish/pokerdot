@@ -1,22 +1,26 @@
 package io.adamnfish.pokerdot.services
 
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import cats.effect.IO
+import munit.{CatsEffectSuite, ScalaCheckEffectSuite}
+import org.scalacheck.effect.PropF
 
 
-class RngTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks {
-  "production RNG" - {
-    "returns a random initial seed" in {
-      val rng = new RandomRng
-      rng.randomState() should not equal rng.randomState()
-    }
-
-    "returns a different 'next' seed every time" in {
-      forAll { seed: Long =>
-        val rng = new RandomRng
-        rng.nextState(seed) should not equal rng.nextState(seed)
-      }
+class RngTest extends CatsEffectSuite with ScalaCheckEffectSuite {
+  test("production RNG returns a random initial seed") {
+    val rng = new RandomRng[IO]
+    for
+      nrd1 <- rng.randomState
+      rnd2 <- rng.randomState
+    yield assertNotEquals(nrd1, rnd2)
+  }
+  
+  test("production RNG returns a different 'next' seed every time") {
+    PropF.forAllF { (seed: Long) =>
+      val rng = new RandomRng[IO]
+      for
+        nrd1 <- rng.nextState(seed)
+        rnd2 <- rng.nextState(seed)
+      yield assertNotEquals(nrd1, rnd2)
     }
   }
 }

@@ -1,9 +1,13 @@
 package io.adamnfish.pokerdot.validation
 
+import cats.MonadThrow
 import io.adamnfish.pokerdot.models.Serialisation.{parseAdvancePhaseRequest, parseBetRequest, parseCheckRequest, parseCreateGameRequest, parseFoldRequest, parseJoinGameRequest, parsePingRequest, parseStartGameRequest, parseUpdateBlindRequest}
-import io.adamnfish.pokerdot.models._
-import io.adamnfish.pokerdot.validation.Validators._
+import io.adamnfish.pokerdot.models.*
+import io.adamnfish.pokerdot.validation.Validators.*
 import io.circe.Json
+import cats.*
+import cats.syntax.*
+import cats.implicits.*
 
 
 object Validation {
@@ -11,42 +15,42 @@ object Validation {
     validator(a, context, friendlyContext)
   }
 
-  private[validation] def asResult[A](a: A, failures: List[Failure]): Either[Failures, A] = {
+  private[validation] def asResult[A, F[_] : MonadThrow](a: A, failures: List[Failure]): F[A] = {
     failures match {
-      case Nil => Right(a)
-      case fs => Left(Failures(fs))
+      case Nil => MonadThrow[F].pure(a)
+      case fs => MonadThrow[F].raiseError(Failures(fs))
     }
   }
 
-  def validate(createGame: CreateGame): Either[Failures, CreateGame] = {
+  def validate[F[_] : MonadThrow](createGame: CreateGame): F[CreateGame] = {
     asResult(createGame,
       validate(createGame.gameName, "gameName", "game name", sensibleLength) ++
         validate(createGame.screenName, "screenName", "player name", sensibleLength)
     )
   }
 
-  def extractCreateGame(json: Json): Either[Failures, CreateGame] = {
+  def extractCreateGame[F[_] : MonadThrow](json: Json): F[CreateGame] = {
     for {
       raw <- parseCreateGameRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(joinGame: JoinGame): Either[Failures, JoinGame] = {
+  def validate[F[_] : MonadThrow](joinGame: JoinGame): F[JoinGame] = {
     asResult(joinGame,
       validate(joinGame.gameCode, "gameCode", "game code", gameCode) ++
         validate(joinGame.screenName, "screenName", "player name", sensibleLength)
     )
   }
 
-  def extractJoinGame(json: Json): Either[Failures, JoinGame] = {
+  def extractJoinGame[F[_] : MonadThrow](json: Json): F[JoinGame] = {
     for {
       raw <- parseJoinGameRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(startGame: StartGame): Either[Failures, StartGame] = {
+  def validate[F[_] : MonadThrow](startGame: StartGame): F[StartGame] = {
     asResult(startGame,
       validate(startGame.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(startGame.playerId.pid, "playerId", "player's id", isUUID) ++
@@ -87,14 +91,14 @@ object Validation {
     )
   }
 
-  def extractStartGame(json: Json): Either[Failures, StartGame] = {
+  def extractStartGame[F[_] : MonadThrow](json: Json): F[StartGame] = {
     for {
       raw <- parseStartGameRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(bet: Bet): Either[Failures, Bet] = {
+  def validate[F[_] : MonadThrow](bet: Bet): F[Bet] = {
     asResult(bet,
       validate(bet.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(bet.playerId.pid, "playerId", "player's id", isUUID) ++
@@ -103,14 +107,14 @@ object Validation {
     )
   }
 
-  def extractBet(json: Json): Either[Failures, Bet] = {
+  def extractBet[F[_] : MonadThrow](json: Json): F[Bet] = {
     for {
       raw <- parseBetRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(check: Check): Either[Failures, Check] = {
+  def validate[F[_] : MonadThrow](check: Check): F[Check] = {
     asResult(check,
       validate(check.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(check.playerId.pid, "playerId", "player's id", isUUID) ++
@@ -118,14 +122,14 @@ object Validation {
     )
   }
 
-  def extractCheck(json: Json): Either[Failures, Check] = {
+  def extractCheck[F[_] : MonadThrow](json: Json): F[Check] = {
     for {
       raw <- parseCheckRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(fold: Fold): Either[Failures, Fold] = {
+  def validate[F[_] : MonadThrow](fold: Fold): F[Fold] = {
     asResult(fold,
       validate(fold.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(fold.playerId.pid, "playerId", "player's id", isUUID) ++
@@ -133,14 +137,14 @@ object Validation {
     )
   }
 
-  def extractFold(json: Json): Either[Failures, Fold] = {
+  def extractFold[F[_] : MonadThrow](json: Json): F[Fold] = {
     for {
       raw <- parseFoldRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(advancePhase: AdvancePhase): Either[Failures, AdvancePhase] = {
+  def validate[F[_] : MonadThrow](advancePhase: AdvancePhase): F[AdvancePhase] = {
     asResult(advancePhase,
       validate(advancePhase.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(advancePhase.playerId.pid, "playerId", "player's id", isUUID) ++
@@ -148,14 +152,14 @@ object Validation {
     )
   }
 
-  def extractAdvancePhase(json: Json): Either[Failures, AdvancePhase] = {
+  def extractAdvancePhase[F[_] : MonadThrow](json: Json): F[AdvancePhase] = {
     for {
       raw <- parseAdvancePhaseRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(updateBlind: UpdateBlind): Either[Failures, UpdateBlind] = {
+  def validate[F[_] : MonadThrow](updateBlind: UpdateBlind): F[UpdateBlind] = {
     val emptyErrors =
       if (updateBlind.timerLevels.isEmpty && updateBlind.smallBlind.isEmpty && updateBlind.playing.isEmpty && updateBlind.progress.isEmpty)
         List(
@@ -180,14 +184,14 @@ object Validation {
     )
   }
 
-  def extractUpdateBlind(json: Json): Either[Failures, UpdateBlind] = {
+  def extractUpdateBlind[F[_] : MonadThrow](json: Json): F[UpdateBlind] = {
     for {
       raw <- parseUpdateBlindRequest(json)
       validated <- validate(raw)
     } yield validated
   }
 
-  def validate(ping: Ping): Either[Failures, Ping] = {
+  def validate[F[_] : MonadThrow](ping: Ping): F[Ping] = {
     asResult(ping,
       validate(ping.gameId.gid, "gameId", "game's id", isUUID) ++
         validate(ping.playerId.pid, "playerId", "player's id", isUUID) ++
@@ -195,7 +199,7 @@ object Validation {
     )
   }
 
-  def extractPing(json: Json): Either[Failures, Ping] = {
+  def extractPing[F[_] : MonadThrow](json: Json): F[Ping] = {
     for {
       raw <- parsePingRequest(json)
       validated <- validate(raw)

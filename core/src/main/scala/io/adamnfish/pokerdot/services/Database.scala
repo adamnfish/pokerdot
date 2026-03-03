@@ -1,23 +1,28 @@
 package io.adamnfish.pokerdot.services
 
-import io.adamnfish.pokerdot.models.{Attempt, GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.{GameDb, GameId, PlayerDb}
+import cats.Monad
+import cats._
+import cats.data._
+import cats.syntax.all._
 
-trait Database {
-  def getGame(gameId: GameId): Attempt[Option[GameDb]]
 
-  def lookupGame(gameCode: String): Attempt[Option[GameDb]]
+trait Database[F[_]] {
+  def getGame(gameId: GameId): F[Option[GameDb]]
 
-  def searchGameCode(gameCode: String): Attempt[List[GameDb]]
+  def lookupGame(gameCode: String): F[Option[GameDb]]
 
-  def getPlayers(gameId: GameId): Attempt[List[PlayerDb]]
+  def searchGameCode(gameCode: String): F[List[GameDb]]
 
-  def writeGame(gameDB: GameDb): Attempt[Unit]
+  def getPlayers(gameId: GameId): F[List[PlayerDb]]
 
-  def writePlayer(playerDB: PlayerDb): Attempt[Unit]
+  def writeGame(gameDB: GameDb): F[Unit]
+
+  def writePlayer(playerDB: PlayerDb): F[Unit]
 }
 
 object Database {
-  def checkUniquePrefix(gameId: GameId, prefixLength: Int, persistence: Database): Attempt[Boolean] = {
+  def checkUniquePrefix[F[_] : Monad](gameId: GameId, prefixLength: Int, persistence: Database[F]): F[Boolean] = {
     val gameCode = gameId.gid.take(prefixLength)
     for {
       gameDbs <- persistence.searchGameCode(gameCode)

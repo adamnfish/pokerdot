@@ -2,22 +2,24 @@ package io.adamnfish.pokerdot.logic
 
 import io.adamnfish.pokerdot.logic.Cards.RichRank
 import io.adamnfish.pokerdot.logic.Games.{newGame, newPlayer, newSpectator}
-import io.adamnfish.pokerdot.logic.Representations._
+import io.adamnfish.pokerdot.logic.Representations.*
 import io.adamnfish.pokerdot.models.{Ace, Clubs, GameId, Hole, PlayerAddress, Queen, Spades}
-import io.adamnfish.pokerdot.{TestClock, TestHelpers}
+import io.adamnfish.pokerdot.TestHelpers
 import org.scalacheck.Gen
-import org.scalatest.EitherValues
+import org.scalatest.{EitherValues, TryValues}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.util.Try
 
-class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TestHelpers {
+
+class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks with TryValues with TestHelpers {
   "games" - {
     "round trips a game correctly" in {
-      val game = newGame("game name", trackStacks = false, TestClock, 1)
+      val game = newGame("game name", trackStacks = false, 0L, 1)
       val gameDb = gameToDb(game)
-      val reconstructedGame = gameFromDb(gameDb, Nil).value
+      val reconstructedGame = gameFromDb[Try](gameDb, Nil).success.value
       reconstructedGame shouldEqual game
     }
   }
@@ -25,7 +27,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "players" - {
     "round trips a player correctly" in {
       val gameId = GameId("game-id")
-      val player = newPlayer(gameId, "player", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(gameId, "player", false, PlayerAddress("player-address"), 0L)
       val playerDb = playerToDb(player)
       val reconstructedPlayer = playerFromDb(playerDb)
       reconstructedPlayer shouldEqual player
@@ -35,7 +37,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "spectators" - {
     "round trips a spectator correctly" in {
       val gameId = GameId("game-id")
-      val spectator = newSpectator(gameId, "spectator", false, PlayerAddress("player-address"), TestClock)
+      val spectator = newSpectator(gameId, "spectator", false, PlayerAddress("player-address"), 0L)
       val spectatorDb = spectatorToDb(spectator)
       val reconstructedSpectator = spectatorFromDb(spectatorDb)
       reconstructedSpectator shouldEqual spectator
@@ -46,23 +48,23 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
     "returns player db for each provided player" in {
       forAll(Gen.choose(1, 10)) { n =>
         val players = (0 until n).map { i =>
-          newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), TestClock)
+          newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
         }.toList
         allPlayerDbs(players).length shouldEqual n
       }
     }
 
     "returns correct player db for provided player" in {
-      val player = newPlayer(GameId("game-id"), s"player", false, PlayerAddress(s"pa"), TestClock)
+      val player = newPlayer(GameId("game-id"), s"player", false, PlayerAddress(s"pa"), 0L)
       val expected = playerToDb(player)
       allPlayerDbs(List(player)) shouldEqual List(expected)
     }
   }
 
   "activePlayerDbs" - {
-    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestClock)
-    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestClock)
-    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestClock)
+    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0L)
+    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0L)
+    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0L)
 
     "includes active players" in {
       activePlayerDbs(List(
@@ -90,17 +92,17 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   }
 
   "filteredPlayerDbs" - {
-    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), TestClock)
-    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), TestClock)
-    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), TestClock)
+    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0L)
+    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0L)
+    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0L)
 
     "includes players in the provided set" in {
-      val result = filteredPlayerDbs(List(p1, p2, p3), Set(p2.playerId, p3.playerId)).value.map(_.playerId)
+      val result = filteredPlayerDbs[Try](List(p1, p2, p3), Set(p2.playerId, p3.playerId)).success.value.map(_.playerId)
       result shouldEqual List(p2.playerId.pid, p3.playerId.pid)
     }
 
     "works if allow list contains entries that are not in the provided list" in {
-      val result = filteredPlayerDbs(List(p1, p2), Set(p2.playerId, p3.playerId)).value.map(_.playerId)
+      val result = filteredPlayerDbs[Try](List(p1, p2), Set(p2.playerId, p3.playerId)).success.value.map(_.playerId)
       result shouldEqual List(p2.playerId.pid)
     }
   }
@@ -136,7 +138,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "summariseSelf" - {
     "hole" - {
       val hole = Hole(Queen of Clubs, Ace of Spades)
-      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), 0L)
 
       "is included if present, even if the hole is not visible" in {
         summariseSelf(
@@ -172,7 +174,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "summarisePlayer" - {
     "hole" - {
       val hole = Hole(Queen of Clubs, Ace of Spades)
-      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), TestClock)
+      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), 0L)
         .copy(
           hole = Some(hole),
         )
