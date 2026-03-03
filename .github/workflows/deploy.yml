@@ -1,4 +1,4 @@
-name: Deploy Pokerdot
+name: Build, Test and Deploy
 
 # Requires the following to be configured for each GitHub Environment (test, prod):
 #   Secrets:
@@ -11,6 +11,8 @@ name: Deploy Pokerdot
 #     DIST_BUCKET   - S3 bucket used to stage deployment artifacts
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
@@ -31,10 +33,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-test
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'prod') }}
 
     env:
-      STAGE: ${{ inputs.environment }}
+      STAGE: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'prod') }}
 
     steps:
       - name: Download lambda artifact
