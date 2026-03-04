@@ -20,6 +20,10 @@ on:
         required: true
         type: environment
 
+concurrency:
+  group: deploy-${{ inputs.environment || (github.ref == 'refs/heads/main' && 'prod') }}
+  cancel-in-progress: true
+
 permissions:
   id-token: write
   contents: read
@@ -116,6 +120,11 @@ jobs:
         run: |
           aws s3 cp lambda-artifact/pokerdot-lambda.zip \
             s3://${{ secrets.DIST_BUCKET }}/pokerdot/${STAGE}/pokerdot-lambda.zip
+
+      - name: Wait for lambda to be ready
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ steps.discover.outputs.function_name }}
 
       - name: Update lambda function code
         run: |
