@@ -1,6 +1,6 @@
 import scala.concurrent.duration.DurationInt
 
-ThisBuild / scalaVersion := "3.3.4"
+ThisBuild / scalaVersion := "3.3.7"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "io.adamnfish"
 ThisBuild / organizationName := "adamnfish"
