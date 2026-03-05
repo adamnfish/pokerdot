@@ -19,10 +19,7 @@ import software.amazon.awssdk.auth.credentials.{
   StaticCredentialsProvider
 }
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.{
-  DynamoDbAsyncClient,
-  DynamoDbClient
-}
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import java.net.URI
 import java.security.SecureRandom
@@ -87,9 +84,51 @@ object CatsDevServer extends IOApp:
 
       app <- Resource.make {
         IO.blocking {
-          val app = Javalin.create()
-          app.start(7000)
-          app
+          Javalin.create { config =>
+            config.routes.ws(
+              "/api",
+              { ws =>
+                ws.onConnect { wctx =>
+                  val result = for {
+                    _ <- connectionPrinter(wctx.sessionId, true)
+                    _ <- IO.blocking(messaging.connect(wctx))
+                  } yield ()
+                  result.unsafeRunSync()
+                }
+                ws.onClose { wctx =>
+                  val result = for {
+                    _ <- connectionPrinter(wctx.sessionId, false)
+                    _ <- IO.blocking(messaging.disconnect(wctx))
+                  } yield ()
+                  result.unsafeRunSync()
+                }
+                ws.onMessage { wctx =>
+                  val result =
+                    for
+                      _ <- messagePrinter(Inbound)(
+                        wctx.sessionId,
+                        wctx.message()
+                      )
+                      traceId <- IO(TraceId(UUID.randomUUID().toString))
+                      appContext = appContextBuilder(
+                        PlayerAddress(wctx.sessionId),
+                        traceId
+                      )
+                      operation <- PokerDot.pokerdot(wctx.message(), appContext)
+                      _ <- logger.info(s"completed $operation")
+                    yield ()
+                  result
+                    .onError {
+                      case failures: Failures =>
+                        logger.error(failures)(s"error: ${failures.logString}")
+                      case err =>
+                        logger.error(err)(s"exception: ${err.getMessage}")
+                    }
+                    .unsafeRunSync()
+                }
+              }
+            )
+          }
         }
       } { app =>
         IO.blocking(app.stop())
@@ -100,66 +139,13 @@ object CatsDevServer extends IOApp:
       messagePrinter,
       connectionPrinter,
       messaging
-      // TODO add separate comection manager here?
+      // TODO add separate connection manager here?
     )
 
   override def run(args: List[String]): IO[ExitCode] =
     components(args).use: components =>
-      IO {
-        components.app.ws(
-          "/api",
-          { ws =>
-            ws.onConnect { wctx =>
-              val traceId = TraceId("connect")
-              val appContext = components.appContextBuilder(
-                PlayerAddress(wctx.getSessionId),
-                traceId
-              )
-              val result = for {
-                _ <- components.connectionPrinter(wctx.getSessionId, true)
-                _ <- IO.blocking(components.messaging.connect(wctx))
-              } yield ()
-              result.unsafeRunSync()
-            }
-            ws.onClose { wctx =>
-              val traceId = TraceId("close")
-              val appContext = components.appContextBuilder(
-                PlayerAddress(wctx.getSessionId),
-                traceId
-              )
-              val result = for {
-                _ <- components.connectionPrinter(wctx.getSessionId, false)
-                _ <- IO.blocking(components.messaging.disconnect(wctx))
-              } yield ()
-              result.unsafeRunSync()
-            }
-            ws.onMessage { wctx =>
-              val result =
-                for
-                  _ <- components.messagePrinter(Inbound)(
-                    wctx.getSessionId,
-                    wctx.message
-                  )
-                  traceId <- IO(TraceId(UUID.randomUUID().toString))
-                  appContext = components.appContextBuilder(
-                    PlayerAddress(wctx.getSessionId),
-                    traceId
-                  )
-                  operation <- PokerDot.pokerdot(wctx.message, appContext)
-                  _ <- logger.info(s"completed $operation")
-                yield ()
-              result
-                .onError {
-                  case failures: Failures =>
-                    logger.error(failures)(s"error: ${failures.logString}")
-                  case err =>
-                    logger.error(err)(s"exception: ${err.getMessage}")
-                }
-                .unsafeRunSync()
-            }
-          }
-        )
-      }.as(ExitCode.Success) >> IO.never
+      IO.blocking(components.app.start(7000)) >>
+        IO.never.as(ExitCode.Success)
 
 case class DevServerComponents(
     app: Javalin,
