@@ -27,7 +27,7 @@
     "parcel": "^2.13.3",
     "parcel-plugin-browserconfig": "^1.0.5",
     "process": "^0.11.10",
-    "svgo": "^3.3.2"
+    "svgo": "^3.3.3"
   },
   "dependencies": {
     "partysocket": "^1.1.13"
