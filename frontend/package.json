@@ -21,8 +21,6 @@
     "@parcel/transformer-xml": "2.16.4",
     "elm": "^0.19.1-6",
     "elm-format": "^0.8.8",
-    "elm-json": "^0.2.13",
-    "elm-review": "^2.13.5",
     "elm-test": "^0.19.1-revision7",
     "parcel": "^2.16.4",
     "parcel-plugin-browserconfig": "^1.0.5",
