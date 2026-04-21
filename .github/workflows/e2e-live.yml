@@ -19,6 +19,8 @@ jobs:
   e2e:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    # workflow_run carries no inputs — defaults to 'prod', which is correct:
+    # deploy.yml only ever deploys to prod on push to main.
     environment: ${{ inputs.environment || 'prod' }}
 
     env:

@@ -28,8 +28,8 @@ test('heads up fold and rejoin', async ({ browser }, testInfo) => {
     await joinGame(android, { gameCode, playerName: 'Bob' });
     await snap(android, '05-android-join-form', testInfo);
 
-    // Wait for Bob's lobby
-    await expect(android.getByRole('button', { name: /start/i })).not.toBeVisible();
+    // Wait for Bob's lobby — positive check that Alice is visible in the player list
+    await expect(android.getByText(/Alice/i).first()).toBeVisible();
     await snap(android, '06-android-lobby', testInfo);
 
     // --- Step 3: Alice starts the game ---
