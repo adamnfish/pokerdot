@@ -34,14 +34,26 @@ test('heads up fold and rejoin', async ({ browser }, testInfo) => {
 
     // --- Step 3: Alice starts the game ---
     await startGame(iphone);
+    // Wait for the server to deal the first hand before snapping
+    await expect(
+      iphone.getByRole('button', { name: /fold/i })
+        .or(iphone.getByRole('button', { name: /deal/i }))
+        .or(iphone.getByRole('button', { name: /peek/i }))
+        .first()
+    ).toBeVisible();
     await snap(iphone, '07-iphone-game-start', testInfo);
 
     // --- Step 4: Bob's game screen ---
     // Wait for Bob to reach the game screen; he may or may not be first to act
-    await expect(android.getByText('Bob').first()).toBeVisible({ timeout: 15_000 });
+    await expect(android.getByText('Bob').first()).toBeVisible();
     await snap(android, '08-android-game-start', testInfo);
 
     // --- Step 5: Whoever acts first folds ---
+    // Wait for the fold button to appear on either page before checking which player is active
+    await Promise.any([
+      iphone.getByRole('button', { name: /fold/i }).waitFor(),
+      android.getByRole('button', { name: /fold/i }).waitFor(),
+    ]);
     const iphoneFoldVisible = await iphone.getByRole('button', { name: /fold/i }).isVisible();
     const androidFoldVisible = await android.getByRole('button', { name: /fold/i }).isVisible();
 
@@ -58,15 +70,20 @@ test('heads up fold and rejoin', async ({ browser }, testInfo) => {
     }
 
     // --- Step 6: Both see round advance ---
-    // Allow time for the round result flash and next hand deal
-    await iphone.waitForTimeout(1_000);
+    // Wait for the folder's screen to show the between-hands state
+    const foldedPage = iphoneFoldVisible ? iphone : android;
+    await expect(
+      foldedPage.getByRole('button', { name: /deal/i })
+        .or(foldedPage.getByRole('button', { name: /peek/i }))
+        .first()
+    ).toBeVisible();
     await snap(iphone, '11-iphone-next-hand', testInfo);
     await snap(android, '12-android-next-hand', testInfo);
 
     // --- Step 7: Bob navigates home (simulates returning via home button) ---
     // goto('/') exercises the library/rejoin flow; reload() would reconnect directly at /#game/…
     await android.goto('/');
-    await expect(android.getByRole('button', { name: /E2E Test/i })).toBeVisible({ timeout: 10_000 });
+    await expect(android.getByRole('button', { name: /E2E Test/i })).toBeVisible();
     await snap(android, '13-android-welcome-with-library', testInfo);
 
     // --- Step 8: Bob rejoins ---
@@ -76,7 +93,8 @@ test('heads up fold and rejoin', async ({ browser }, testInfo) => {
       android.getByRole('button', { name: /deal/i })
         .or(android.getByRole('button', { name: /peek/i }))
         .or(android.getByRole('button', { name: /fold/i }))
-    ).toBeVisible({ timeout: 15_000 });
+        .first()
+    ).toBeVisible();
     await snap(android, '14-android-rejoined', testInfo);
 
     // --- Step 9: Alice still sees Bob in the game ---
