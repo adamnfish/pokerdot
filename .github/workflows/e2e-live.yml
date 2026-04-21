@@ -1,0 +1,105 @@
+name: E2E Tests (live)
+
+on:
+  workflow_run:
+    workflows: [ "Build, Test and Deploy" ]
+    types: [ completed ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: environment
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    # workflow_run carries no inputs — defaults to 'prod', which is correct:
+    # deploy.yml only ever deploys to prod on push to main.
+    environment: ${{ inputs.environment || 'prod' }}
+
+    env:
+      STAGE: ${{ inputs.environment || 'prod' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .tool-versions
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Discover CloudFront distribution URL
+        id: discover
+        run: |
+          DIST_ARN=$(aws resourcegroupstaggingapi get-resources \
+            --tag-filters Key=app,Values=pokerdot Key=stage,Values=${STAGE} Key=resource,Values=cdn \
+            --resource-type-filters cloudfront:distribution \
+            --query 'ResourceTagMappingList[0].ResourceARN' \
+            --region us-east-1 \
+            --output text)
+          if [ "$DIST_ARN" = "None" ] || [ -z "$DIST_ARN" ]; then
+            echo "::error::Failed to discover CloudFront distribution for stage ${STAGE}"
+            exit 1
+          fi
+          DIST_ID=$(echo "$DIST_ARN" | awk -F/ '{print $NF}')
+          echo "Discovered CloudFront distribution: ${DIST_ID}"
+
+          DOMAIN=$(aws cloudfront get-distribution \
+            --id "$DIST_ID" \
+            --query 'Distribution.DistributionConfig.Aliases.Items[0]' \
+            --output text)
+          if [ "$DOMAIN" = "None" ] || [ -z "$DOMAIN" ]; then
+            echo "::error::No alias found on distribution ${DIST_ID}"
+            exit 1
+          fi
+          BASE_URL="https://${DOMAIN}"
+          echo "base_url=${BASE_URL}" >> "$GITHUB_OUTPUT"
+          echo "Target: ${BASE_URL}"
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Install Playwright OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: e2e
+        run: npx playwright install-deps chromium webkit
+
+      - name: Run E2E tests
+        working-directory: e2e
+        run: npm test
+        env:
+          BASE_URL: ${{ steps.discover.outputs.base_url }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-${{ env.STAGE }}
+          path: e2e/playwright-report/
+          retention-days: 30

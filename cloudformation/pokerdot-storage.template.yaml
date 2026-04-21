@@ -164,10 +164,11 @@ Resources:
                     aws:ResourceTag/app: pokerdot
                     aws:ResourceTag/stage: !Ref Stage
                     aws:ResourceTag/resource: backend
-              # Invalidate CloudFront distribution
+              # Invalidate and inspect CloudFront distribution
               - Effect: Allow
                 Action:
                   - cloudfront:CreateInvalidation
+                  - cloudfront:GetDistribution
                 Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/*"
       Tags:
         - Key: "app"
