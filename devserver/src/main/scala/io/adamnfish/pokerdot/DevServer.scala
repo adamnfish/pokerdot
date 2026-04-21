@@ -85,6 +85,13 @@ object CatsDevServer extends IOApp:
       app <- Resource.make {
         IO.blocking {
           Javalin.create { config =>
+            config.routes.get(
+              "/healthcheck",
+              { ctx =>
+                ctx.status(200)
+                ctx.result("OK")
+              }
+            )
             config.routes.ws(
               "/api",
               { ws =>

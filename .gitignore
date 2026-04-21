@@ -293,3 +293,9 @@ project/plugins/project/
 *.class
 
 # End of https://www.toptal.com/developers/gitignore/api/emacs,intellij,elm,scala,sbt,node
+
+### E2E ###
+e2e/node_modules/
+e2e/playwright-report/
+e2e/test-results/
+e2e/.playwright/
