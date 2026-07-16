@@ -67,18 +67,21 @@ all =
             [ test "returns true for a busted player" <|
                 \_ ->
                     isBusted PreFlopRound (testPlayer True)
-                        |> Expect.true "isBusted should return True for a busted player"
+                        |> Expect.equal True
+                        |> Expect.onFail "isBusted should return True for a busted player"
             , test "returns False for a player that is not busted" <|
                 \_ ->
                     isBusted PreFlopRound (testPlayer False)
-                        |> Expect.false "isBusted should return False for a non-busted player"
+                        |> Expect.equal False
+                        |> Expect.onFail "isBusted should return False for a non-busted player"
             , test "returns false for a non-busted player that has an empty stack during a showdown" <|
                 -- this is so that the "temporary" showdown status is reflected in the UI
                 \_ ->
                     isBusted
                         (ShowdownRound testCard testCard testCard testCard testCard [])
                         (testPlayerWithNoStack False)
-                        |> Expect.true "isBusted should return True here, even though the player isn't directly busted"
+                        |> Expect.equal True
+                        |> Expect.onFail "isBusted should return True here, even though the player isn't directly busted"
             ]
         , describe "gameIsFinished"
             [ test "returns False if no players are busted" <|

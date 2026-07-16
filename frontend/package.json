@@ -29,5 +29,11 @@
   },
   "dependencies": {
     "partysocket": "^1.1.16"
+  },
+  "//": "elm override: @parcel/transformer-elm's peer range doesn't allow elm 0.19.2 yet; remove when it does",
+  "overrides": {
+    "@parcel/transformer-elm": {
+      "elm": "$elm"
+    }
   }
 }
