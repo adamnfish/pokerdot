@@ -1,6 +1,6 @@
 import scala.concurrent.duration.DurationInt
 
-ThisBuild / scalaVersion := "3.3.7"
+ThisBuild / scalaVersion := "3.3.8"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "io.adamnfish"
 ThisBuild / organizationName := "adamnfish"
@@ -17,21 +17,21 @@ ThisBuild / scalacOptions ++= Seq(
   "64"
 )
 
-val circeVersion = "0.14.15"
-val scanamoVersion = "6.0.0"
-val awsJavaSdkVersion = "2.42.6"
+val circeVersion = "0.14.16"
+val scanamoVersion = "7.0.0"
+val awsJavaSdkVersion = "2.48.3"
 val commonDeps = Seq(
-  "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-  "org.scalameta" %% "munit" % "1.2.4" % Test,
-  "org.scalameta" %% "munit-scalacheck" % "1.2.0" % Test,
-  "org.typelevel" %% "scalacheck-effect-munit" % "1.0.4" % Test,
-  "org.typelevel" %% "munit-cats-effect" % "2.1.0" % Test,
+  "org.scalatest" %% "scalatest" % "3.2.20" % Test,
+  "org.scalameta" %% "munit" % "1.3.4" % Test,
+  "org.scalameta" %% "munit-scalacheck" % "1.3.0" % Test,
+  "org.typelevel" %% "scalacheck-effect-munit" % "2.1.0" % Test,
+  "org.typelevel" %% "munit-cats-effect" % "2.2.0" % Test,
   "org.scalacheck" %% "scalacheck" % "1.19.0" % Test,
-  "org.scalatestplus" %% "scalacheck-1-19" % "3.2.19.0" % Test
+  "org.scalatestplus" %% "scalacheck-1-19" % "3.2.20.0" % Test
 )
 val loggingDeps = Seq(
-  "org.typelevel" %% "log4cats-slf4j" % "2.7.1",
-  "ch.qos.logback" % "logback-classic" % "1.5.32",
+  "org.typelevel" %% "log4cats-slf4j" % "2.8.0",
+  "ch.qos.logback" % "logback-classic" % "1.5.38",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
 )
 
@@ -55,7 +55,7 @@ lazy val core = (project in file("core"))
     name := "core",
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-core" % "2.13.0",
-      "org.typelevel" %% "cats-effect" % "3.6.3",
+      "org.typelevel" %% "cats-effect" % "3.7.0",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
@@ -72,7 +72,7 @@ lazy val lambda = (project in file("lambda"))
     libraryDependencies ++= Seq(
       "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
       "com.amazonaws" % "aws-lambda-java-events" % "3.16.1",
-      "com.amazonaws" % "aws-xray-recorder-sdk-core" % "2.20.0",
+      "com.amazonaws" % "aws-xray-recorder-sdk-core" % "2.21.1",
       "software.amazon.awssdk" % "apigatewaymanagementapi" % awsJavaSdkVersion,
       // TODO: use the async crt version for everything
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
@@ -97,7 +97,7 @@ lazy val integration = (project in file("integration"))
   .settings(
     name := "integration",
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-effect-testing-scalatest" % "1.7.0" % Test,
+      "org.typelevel" %% "cats-effect-testing-scalatest" % "1.8.0" % Test,
       // TODO: use the async crt version for everything
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion % Test,
       "software.amazon.awssdk" % "aws-crt-client" % awsJavaSdkVersion % Test,
@@ -125,7 +125,7 @@ lazy val devServer = (project in file("devserver"))
   .settings(
     name := "devserver",
     libraryDependencies ++= Seq(
-      "io.javalin" % "javalin" % "7.0.1",
+      "io.javalin" % "javalin" % "7.2.2",
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
       // TODO: use the async crt version for everything
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,

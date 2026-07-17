@@ -25,10 +25,10 @@
     "parcel": "^2.16.4",
     "parcel-plugin-browserconfig": "^1.0.5",
     "process": "^0.11.10",
-    "svgo": "^4.0.1"
+    "svgo": "^4.0.2"
   },
   "dependencies": {
-    "partysocket": "^1.1.16"
+    "partysocket": "^1.3.0"
   },
   "//": "elm override: @parcel/transformer-elm's peer range doesn't allow elm 0.19.2 yet; remove when it does",
   "overrides": {
