@@ -10,6 +10,6 @@ jobs:
     permissions:
       contents: write # this permission is needed to submit the dependency graph
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: guardian/setup-scala@v1
       - uses: scalacenter/sbt-dependency-submission@v3
