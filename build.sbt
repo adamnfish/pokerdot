@@ -78,8 +78,6 @@ lazy val lambda = (project in file("lambda"))
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
       "software.amazon.awssdk" % "aws-crt-client" % awsJavaSdkVersion
     ) ++ commonDeps ++ loggingDeps,
-    // the X-Ray SDK depends on a version of jackson-databind with known vulnerabilities
-    dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-databind" % "2.18.11",
     // native-packager
     Universal / topLevelDirectory := None,
     Universal / packageName := "pokerdot-lambda",
