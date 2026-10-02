@@ -19,7 +19,7 @@ ThisBuild / scalacOptions ++= Seq(
 
 val circeVersion = "0.14.16"
 val scanamoVersion = "7.0.0"
-val awsJavaSdkVersion = "2.48.3"
+val awsJavaSdkVersion = "2.55.11"
 val commonDeps = Seq(
   "org.scalatest" %% "scalatest" % "3.2.20" % Test,
   "org.scalameta" %% "munit" % "1.3.4" % Test,
@@ -125,7 +125,7 @@ lazy val devServer = (project in file("devserver"))
   .settings(
     name := "devserver",
     libraryDependencies ++= Seq(
-      "io.javalin" % "javalin" % "7.2.2",
+      "io.javalin" % "javalin" % "7.2.3",
       "software.amazon.awssdk" % "dynamodb" % awsJavaSdkVersion,
       // TODO: use the async crt version for everything
       "software.amazon.awssdk" % "url-connection-client" % awsJavaSdkVersion,
