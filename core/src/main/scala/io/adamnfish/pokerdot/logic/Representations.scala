@@ -9,10 +9,6 @@ import cats.syntax.*
 
 
 object Representations {
-  /**
-   * The revision is not part of the domain model, so it must be provided.
-   * When writing an existing game, this is the revision that was read.
-   */
   def gameToDb(game: Game, revision: Long): GameDb = {
     GameDb(
       gameCode = game.gameCode,
