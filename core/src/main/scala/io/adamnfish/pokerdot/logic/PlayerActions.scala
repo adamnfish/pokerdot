@@ -14,7 +14,7 @@ import cats.implicits.*
  * This logic is quite complex so it gets its own object and tests.
  */
 object PlayerActions {
-  def bet[F[_] : MonadThrow](game: Game, bet: Int, player: Player): F[(Game, ActionSummary)] = {
+  def bet[F[_] : MonadThrow](game: Game, bet: Int, player: Player): F[(Game, Set[PlayerId], ActionSummary)] = {
     val allIn = bet == player.stack
     val betTotal = player.bet + bet
     val currentBetAmount = Play.currentBetAmount(game.players)
@@ -77,11 +77,13 @@ object PlayerActions {
           else p
       }
       nextActivePlayer = Play.nextPlayer(updatedPlayers, Some(player.playerId), game.button)
+      changedPlayerIds = updatedPlayers.filterNot(game.players.contains).map(_.playerId).toSet
     } yield (
       game.copy(
         players = updatedPlayers,
         inTurn = nextActivePlayer,
       ),
+      changedPlayerIds,
       if (isCall) CallSummary(player.playerId)
       else BetSummary(player.playerId, bet)
     )

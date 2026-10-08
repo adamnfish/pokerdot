@@ -47,6 +47,30 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
     "fails if this raise is not as large as a previous raise" ignore {}
     "fails if it is not the player's turn" ignore {} // this is checked in the controller instead
     "fails if the bet exceeds the player's stack" ignore {}
+
+    "changed players" - {
+      val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
+      val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), 0L)
+        .copy(stack = 1000)
+      val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), 0L)
+        .copy(stack = 1000, blind = SmallBlind, bet = 5, checked = true)
+      val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), 0L)
+        .copy(stack = 1000, blind = BigBlind, bet = 10)
+      val game = rawGame.copy(
+        inTurn = Some(p1.playerId),
+        players = List(p1, p2, p3),
+      )
+
+      "for a call, only includes the bettor" in {
+        val (_, changed, _) = bet[Try](game, 10, p1).success.value
+        changed shouldEqual Set(p1.playerId)
+      }
+
+      "for a raise, includes the bettor and the players it unchecks" in {
+        val (_, changed, _) = bet[Try](game, 30, p1).success.value
+        changed shouldEqual Set(p1.playerId, p2.playerId)
+      }
+    }
   }
 
   "check" - {
