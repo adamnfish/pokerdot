@@ -50,4 +50,23 @@ class DynamoDbDatabaseTest extends AnyFreeSpec with Matchers {
       DynamoDbDatabase.transactionFailure(e, List(gameFailure, playerFailure)) shouldEqual e
     }
   }
+
+  "isConflictOnly" - {
+    def cancelled(codes: String*): TransactionCanceledException =
+      TransactionCanceledException.builder()
+        .cancellationReasons(codes.map(code => CancellationReason.builder().code(code).build())*)
+        .build()
+
+    "is true for a transaction conflict" in {
+      DynamoDbDatabase.isConflictOnly(cancelled("None", "TransactionConflict")) shouldEqual true
+    }
+
+    "is false if a condition also failed" in {
+      DynamoDbDatabase.isConflictOnly(cancelled("ConditionalCheckFailed", "TransactionConflict")) shouldEqual false
+    }
+
+    "is false for other cancellations" in {
+      DynamoDbDatabase.isConflictOnly(cancelled("ThrottlingError", "None")) shouldEqual false
+    }
+  }
 }

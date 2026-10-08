@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.dynamodb.model.{
   TransactionCanceledException
 }
 
+import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
 
@@ -232,14 +233,30 @@ object DynamoDbDatabase {
 
   /**
    * Each write is paired with the failure to report if its condition isn't met.
+   *
+   * Transactions that touch the same item at the same moment conflict, even if both only check it (e.g. concurrent joins).
+   * Retrying is safe because the conditions are checked again.
    */
   def runTransaction[F[_]: Async](client: DynamoDbAsyncClient, writes: (TransactWriteItem, Failure)*): F[Unit] = {
     val request = TransactWriteItemsRequest.builder().transactItems(writes.map(_._1).asJava).build()
-    Async[F].fromCompletableFuture(Async[F].delay(client.transactWriteItems(request))).void
-      .adaptError {
-        case e: TransactionCanceledException =>
-          transactionFailure(e, writes.map(_._2))
-      }
+    def attempt(retries: Int): F[Unit] =
+      Async[F].fromCompletableFuture(Async[F].delay(client.transactWriteItems(request))).void
+        .recoverWith {
+          case e: TransactionCanceledException if retries > 0 && isConflictOnly(e) =>
+            Async[F].sleep(conflictRetryDelay) >> attempt(retries - 1)
+        }
+    attempt(conflictRetries).adaptError {
+      case e: TransactionCanceledException =>
+        transactionFailure(e, writes.map(_._2))
+    }
+  }
+
+  private val conflictRetries = 2
+  private val conflictRetryDelay = 50.millis
+
+  def isConflictOnly(e: TransactionCanceledException): Boolean = {
+    val codes = e.cancellationReasons.asScala.flatMap(reason => Option(reason.code)).toSet
+    codes.contains("TransactionConflict") && !codes.contains("ConditionalCheckFailed")
   }
 
   /**
