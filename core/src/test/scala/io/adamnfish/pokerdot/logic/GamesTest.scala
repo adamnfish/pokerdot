@@ -581,11 +581,17 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
   "expiryTime" - {
     "expiry time is after the provided date" in {
-      forAll { (now: Long) =>
-        // let's not think ahead of the year 3000 to avoid Long overflow
-        whenever(now < 32503680000000L) {
-          expiryTime(now) should be > now
-        }
+      // let's not think ahead of the year 3000 to avoid Long overflow
+      forAll(Gen.chooseNum(0L, 32503680000000L)) { now =>
+        expiryTime(now) should be > now / 1000
+      }
+    }
+
+    "expiry time is less than a month after the provided date" in {
+      // we shouldn't keep players' data for longer than we need it
+      val oneMonth = 28L * 24 * 60 * 60
+      forAll(Gen.chooseNum(0L, 32503680000000L)) { now =>
+        expiryTime(now) should be < (now / 1000) + oneMonth
       }
     }
   }

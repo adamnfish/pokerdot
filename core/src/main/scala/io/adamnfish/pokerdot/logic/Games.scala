@@ -222,11 +222,14 @@ object Games {
     }
   }
 
+  /**
+   * DynamoDB's TTL feature requires the expiry as epoch seconds.
+   */
   def expiryTime(now: Long): Long = {
     Instant
       .ofEpochMilli(now)
       .plus(Duration.ofDays(21))
-      .toEpochMilli
+      .getEpochSecond
   }
 
   /**
