@@ -128,6 +128,37 @@ class DynamoDbDatabase[F[_]: Async](
     } yield result
   }
 
+  override def updatePlayerAddress(
+      gameId: GameId,
+      playerId: PlayerId,
+      playerAddress: PlayerAddress
+  ): F[Unit] = {
+    for {
+      result <- handleDbErr(
+        scanamo.exec(
+          players
+            .when(attributeExists("playerId"))
+            .update(
+              "gameId" === gameId.gid and "playerId" === playerId.pid,
+              set("playerAddress", playerAddress.address)
+            )
+        )
+      )
+      _ <- Async[F].fromEither(result.left.map {
+        case ConditionNotMet(_) =>
+          Failures(
+            s"Cannot update address for player ${playerId.pid} that does not exist in game ${gameId.gid}",
+            "couldn't find you in the game."
+          )
+        case scanamoError =>
+          Failures(
+            s"ScanamoError updating player address: $scanamoError",
+            "error saving data"
+          )
+      })
+    } yield ()
+  }
+
   private def handleDbReadErr[A](
       result: Either[DynamoReadError, A]
   ): F[A] = {

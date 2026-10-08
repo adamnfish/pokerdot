@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.services
 
-import io.adamnfish.pokerdot.models.{GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.{GameDb, GameId, PlayerAddress, PlayerDb, PlayerId}
 import cats.Monad
 import cats._
 import cats.data._
@@ -19,6 +19,12 @@ trait Database[F[_]] {
   def writeGame(gameDB: GameDb): F[Unit]
 
   def writePlayer(playerDB: PlayerDb): F[Unit]
+
+  /**
+   * Updates only the player's address, so this cannot overwrite gameplay
+   * changes made by a concurrent request. Fails if the player does not exist.
+   */
+  def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): F[Unit]
 }
 
 object Database {

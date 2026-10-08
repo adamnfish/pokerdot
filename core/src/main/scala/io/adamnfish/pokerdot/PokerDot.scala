@@ -343,8 +343,10 @@ object PokerDot {
       updatedPlayerOpt = Games.updatePlayerAddress(player, appContext.playerAddress)
       updatedPlayer <- updatedPlayerOpt.fold[F[Player]](MonadThrow[F].pure(player)) { updatedPlayer =>
         // if player's address has changed, persist change to DB
-        val updatedPlayerDb = Representations.playerToDb(updatedPlayer)
-        appContext.db.writePlayer(updatedPlayerDb).map(_ => updatedPlayer)
+        // only the address is written, so this can't overwrite concurrent gameplay changes
+        appContext.db
+          .updatePlayerAddress(updatedPlayer.gameId, updatedPlayer.playerId, updatedPlayer.playerAddress)
+          .map(_ => updatedPlayer)
       }
       message = Representations.gameStatus(game, updatedPlayer, NoActionSummary())
     } yield Responses.justRespond(message, appContext.playerAddress)
