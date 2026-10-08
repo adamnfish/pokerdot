@@ -3,9 +3,9 @@ package io.adamnfish.pokerdot.integration
 import cats.effect.*
 import cats.effect.testing.scalatest.AsyncIOSpec
 import io.adamnfish.pokerdot.TestHelpers.parseReq
+import io.adamnfish.pokerdot.integration.IntegrationComponents.afterGetPlayers
 import io.adamnfish.pokerdot.integration.CreateGameIntegrationTest.{createGameRequest, performCreateGame}
 import io.adamnfish.pokerdot.models.*
-import io.adamnfish.pokerdot.services.Database
 import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
 import org.scalatest.OptionValues
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
@@ -38,9 +38,11 @@ class PingIntegrationTest
         welcome <- createGameFixture(context)
         // simulate another request updating the player between this ping's read and its write
         concurrentDb = afterGetPlayers(db) { playerDbs =>
-          playerDbs
-            .find(_.playerId == welcome.playerId.pid)
-            .fold(IO.unit)(playerDb => db.writePlayer(playerDb.copy(stack = 500)))
+          for {
+            gameDb <- db.getGame(welcome.gameId)
+            hostDb = playerDbs.find(_.playerId == welcome.playerId.pid).value
+            _ <- db.writeGameAndPlayers(gameDb.value, List(hostDb.copy(stack = 500)))
+          } yield ()
         }
         pingContext = context(newHostAddress).copy(db = concurrentDb)
         response <- PokerDot.ping[IO](parseReq(pingRequest(welcome)), pingContext)
@@ -83,19 +85,4 @@ class PingIntegrationTest
   private def pingRequest(welcome: Welcome): String = {
     s"""{"operation":"ping","gameId":"${welcome.gameId.gid}","playerId":"${welcome.playerId.pid}","playerKey":"${welcome.playerKey.key}"}"""
   }
-
-  /**
-   * Wraps a database so that the provided effect runs after players are read.
-   */
-  private def afterGetPlayers(db: Database[IO])(effect: List[PlayerDb] => IO[Unit]): Database[IO] =
-    new Database[IO] {
-      override def getGame(gameId: GameId): IO[Option[GameDb]] = db.getGame(gameId)
-      override def lookupGame(gameCode: String): IO[Option[GameDb]] = db.lookupGame(gameCode)
-      override def searchGameCode(gameCode: String): IO[List[GameDb]] = db.searchGameCode(gameCode)
-      override def getPlayers(gameId: GameId): IO[List[PlayerDb]] = db.getPlayers(gameId).flatTap(effect)
-      override def writeGame(gameDB: GameDb): IO[Unit] = db.writeGame(gameDB)
-      override def writePlayer(playerDB: PlayerDb): IO[Unit] = db.writePlayer(playerDB)
-      override def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): IO[PlayerDb] =
-        db.updatePlayerAddress(gameId, playerId, playerAddress)
-    }
 }

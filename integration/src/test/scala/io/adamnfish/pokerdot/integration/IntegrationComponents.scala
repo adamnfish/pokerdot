@@ -70,6 +70,24 @@ trait IntegrationComponents {
     } yield (addressToContext, testDb)
 }
 object IntegrationComponents {
+  /**
+   * Wraps a database so that the provided effect runs after players are read.
+   * This allows tests to simulate a concurrent request between a read and a write.
+   */
+  def afterGetPlayers(db: Database[IO])(effect: List[PlayerDb] => IO[Unit]): Database[IO] =
+    new Database[IO] {
+      override def getGame(gameId: GameId): IO[Option[GameDb]] = db.getGame(gameId)
+      override def lookupGame(gameCode: String): IO[Option[GameDb]] = db.lookupGame(gameCode)
+      override def searchGameCode(gameCode: String): IO[List[GameDb]] = db.searchGameCode(gameCode)
+      override def getPlayers(gameId: GameId): IO[List[PlayerDb]] = db.getPlayers(gameId).flatTap(effect)
+      override def createGame(gameDb: GameDb, playerDb: PlayerDb): IO[Unit] = db.createGame(gameDb, playerDb)
+      override def addPlayer(readGameDb: GameDb, playerDb: PlayerDb): IO[Unit] = db.addPlayer(readGameDb, playerDb)
+      override def writeGameAndPlayers(gameDb: GameDb, playerDbs: List[PlayerDb]): IO[Unit] =
+        db.writeGameAndPlayers(gameDb, playerDbs)
+      override def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): IO[PlayerDb] =
+        db.updatePlayerAddress(gameId, playerId, playerAddress)
+    }
+
   def betRequest(betAmount: Int, welcome: Welcome): String = {
     val request = Bet(welcome.gameId, welcome.playerKey, welcome.playerId, betAmount)
     encodeRequest(request).noSpaces

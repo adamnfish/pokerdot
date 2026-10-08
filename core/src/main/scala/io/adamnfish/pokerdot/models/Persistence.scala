@@ -20,6 +20,8 @@ case class GameDb(
   startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus],
+  // incremented on every write, so that writes based on a stale read can be rejected
+  revision: Long,
 )
 
 case class PlayerDb(

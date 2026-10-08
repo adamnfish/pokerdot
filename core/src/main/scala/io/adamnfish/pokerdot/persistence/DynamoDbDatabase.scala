@@ -11,9 +11,21 @@ import org.scanamo.*
 import org.scanamo.generic.auto.*
 import org.scanamo.syntax.*
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
+import software.amazon.awssdk.services.dynamodb.model.{
+  AttributeValue,
+  ConditionCheck,
+  ConditionalCheckFailedException,
+  Put,
+  TransactWriteItem,
+  TransactWriteItemsRequest,
+  TransactionCanceledException,
+  Update
+}
 
+import java.util.concurrent.CompletionException
+import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
+import scala.util.Random
 import scala.util.control.NonFatal
 
 class DynamoDbDatabase[F[_]: Async](
@@ -34,7 +46,7 @@ class DynamoDbDatabase[F[_]: Async](
     for {
       maybeResult <- handleDbErr(
         scanamo.exec[Option[Either[DynamoReadError, GameDb]]](
-          games.get("gameCode" === gameCode and "gameId" === gameId.gid)
+          games.consistently.get("gameCode" === gameCode and "gameId" === gameId.gid)
         )
       )
       maybeGameDb <- maybeResult.fold[F[Option[GameDb]]](Async[F].pure(None)) {
@@ -111,22 +123,81 @@ class DynamoDbDatabase[F[_]: Async](
   override def getPlayers(gameId: GameId): F[List[PlayerDb]] = {
     for {
       results <- handleDbErr(
-        scanamo.exec(players.query("gameId" === gameId.gid))
+        scanamo.exec(players.consistently.query("gameId" === gameId.gid))
       )
       players <- results.traverse(handleDbReadErr)
     } yield players
   }
 
-  override def writeGame(gameDB: GameDb): F[Unit] = {
-    for {
-      result <- handleDbErr(scanamo.exec(games.put(gameDB)))
-    } yield result
+  override def createGame(gameDb: GameDb, playerDb: PlayerDb): F[Unit] = {
+    runTransaction(
+      List(
+        TransactWriteItem.builder().put(
+          Put.builder()
+            .tableName(gameTableName)
+            .item(DynamoFormat[GameDb].write(gameDb).asObject.get.toJavaMap)
+            .conditionExpression("attribute_not_exists(#gameId)")
+            .expressionAttributeNames(Map("#gameId" -> "gameId").asJava)
+            .build()
+        ).build(),
+        putNewPlayer(playerDb),
+      )
+    ) {
+      case 0 =>
+        Failures(s"Game ${gameDb.gameId} already exists", "couldn't create the game, please try again.")
+      case _ =>
+        Failures(s"Player ${playerDb.playerId} already exists", "couldn't create the game, please try again.")
+    }
   }
 
-  override def writePlayer(playerDB: PlayerDb): F[Unit] = {
-    for {
-      result <- handleDbErr(scanamo.exec(players.put(playerDB)))
-    } yield result
+  override def addPlayer(readGameDb: GameDb, playerDb: PlayerDb): F[Unit] = {
+    runTransaction(
+      List(
+        TransactWriteItem.builder().conditionCheck(
+          ConditionCheck.builder()
+            .tableName(gameTableName)
+            .key(gameKey(readGameDb))
+            .conditionExpression("#revision = :revision")
+            .expressionAttributeNames(Map("#revision" -> "revision").asJava)
+            .expressionAttributeValues(Map(":revision" -> revisionValue(readGameDb.revision)).asJava)
+            .build()
+        ).build(),
+        putNewPlayer(playerDb),
+      )
+    ) {
+      case 0 =>
+        Failures(
+          s"Game ${readGameDb.gameId} has changed since revision ${readGameDb.revision}, cannot add player",
+          "the game changed while you were joining, please try again.",
+        )
+      case _ =>
+        Failures(s"Player ${playerDb.playerId} already exists", "couldn't join the game, please try again.")
+    }
+  }
+
+  override def writeGameAndPlayers(gameDb: GameDb, playerDbs: List[PlayerDb]): F[Unit] = {
+    val newGameDb = gameDb.copy(revision = gameDb.revision + 1)
+    val gameItem = TransactWriteItem.builder().put(
+      Put.builder()
+        .tableName(gameTableName)
+        .item(DynamoFormat[GameDb].write(newGameDb).asObject.get.toJavaMap)
+        .conditionExpression("#revision = :revision")
+        .expressionAttributeNames(Map("#revision" -> "revision").asJava)
+        .expressionAttributeValues(Map(":revision" -> revisionValue(gameDb.revision)).asJava)
+        .build()
+    ).build()
+    runTransaction(gameItem :: playerDbs.map(updatePlayerGameplay)) {
+      case 0 =>
+        Failures(
+          s"Game ${gameDb.gameId} has changed since revision ${gameDb.revision}",
+          "someone else changed the game at the same time, please check and try again.",
+        )
+      case i =>
+        Failures(
+          s"Player ${playerDbs.lift(i - 1).fold("<unknown>")(_.playerId)} does not exist in game ${gameDb.gameId}",
+          "there was a problem trying to save a user that could not be found.",
+        )
+    }
   }
 
   override def updatePlayerAddress(
@@ -153,6 +224,91 @@ class DynamoDbDatabase[F[_]: Async](
         )
       }
     } yield playerDb
+  }
+
+  private def putNewPlayer(playerDb: PlayerDb): TransactWriteItem = {
+    TransactWriteItem.builder().put(
+      Put.builder()
+        .tableName(playerTableName)
+        .item(DynamoFormat[PlayerDb].write(playerDb).asObject.get.toJavaMap)
+        .conditionExpression("attribute_not_exists(#playerId)")
+        .expressionAttributeNames(Map("#playerId" -> "playerId").asJava)
+        .build()
+    ).build()
+  }
+
+  /**
+   * Writes only the fields that gameplay owns, so that identity fields like
+   * the player's address (which is updated independently by pings) are untouched.
+   */
+  private def updatePlayerGameplay(playerDb: PlayerDb): TransactWriteItem = {
+    val attributes = DynamoFormat[PlayerDb].write(playerDb).asObject.get.toJavaMap.asScala
+    val (present, absent) = DynamoDbDatabase.playerGameplayFields.partition { field =>
+      attributes.get(field).exists(av => !Option(av.nul()).contains(true))
+    }
+    val updateExpression = List(
+      Option.when(present.nonEmpty)(present.map(field => s"#$field = :$field").mkString("SET ", ", ", "")),
+      Option.when(absent.nonEmpty)(absent.map(field => s"#$field").mkString("REMOVE ", ", ", "")),
+    ).flatten.mkString(" ")
+    val update = Update.builder()
+      .tableName(playerTableName)
+      .key(Map(
+        "gameId" -> AttributeValue.fromS(playerDb.gameId),
+        "playerId" -> AttributeValue.fromS(playerDb.playerId),
+      ).asJava)
+      .updateExpression(updateExpression)
+      .conditionExpression("attribute_exists(#playerId)")
+      .expressionAttributeNames(
+        (("playerId" :: DynamoDbDatabase.playerGameplayFields).map(field => s"#$field" -> field).toMap).asJava
+      )
+    val withValues =
+      if (present.isEmpty) update
+      else update.expressionAttributeValues(present.map(field => s":$field" -> attributes(field)).toMap.asJava)
+    TransactWriteItem.builder().update(withValues.build()).build()
+  }
+
+  private def gameKey(gameDb: GameDb): java.util.Map[String, AttributeValue] = {
+    Map(
+      "gameCode" -> AttributeValue.fromS(gameDb.gameCode),
+      "gameId" -> AttributeValue.fromS(gameDb.gameId),
+    ).asJava
+  }
+
+  private def revisionValue(revision: Long): AttributeValue =
+    AttributeValue.fromN(revision.toString)
+
+  /**
+   * Runs the transaction, retrying transient failures.
+   *
+   * If a condition fails, the index of the failed item is passed to `conditionFailed`
+   * to describe the problem. These failures are not retried, the request was based
+   * on stale data so it may no longer be valid.
+   */
+  private def runTransaction(items: List[TransactWriteItem], attempt: Int = 1)(conditionFailed: Int => Failures): F[Unit] = {
+    val request = TransactWriteItemsRequest.builder().transactItems(items.asJava).build()
+    handleDbErr {
+      Async[F].fromCompletableFuture(Async[F].delay(client.transactWriteItems(request))).void
+        .adaptError { case e: CompletionException if e.getCause != null => e.getCause }
+        .handleErrorWith {
+          case tce: TransactionCanceledException =>
+            val reasonCodes = Option(tce.cancellationReasons()).map(_.asScala.toList).getOrElse(Nil).map(_.code())
+            reasonCodes.indexOf("ConditionalCheckFailed") match {
+              case -1 if reasonCodes.exists(DynamoDbDatabase.transientReasons.contains) && attempt < DynamoDbDatabase.maxAttempts =>
+                val backoff = (50 * attempt + Random.nextInt(50)).millis
+                Async[F].sleep(backoff) >> runTransaction(items, attempt + 1)(conditionFailed)
+              case -1 =>
+                Async[F].raiseError(Failures(
+                  s"DynamoDB transaction cancelled after $attempt attempt(s), reasons: ${reasonCodes.mkString(", ")}",
+                  "error saving data",
+                  exception = Some(tce),
+                ))
+              case failedIndex =>
+                Async[F].raiseError(conditionFailed(failedIndex))
+            }
+          case other =>
+            Async[F].raiseError(other)
+        }
+    }
   }
 
   private def handleDbReadErr[A](
@@ -188,11 +344,26 @@ class DynamoDbDatabase[F[_]: Async](
   }
 
   private def handleDbErr[A](fa: F[A]): F[A] =
-    Async[F].adaptError(fa) { case NonFatal(err) =>
-      Failures(
-        "unhandled DynamoDB error",
-        "error fetching saved data",
-        exception = Some(err)
-      )
+    Async[F].adaptError(fa) {
+      // already a meaningful error
+      case failures: Failures => failures
+      case NonFatal(err) =>
+        Failures(
+          "unhandled DynamoDB error",
+          "error fetching saved data",
+          exception = Some(err)
+        )
     }
+}
+
+object DynamoDbDatabase {
+  /**
+   * The player fields that change during gameplay.
+   * Everything else on a PlayerDb is identity, set when the player joins.
+   */
+  val playerGameplayFields: List[String] =
+    List("stack", "pot", "bet", "checked", "folded", "busted", "hole", "holeVisible", "blind")
+
+  private val maxAttempts = 3
+  private val transientReasons = Set("TransactionConflict", "ThrottlingError")
 }

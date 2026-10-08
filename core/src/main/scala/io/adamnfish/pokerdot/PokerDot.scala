@@ -83,11 +83,10 @@ object PokerDot {
       game = rawGame.copy(gameCode = uniqueGameCode)
       host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, now)
       gameWithHost = Games.addPlayer(game, host)
-      gameDb = Representations.gameToDb(gameWithHost)
+      gameDb = Representations.gameToDb(gameWithHost, revision = 0)
       hostDb = Representations.playerToDb(host)
       response = Responses.welcome(gameWithHost, host, appContext.playerAddress)
-      _ <- appContext.db.writeGame(gameDb)
-      _ <- appContext.db.writePlayer(hostDb)
+      _ <- appContext.db.createGame(gameDb, hostDb)
     } yield response
   }
 
@@ -122,7 +121,8 @@ object PokerDot {
       newGame = Games.addPlayer(game, player)
       response = Responses.welcome(newGame, player, appContext.playerAddress)
       playerDb = Representations.playerToDb(player)
-      _ <- appContext.db.writePlayer(playerDb)
+      // fails if the game has changed (e.g. started) since we read it
+      _ <- appContext.db.addPlayer(rawGameDb, playerDb)
     } yield response
   }
 
@@ -153,12 +153,10 @@ object PokerDot {
       _ <- Games.ensureStartingPlayerCount(rawGame.players.length)
       now <- appContext.time.now
       startedGame = Games.start(rawGame, now, startGame.initialSmallBlind, startGame.timerConfig, startGame.startingStack, startGame.playerOrder)
-      startedGameDb = Representations.gameToDb(startedGame)
+      startedGameDb = Representations.gameToDb(startedGame, rawGameDb.revision)
       playerDbs = Representations.allPlayerDbs(startedGame.players)
-      // update all players with dealt cards, stack size etc
-      _ <- playerDbs.traverse(appContext.db.writePlayer)
-      // persist started game
-      _ <- appContext.db.writeGame(startedGameDb)
+      // persist started game, and update all players with dealt cards, stack size etc
+      _ <- appContext.db.writeGameAndPlayers(startedGameDb, playerDbs)
     } yield Responses.gameStatuses(startedGame, GameStartedSummary(), startGame.playerId, appContext.playerAddress)
   }
 
@@ -181,11 +179,8 @@ object PokerDot {
       (newGame, action) = betResult
       // obtain DB representations for persistence
       updatedPlayerDbs = Representations.activePlayerDbs(newGame.players)
-      newGameDb = Representations.gameToDb(newGame)
-      // save this player
-      _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
-      // save game
-      _ <- appContext.db.writeGame(newGameDb)
+      newGameDb = Representations.gameToDb(newGame, gameDb.revision)
+      _ <- appContext.db.writeGameAndPlayers(newGameDb, updatedPlayerDbs)
     } yield Responses.gameStatuses(newGame, action, bet.playerId, appContext.playerAddress)
   }
 
@@ -207,11 +202,8 @@ object PokerDot {
       newGame <- PlayerActions.check(rawGame, player)
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(check.playerId))
-      newGameDb = Representations.gameToDb(newGame)
-      // save this player
-      _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
-      // save game
-      _ <- appContext.db.writeGame(newGameDb)
+      newGameDb = Representations.gameToDb(newGame, gameDb.revision)
+      _ <- appContext.db.writeGameAndPlayers(newGameDb, updatedPlayerDbs)
     } yield Responses.gameStatuses(newGame, CheckSummary(check.playerId), check.playerId, appContext.playerAddress)
   }
 
@@ -233,11 +225,8 @@ object PokerDot {
       newGame = PlayerActions.fold(rawGame, player)
       // obtain DB representations for persistence
       updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, Set(fold.playerId))
-      newGameDb = Representations.gameToDb(newGame)
-      // save this player
-      _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
-      // save game
-      _ <- appContext.db.writeGame(newGameDb)
+      newGameDb = Representations.gameToDb(newGame, gameDb.revision)
+      _ <- appContext.db.writeGameAndPlayers(newGameDb, updatedPlayerDbs)
     } yield Responses.gameStatuses(newGame, FoldSummary(fold.playerId), fold.playerId, appContext.playerAddress)
   }
 
@@ -272,11 +261,10 @@ object PokerDot {
       // TODO: move rng's application here - get next state and pass it into pure functions.
       advanceResult <- PlayerActions.advancePhase(game, now, appContext.rng)
       (updatedGame, updatedPlayers, winnings) = advanceResult
-      newGameDb = Representations.gameToDb(updatedGame)
+      newGameDb = Representations.gameToDb(updatedGame, rawGameDb.revision)
       // only do DB updates for players that have changed
       updatedPlayerDbs <- Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers)
-      _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
-      _ <- appContext.db.writeGame(newGameDb)
+      _ <- appContext.db.writeGameAndPlayers(newGameDb, updatedPlayerDbs)
     } yield {
       // TODO: this is too much logic for the controller
       winnings match {
@@ -312,10 +300,10 @@ object PokerDot {
       _ <- Games.ensureAdmin(game.players, updateBlind.playerKey)
       now <- appContext.time.now
       updatedGame <- PlayerActions.updateBlind(game, updateBlind, now)
-      newGameDb = Representations.gameToDb(updatedGame)
+      newGameDb = Representations.gameToDb(updatedGame, rawGameDb.revision)
       action <- Games.updateBlindAction(updateBlind)
-      _ <- appContext.db.writeGame(newGameDb)
       // this endpoint won't update players so there's no need to save them
+      _ <- appContext.db.writeGameAndPlayers(newGameDb, Nil)
     } yield Responses.gameStatuses(updatedGame, action, updateBlind.playerId, appContext.playerAddress)
   }
 

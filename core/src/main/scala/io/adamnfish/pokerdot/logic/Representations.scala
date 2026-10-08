@@ -9,7 +9,11 @@ import cats.syntax.*
 
 
 object Representations {
-  def gameToDb(game: Game): GameDb = {
+  /**
+   * The revision is not part of the domain model, so it must be provided.
+   * When writing an existing game, this is the revision that was read.
+   */
+  def gameToDb(game: Game, revision: Long): GameDb = {
     GameDb(
       gameCode = game.gameCode,
       gameId = game.gameId.gid,
@@ -25,7 +29,8 @@ object Representations {
       started = game.started,
       startTime = game.startTime,
       trackStacks = game.trackStacks,
-      timer = game.timer
+      timer = game.timer,
+      revision = revision,
     )
   }
 

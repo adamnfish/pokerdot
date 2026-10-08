@@ -207,7 +207,7 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
 
   "addPlayerIds" - {
     val game = newGame("game name", false, 999L, 123L)
-    val gameDb = Representations.gameToDb(game)
+    val gameDb = Representations.gameToDb(game, revision = 0)
     val player1 = newPlayer(game.gameId, "player name", false, PlayerAddress("address 1"), 1000L)
     val player1Db = Representations.playerToDb(player1)
     val player2 = newPlayer(game.gameId, "player 2 name", false, PlayerAddress("address 2"), 1001L)
@@ -690,7 +690,8 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
   "requireGame" - {
     "returns the gameDb if present" in {
       val gameDb = Representations.gameToDb(
-        newGame("game name", false, 0L, 123L)
+        newGame("game name", false, 0L, 123L),
+        revision = 0,
       )
       requireGame[Try](Some(gameDb), gameDb.gameId).success.value shouldEqual gameDb
     }
