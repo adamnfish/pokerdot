@@ -424,11 +424,11 @@ object Games {
       case None =>
         MonadThrow[F].raiseError {
           Failures(
-            "Couldn't validate host key for player that does not exist",
+            "Couldn't validate admin key for player that does not exist",
             "couldn't find you in the game.",
           )
         }
-      case Some(player) if player.isHost =>
+      case Some(player) if player.isAdmin =>
         MonadThrow[F].pure(player)
       case _ =>
         MonadThrow[F].raiseError {
