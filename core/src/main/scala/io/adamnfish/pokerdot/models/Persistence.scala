@@ -20,6 +20,7 @@ case class GameDb(
   startTime: Long,
   trackStacks: Boolean,
   timer: Option[TimerStatus],
+  revision: Long, // set by Database writes
 )
 
 case class PlayerDb(

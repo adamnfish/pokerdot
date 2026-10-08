@@ -25,7 +25,8 @@ object Representations {
       started = game.started,
       startTime = game.startTime,
       trackStacks = game.trackStacks,
-      timer = game.timer
+      timer = game.timer,
+      revision = 0,
     )
   }
 
