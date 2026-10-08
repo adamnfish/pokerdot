@@ -24,6 +24,7 @@ object Responses {
       Map(newPlayerAddress -> welcomeMessage),
       // we don't want to send a status message to the new player
       statuses.filterNot { case (address, _) => address == newPlayerAddress },
+      Some(game.gameId),
     )
   }
 
@@ -47,6 +48,7 @@ object Responses {
     Response(
       Map.empty,
       fanOut(game, addresses)(player => Representations.gameStatus(game, player, actionSummary)),
+      Some(game.gameId),
     )
   }
 
@@ -59,6 +61,7 @@ object Responses {
     Response(
       fanOut(game, addresses)(player => Representations.roundWinnings(game, player, potWinnings, playerWinnings)),
       Map.empty,
+      Some(game.gameId),
     )
   }
 

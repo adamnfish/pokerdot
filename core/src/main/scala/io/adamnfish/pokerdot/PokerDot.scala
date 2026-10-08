@@ -6,7 +6,7 @@ import cats.implicits.*
 import cats.syntax.all.*
 import io.adamnfish.pokerdot.logic.{Games, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models.*
-import io.adamnfish.pokerdot.services.{Database, Messaging}
+import io.adamnfish.pokerdot.services.{Database, Gone, Messaging}
 import io.adamnfish.pokerdot.validation.Validation.*
 import io.circe.Json
 
@@ -52,7 +52,7 @@ object PokerDot {
             )
           }
       }
-      _ <- sendResponse(response, appContext.messaging)
+      _ <- sendResponse(response, appContext.messaging, appContext.db)
     } yield operation)
       .onError {
         case failures: Failures =>
@@ -63,27 +63,33 @@ object PokerDot {
               // if all the messages were 'internal' then there's no need to send a failure message
               MonadThrow[F].unit
             case externalFailures =>
-              appContext.messaging.sendError(appContext.playerAddress, failures.externalOnly)
+              appContext.messaging.sendError(appContext.playerAddress, failures.externalOnly).void
           }
       }
   }
 
   /**
    * Attempts every send, so one failed connection doesn't stop the others receiving their messages.
+   * Connections that have gone are removed from the game.
    */
-  def sendResponse[F[_] : MonadThrow](response: Response[Message], messaging: Messaging[F]): F[Unit] = {
+  def sendResponse[F[_] : MonadThrow](response: Response[Message], messaging: Messaging[F], db: Database[F]): F[Unit] = {
     val allMessages = response.messages.toList ++ response.statuses.toList
     for {
-      results <- allMessages.traverse { case (address, msg: Message) =>
-        messaging.sendMessage(address, msg).attempt
+      sendResults <- allMessages.traverse { case (address, msg: Message) =>
+        messaging.sendMessage(address, msg).attempt.map(address -> _)
       }
-      _ <- results.collect { case Left(e) => e } match {
+      goneAddresses = sendResults.collect { case (address, Right(Gone)) => address }
+      removalResults <- response.gameId.fold(MonadThrow[F].pure(List.empty[Either[Throwable, Unit]])) { gameId =>
+        goneAddresses.traverse(address => db.removeConnection(gameId, address).attempt)
+      }
+      errors = sendResults.collect { case (_, Left(e)) => e } ++ removalResults.collect { case Left(e) => e }
+      _ <- errors match {
         case Nil =>
           MonadThrow[F].unit
-        case errors =>
+        case _ =>
           MonadThrow[F].raiseError(Failures(errors.flatMap {
             case failures: Failures =>
-              failures.failures
+              failures.failures.map(_.copy(internal = true))
             case e =>
               List(Failure(s"Unexpected error sending message: ${e.getMessage}", "unable to send message", exception = Some(e), internal = true))
           }))

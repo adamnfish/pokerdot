@@ -6,7 +6,7 @@ import io.adamnfish.pokerdot.{TestRng, TestTime}
 import io.adamnfish.pokerdot.models.Serialisation.RequestEncoders.encodeRequest
 import io.adamnfish.pokerdot.models.*
 import io.adamnfish.pokerdot.persistence.DynamoDbDatabase
-import io.adamnfish.pokerdot.services.{Database, Messaging, Rng}
+import io.adamnfish.pokerdot.services.{Database, Messaging, Rng, SendResult, Sent}
 import org.scanamo.LocalDynamoDB
 import org.scanamo.LocalDynamoDB.deleteTable
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
@@ -62,12 +62,12 @@ trait IntegrationComponents {
           testDb,
           // TODO: keep track of sent messages so we can perform assertions on that as well
           new Messaging[IO] {
-            override def sendMessage(playerAddress: PlayerAddress, message: Message): IO[Unit] = {
-              IO.unit
+            override def sendMessage(playerAddress: PlayerAddress, message: Message): IO[SendResult] = {
+              IO.pure(Sent)
             }
 
-            override def sendError(playerAddress: PlayerAddress, message: Failures): IO[Unit] = {
-              IO.unit
+            override def sendError(playerAddress: PlayerAddress, message: Failures): IO[SendResult] = {
+              IO.pure(Sent)
             }
           },
           new TestTime[IO],
@@ -90,6 +90,7 @@ object IntegrationComponents {
       override def writePlayer(playerDb: PlayerDb): IO[Unit] = db.writePlayer(playerDb)
       override def putConnection(connection: ConnectionDb): IO[Unit] = db.putConnection(connection)
       override def getConnections(gameId: GameId): IO[List[ConnectionDb]] = db.getConnections(gameId)
+      override def removeConnection(gameId: GameId, address: PlayerAddress): IO[Unit] = db.removeConnection(gameId, address)
     }
 
   def betRequest(betAmount: Int, welcome: Welcome): String = {

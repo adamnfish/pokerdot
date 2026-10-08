@@ -24,11 +24,11 @@ class DevMessaging[F[_] : Sync : MonadThrow](logMessage: (String, String) => F[U
     }
   }
 
-  override def sendMessage(playerAddress: PlayerAddress, message: Message): F[Unit] = {
+  override def sendMessage(playerAddress: PlayerAddress, message: Message): F[SendResult] = {
     send(playerAddress.address, Serialisation.encodeMessage(message))
   }
 
-  override def sendError(playerAddress: PlayerAddress, message: Failures): F[Unit] = {
+  override def sendError(playerAddress: PlayerAddress, message: Failures): F[SendResult] = {
     send(playerAddress.address, Serialisation.encodeFailure(message))
   }
 
@@ -36,31 +36,22 @@ class DevMessaging[F[_] : Sync : MonadThrow](logMessage: (String, String) => F[U
    * send failures are internal so clients are not distracted by
    * constant warnings after someone leaves the game.
    */
-  private def send(recipientId: String, body: String): F[Unit] = {
-    for {
-      wctx <- MonadThrow[F].fromOption(
-        connections.get(recipientId),
-        Failures("User not connected", "connection not found", internal = true)
-      )
-      _ <-
-        if (wctx.session.isOpen) {
-          MonadThrow[F].unit
-        } else {
-          MonadThrow[F].raiseError {
-            Failures("Connection has closed", "connection closed", internal = true)
+  private def send(recipientId: String, body: String): F[SendResult] = {
+    connections.get(recipientId).filter(_.session.isOpen) match {
+      case None =>
+        MonadThrow[F].pure(Gone)
+      case Some(wctx) =>
+        for {
+          _ <- Sync[F].blocking {
+            wctx.send(body)
+            ()
+          }.adaptError { case err =>
+            Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err), internal = true)
           }
-        }
-      result <- {
-        Sync[F].blocking {
-          wctx.send(body)
-          ()
-        }.adaptError { case err =>
-          Failures("Error sending websocket message with wctx", "could not send message", exception = Some(err), internal = true)
-        }
-      }
-      _ <- Sync[F].blocking(logMessage(recipientId, body)).adaptError { err =>
-        Failures("Error logging websocket message", "could not log message", exception = Some(err), internal = true)
-      }
-    } yield result
+          _ <- Sync[F].blocking(logMessage(recipientId, body)).adaptError { err =>
+            Failures("Error logging websocket message", "could not log message", exception = Some(err), internal = true)
+          }
+        } yield Sent
+    }
   }
 }
