@@ -157,6 +157,7 @@ This template sets up:
 * The game's database tables
   * Games table
   * Players table
+  * Connections table
 
 The outputs of this template are used as inputs for the application
 template, so it must be created first.

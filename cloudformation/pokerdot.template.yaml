@@ -18,6 +18,7 @@ Metadata:
           - DistBucket
           - GamesTableName
           - PlayersTableName
+          - ConnectionsTableName
       - Label:
           default: Static site
         Parameters:
@@ -50,6 +51,13 @@ Parameters:
   PlayersTableName:
     Type: String
     Description: Players DynamoDB table name (check output of storage stack)
+    MinLength: 3
+    MaxLength: 255
+    AllowedPattern: ^[A-Za-z_-]+$
+    ConstraintDescription: Can be characters and underscore/hyphen only. No numbers or special characters allowed.
+  ConnectionsTableName:
+    Type: String
+    Description: Connections DynamoDB table name (check output of storage stack)
     MinLength: 3
     MaxLength: 255
     AllowedPattern: ^[A-Za-z_-]+$
@@ -160,6 +168,7 @@ Resources:
         Variables:
           GAMES_TABLE: !Ref GamesTableName
           PLAYERS_TABLE: !Ref PlayersTableName
+          CONNECTIONS_TABLE: !Ref ConnectionsTableName
           ORIGIN_LOCATION: !Sub "pokerdot.${DomainName}"
           API_ORIGIN_LOCATION: !Sub "${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/$default"
           REGION: !Ref AWS::Region
@@ -168,6 +177,8 @@ Resources:
             TableName: !Ref GamesTableName
         - DynamoDBCrudPolicy:
             TableName: !Ref PlayersTableName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTableName
         - Statement:
             - Effect: Allow
               Action:
@@ -276,6 +287,10 @@ Outputs:
   PlayersTable:
     Description: "Players table name"
     Value: !Ref PlayersTableName
+
+  ConnectionsTable:
+    Description: "Connections table name"
+    Value: !Ref ConnectionsTableName
 
   BackendLambdaArn:
     Description: "backend lambda ARN"
