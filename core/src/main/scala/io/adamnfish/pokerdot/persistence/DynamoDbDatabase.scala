@@ -132,23 +132,29 @@ class DynamoDbDatabase[F[_]: Async](
       result: Either[DynamoReadError, A]
   ): F[A] = {
     Async[F].fromEither {
-      result.left.map { dre =>
-        Failures(
-          s"DynamoReadError: $dre",
-          "error reading saved data",
-          None,
-          None
-        )
-      }
+      result.left.map(dynamoReadFailure)
     }
   }
 
+  private def dynamoReadFailure(dre: DynamoReadError): Failures = {
+    Failures(
+      s"DynamoReadError: ${DynamoReadError.describe(dre)}",
+      "error reading saved data",
+      exception = dre match {
+        case TypeCoercionError(t) => Some(t)
+        case _ => None
+      }
+    )
+  }
+
   private def handleDbErr[A](fa: F[A]): F[A] =
-    Async[F].adaptError(fa) { case NonFatal(err) =>
-      Failures(
-        "unhandled DynamoDB error",
-        "error fetching saved data",
-        exception = Some(err)
-      )
+    Async[F].adaptError(fa) {
+      case failures: Failures => failures
+      case NonFatal(err) =>
+        Failures(
+          "unhandled DynamoDB error",
+          "error fetching saved data",
+          exception = Some(err)
+        )
     }
 }
