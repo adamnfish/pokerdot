@@ -20,11 +20,7 @@ trait Database[F[_]] {
 
   def writePlayer(playerDB: PlayerDb): F[Unit]
 
-  /**
-   * Updates only the player's address, so this cannot overwrite gameplay
-   * changes made by a concurrent request. Fails if the player does not exist.
-   */
-  def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): F[Unit]
+  def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): F[PlayerDb]
 }
 
 object Database {

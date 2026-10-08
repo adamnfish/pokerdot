@@ -132,7 +132,7 @@ class DynamoDbDatabase[F[_]: Async](
       gameId: GameId,
       playerId: PlayerId,
       playerAddress: PlayerAddress
-  ): F[Unit] = {
+  ): F[PlayerDb] = {
     for {
       result <- handleDbErr(
         scanamo.exec(
@@ -144,19 +144,13 @@ class DynamoDbDatabase[F[_]: Async](
             )
         )
       )
-      _ <- Async[F].fromEither(result.left.map {
-        case ConditionNotMet(_) =>
-          Failures(
-            s"Cannot update address for player ${playerId.pid} that does not exist in game ${gameId.gid}",
-            "couldn't find you in the game."
-          )
-        case scanamoError =>
-          Failures(
-            s"ScanamoError updating player address: $scanamoError",
-            "error saving data"
-          )
-      })
-    } yield ()
+      playerDb <- handleConditionalWriteErr(result) {
+        Failures(
+          s"Cannot update address for player ${playerId.pid} that does not exist in game ${gameId.gid}",
+          "couldn't find you in the game."
+        )
+      }
+    } yield playerDb
   }
 
   private def handleDbReadErr[A](
@@ -170,6 +164,24 @@ class DynamoDbDatabase[F[_]: Async](
           None,
           None
         )
+      }
+    }
+  }
+
+  private def handleConditionalWriteErr[A](
+      result: Either[ScanamoError, A]
+  )(conditionNotMet: => Failures): F[A] = {
+    Async[F].fromEither {
+      result.left.map {
+        case ConditionNotMet(_) =>
+          conditionNotMet
+        case scanamoError =>
+          Failures(
+            s"ScanamoError: $scanamoError",
+            "error saving data",
+            None,
+            None
+          )
       }
     }
   }

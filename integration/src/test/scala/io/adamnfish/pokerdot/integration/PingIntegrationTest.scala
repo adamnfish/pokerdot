@@ -42,12 +42,17 @@ class PingIntegrationTest
             .fold(IO.unit)(playerDb => db.writePlayer(playerDb.copy(stack = 500)))
         }
         pingContext = context(newHostAddress).copy(db = concurrentDb)
-        _ <- PokerDot.ping[IO](parseReq(pingRequest(welcome)), pingContext)
+        response <- PokerDot.ping[IO](parseReq(pingRequest(welcome)), pingContext)
         playerDbs <- db.getPlayers(welcome.gameId)
         hostDb = playerDbs.find(_.playerId == welcome.playerId.pid).value
       } yield {
         hostDb.playerAddress shouldEqual newHostAddress.address
         hostDb.stack shouldEqual 500
+        // the response reflects the stored player, not the one read before the concurrent change
+        response.messages.get(newHostAddress).value.self match {
+          case self: SelfSummary => self.stack shouldEqual 500
+          case other => fail(s"expected a player summary, got $other")
+        }
       }
     }
   }
@@ -84,7 +89,7 @@ class PingIntegrationTest
       override def getPlayers(gameId: GameId): IO[List[PlayerDb]] = db.getPlayers(gameId).flatTap(effect)
       override def writeGame(gameDB: GameDb): IO[Unit] = db.writeGame(gameDB)
       override def writePlayer(playerDB: PlayerDb): IO[Unit] = db.writePlayer(playerDB)
-      override def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): IO[Unit] =
+      override def updatePlayerAddress(gameId: GameId, playerId: PlayerId, playerAddress: PlayerAddress): IO[PlayerDb] =
         db.updatePlayerAddress(gameId, playerId, playerAddress)
     }
 }
