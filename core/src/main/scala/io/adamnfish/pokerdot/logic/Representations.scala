@@ -106,7 +106,7 @@ object Representations {
   def gameFromDb[F[_] : MonadThrow](gameDb: GameDb, playerDbs: List[PlayerDb]): F[Game] = {
     for {
       // checks we have a player db for each player / spectator ID in the game
-      playerDbs <- gameDb.playerIds.traverse(lookupPlayerDb(gameDb.gameId, playerDbs))
+      orderedPlayerDbs <- gameDb.playerIds.traverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       spectatorDbs <- gameDb.spectatorIds.traverse(lookupPlayerDb(gameDb.gameId, playerDbs))
       // make sure the current player exists
       inTurn <- gameDb.inTurn
@@ -119,7 +119,7 @@ object Representations {
         gameId = GameId(gameDb.gameId),
         gameCode = gameDb.gameCode,
         gameName = gameDb.gameName,
-        players = playerDbs.map(playerFromDb),
+        players = orderedPlayerDbs.map(playerFromDb),
         spectators = spectatorDbs.map(spectatorFromDb),
         seed = gameDb.seed,
         round = round,
