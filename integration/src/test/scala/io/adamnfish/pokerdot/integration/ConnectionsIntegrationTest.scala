@@ -52,7 +52,10 @@ class ConnectionsIntegrationTest
         welcome <- createGameFixture(context)
         concurrentDb = afterGetPlayers(db) { playerDbs =>
           val hostDb = playerDbs.find(_.playerId == welcome.playerId.pid).value
-          db.writePlayer(hostDb.copy(stack = 500))
+          for {
+            gameDb <- db.getGame(welcome.gameId).map(_.value)
+            _ <- db.writeGame(gameDb, gameDb, List(hostDb.copy(stack = 500)))
+          } yield ()
         }
         _ <- ping(welcome, context(secondHostAddress).copy(db = concurrentDb))
         playerDbs <- db.getPlayers(welcome.gameId)

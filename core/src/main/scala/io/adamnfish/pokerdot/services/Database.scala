@@ -7,6 +7,11 @@ import cats.data._
 import cats.syntax.all._
 
 
+/**
+ * Game writes are conditional on the revision of the game that was read, so a write based on stale data fails.
+ * Handlers always read the game before its players, and players are only written alongside the game,
+ * so the game's revision check also protects the players.
+ */
 trait Database[F[_]] {
   def getGame(gameId: GameId): F[Option[GameDb]]
 
@@ -16,9 +21,17 @@ trait Database[F[_]] {
 
   def getPlayers(gameId: GameId): F[List[PlayerDb]]
 
-  def writeGame(gameDB: GameDb): F[Unit]
+  def createGame(gameDb: GameDb, playerDb: PlayerDb, connection: ConnectionDb): F[Unit]
 
-  def writePlayer(playerDB: PlayerDb): F[Unit]
+  /**
+   * Fails if the game has changed since it was read, i.e. it has started.
+   */
+  def addPlayer(readGame: GameDb, playerDb: PlayerDb, connection: ConnectionDb): F[Unit]
+
+  /**
+   * Writes the new game and the players atomically, if the game is still at the read game's revision.
+   */
+  def writeGame(readGame: GameDb, newGame: GameDb, players: List[PlayerDb]): F[Unit]
 
   def putConnection(connection: ConnectionDb): F[Unit]
 

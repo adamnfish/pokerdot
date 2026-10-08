@@ -40,8 +40,9 @@ class SendResponseTest extends AnyFreeSpec with Matchers {
     override def lookupGame(gameCode: String): Result[Option[GameDb]] = ???
     override def searchGameCode(gameCode: String): Result[List[GameDb]] = ???
     override def getPlayers(gameId: GameId): Result[List[PlayerDb]] = ???
-    override def writeGame(gameDB: GameDb): Result[Unit] = ???
-    override def writePlayer(playerDB: PlayerDb): Result[Unit] = ???
+    override def createGame(gameDb: GameDb, playerDb: PlayerDb, connection: ConnectionDb): Result[Unit] = ???
+    override def addPlayer(readGame: GameDb, playerDb: PlayerDb, connection: ConnectionDb): Result[Unit] = ???
+    override def writeGame(readGame: GameDb, newGame: GameDb, players: List[PlayerDb]): Result[Unit] = ???
     override def putConnection(connection: ConnectionDb): Result[Unit] = ???
     override def getConnections(gameId: GameId): Result[List[ConnectionDb]] = ???
   }

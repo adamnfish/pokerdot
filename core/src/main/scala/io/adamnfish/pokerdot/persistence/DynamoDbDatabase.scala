@@ -44,7 +44,7 @@ class DynamoDbDatabase[F[_]: Async](
     for {
       maybeResult <- handleDbErr(
         scanamo.exec[Option[Either[DynamoReadError, GameDb]]](
-          games.get("gameCode" === gameCode and "gameId" === gameId.gid)
+          games.consistently.get("gameCode" === gameCode and "gameId" === gameId.gid)
         )
       )
       maybeGameDb <- maybeResult.fold[F[Option[GameDb]]](Async[F].pure(None)) {
@@ -68,7 +68,7 @@ class DynamoDbDatabase[F[_]: Async](
       for {
         results <- handleDbErr(
           scanamo.exec(
-            games.query(
+            games.consistently.query(
               "gameCode" === gameCode and ("gameId" beginsWith gameCode)
             )
           )
@@ -121,22 +121,56 @@ class DynamoDbDatabase[F[_]: Async](
   override def getPlayers(gameId: GameId): F[List[PlayerDb]] = {
     for {
       results <- handleDbErr(
-        scanamo.exec(players.query("gameId" === gameId.gid))
+        scanamo.exec(players.consistently.query("gameId" === gameId.gid))
       )
       players <- results.traverse(handleDbReadErr)
     } yield players
   }
 
-  override def writeGame(gameDB: GameDb): F[Unit] = {
-    for {
-      result <- handleDbErr(scanamo.exec(games.put(gameDB)))
-    } yield result
+  override def createGame(gameDb: GameDb, playerDb: PlayerDb, connection: ConnectionDb): F[Unit] = {
+    handleDbErr(
+      DynamoDbDatabase.runTransaction(
+        client,
+        DynamoDbDatabase.conditionalPut(gameTableName, gameDb, attributeNotExists("gameId")) ->
+          Failure(s"Game ${gameDb.gameId} already exists", "couldn't create the game, please try again."),
+        DynamoDbDatabase.conditionalPut(playerTableName, playerDb, attributeNotExists("playerId")) ->
+          Failure(s"Player ${playerDb.playerId} already exists", "couldn't create the game, please try again."),
+        DynamoDbDatabase.put(connectionTableName, connection) ->
+          Failure(s"Couldn't save connection ${connection.address}", "couldn't create the game, please try again."),
+      )
+    )
   }
 
-  override def writePlayer(playerDB: PlayerDb): F[Unit] = {
-    for {
-      result <- handleDbErr(scanamo.exec(players.put(playerDB)))
-    } yield result
+  override def addPlayer(readGame: GameDb, playerDb: PlayerDb, connection: ConnectionDb): F[Unit] = {
+    handleDbErr(
+      DynamoDbDatabase.runTransaction(
+        client,
+        DynamoDbDatabase.conditionCheck(gameTableName, gameKey(readGame), "revision" === readGame.revision) ->
+          Failure(s"Game ${readGame.gameId} has changed since revision ${readGame.revision}, cannot add player", "the game has already started."),
+        DynamoDbDatabase.conditionalPut(playerTableName, playerDb, attributeNotExists("playerId")) ->
+          Failure(s"Player ${playerDb.playerId} already exists", "couldn't join the game, please try again."),
+        DynamoDbDatabase.put(connectionTableName, connection) ->
+          Failure(s"Couldn't save connection ${connection.address}", "couldn't join the game, please try again."),
+      )
+    )
+  }
+
+  override def writeGame(readGame: GameDb, newGame: GameDb, players: List[PlayerDb]): F[Unit] = {
+    val gameWrite = DynamoDbDatabase.conditionalPut(
+      gameTableName,
+      newGame.copy(revision = readGame.revision + 1),
+      "revision" === readGame.revision
+    ) -> DynamoDbDatabase.concurrentChangeFailure.copy(
+      logMessage = s"Game ${readGame.gameId} has changed since revision ${readGame.revision}"
+    )
+    val playerWrites = players.map { playerDb =>
+      DynamoDbDatabase.conditionalPut(playerTableName, playerDb, attributeExists("playerId")) ->
+        Failure(
+          s"Player ${playerDb.playerId} does not exist in game ${readGame.gameId}",
+          "there was a problem trying to save a user that could not be found.",
+        )
+    }
+    handleDbErr(DynamoDbDatabase.runTransaction(client, gameWrite :: playerWrites*))
   }
 
   override def putConnection(connection: ConnectionDb): F[Unit] = {
@@ -155,6 +189,9 @@ class DynamoDbDatabase[F[_]: Async](
   override def removeConnection(gameId: GameId, address: PlayerAddress): F[Unit] = {
     handleDbErr(scanamo.exec(connections.delete("gameId" === gameId.gid and "address" === address.address)))
   }
+
+  private def gameKey(gameDb: GameDb): UniqueKey[?] =
+    "gameCode" === gameDb.gameCode and "gameId" === gameDb.gameId
 
   private def handleDbReadErr[A](
       result: Either[DynamoReadError, A]

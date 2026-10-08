@@ -86,8 +86,12 @@ object IntegrationComponents {
       override def lookupGame(gameCode: String): IO[Option[GameDb]] = db.lookupGame(gameCode)
       override def searchGameCode(gameCode: String): IO[List[GameDb]] = db.searchGameCode(gameCode)
       override def getPlayers(gameId: GameId): IO[List[PlayerDb]] = db.getPlayers(gameId).flatTap(effect)
-      override def writeGame(gameDb: GameDb): IO[Unit] = db.writeGame(gameDb)
-      override def writePlayer(playerDb: PlayerDb): IO[Unit] = db.writePlayer(playerDb)
+      override def createGame(gameDb: GameDb, playerDb: PlayerDb, connection: ConnectionDb): IO[Unit] =
+        db.createGame(gameDb, playerDb, connection)
+      override def addPlayer(readGame: GameDb, playerDb: PlayerDb, connection: ConnectionDb): IO[Unit] =
+        db.addPlayer(readGame, playerDb, connection)
+      override def writeGame(readGame: GameDb, newGame: GameDb, players: List[PlayerDb]): IO[Unit] =
+        db.writeGame(readGame, newGame, players)
       override def putConnection(connection: ConnectionDb): IO[Unit] = db.putConnection(connection)
       override def getConnections(gameId: GameId): IO[List[ConnectionDb]] = db.getConnections(gameId)
       override def removeConnection(gameId: GameId, address: PlayerAddress): IO[Unit] = db.removeConnection(gameId, address)
