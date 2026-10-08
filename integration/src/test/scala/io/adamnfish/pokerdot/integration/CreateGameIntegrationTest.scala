@@ -107,6 +107,20 @@ class CreateGameIntegrationTest
       }
     }
 
+    "persists the host's connection" in appContextRes.use { (context, db) =>
+      for {
+        response <- performCreateGame(
+          createGameRequest,
+          context(hostAddress),
+          initialSeed
+        )
+        welcomeMessage = response.messages.get(hostAddress).value
+        connections <- db.getConnections(welcomeMessage.gameId)
+      } yield connections.map(c => (c.address, c.playerId)) shouldEqual List(
+        (hostAddress.address, welcomeMessage.playerId.pid)
+      )
+    }
+
     "persists the saved host to the database" - {
       "with some key fields" in appContextRes.use { (context, db) =>
         for {

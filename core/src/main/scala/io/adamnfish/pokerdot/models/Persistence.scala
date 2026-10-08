@@ -26,7 +26,6 @@ case class PlayerDb(
   gameId: String,   // partition
   playerId: String, // sort
   expiry: Long,
-  playerAddress: String,
   playerKey: String,
   screenName: String,
   stack: Int,
@@ -41,4 +40,11 @@ case class PlayerDb(
   isAdmin: Boolean,
   blind: Int,
   isSpectator: Boolean,
+)
+
+case class ConnectionDb(
+  gameId: String,  // partition
+  address: String, // sort
+  playerId: String,
+  expiry: Long,
 )

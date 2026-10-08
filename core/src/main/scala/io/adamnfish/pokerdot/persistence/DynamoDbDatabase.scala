@@ -18,7 +18,8 @@ import scala.util.control.NonFatal
 class DynamoDbDatabase[F[_]: Async](
     client: DynamoDbAsyncClient,
     gameTableName: String,
-    playerTableName: String
+    playerTableName: String,
+    connectionTableName: String,
 ) extends Database[F] {
   private val scanamo = ScanamoCats[F](client)
   // TODO: switch DB models to use PlayerId?
@@ -26,6 +27,7 @@ class DynamoDbDatabase[F[_]: Async](
 
   private val games = Table[GameDb](gameTableName)
   private val players = Table[PlayerDb](playerTableName)
+  private val connections = Table[ConnectionDb](connectionTableName)
 
   // TODO: consider whether this should just derive a gameCode and call lookup
   override def getGame(gameId: GameId): F[Option[GameDb]] = {
@@ -126,6 +128,19 @@ class DynamoDbDatabase[F[_]: Async](
     for {
       result <- handleDbErr(scanamo.exec(players.put(playerDB)))
     } yield result
+  }
+
+  override def putConnection(connection: ConnectionDb): F[Unit] = {
+    handleDbErr(scanamo.exec(connections.put(connection)))
+  }
+
+  override def getConnections(gameId: GameId): F[List[ConnectionDb]] = {
+    for {
+      results <- handleDbErr(
+        scanamo.exec(connections.query("gameId" === gameId.gid))
+      )
+      connections <- results.traverse(handleDbReadErr)
+    } yield connections
   }
 
   private def handleDbReadErr[A](

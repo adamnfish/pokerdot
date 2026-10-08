@@ -34,7 +34,8 @@ trait IntegrationComponents {
       randomSuffix <- IO(randomUUID().toString).toResource
       gameTableName = s"games-$randomSuffix"
       playerTableName = s"players-$randomSuffix"
-      testDb = new DynamoDbDatabase[IO](client, gameTableName, playerTableName)
+      connectionTableName = s"connections-$randomSuffix"
+      testDb = new DynamoDbDatabase[IO](client, gameTableName, playerTableName, connectionTableName)
       testRng = new TestRng[IO]
       _ <- Resource.make(
         IO {
@@ -45,6 +46,12 @@ trait IntegrationComponents {
       _ <- Resource.make(
         IO {
           val response = LocalDynamoDB.createTable(client)(playerTableName)("gameId" -> S, "playerId" -> S)
+          response.tableDescription().tableName()
+        }
+      )(tableName => IO(deleteTable(client)(tableName)))
+      _ <- Resource.make(
+        IO {
+          val response = LocalDynamoDB.createTable(client)(connectionTableName)("gameId" -> S, "address" -> S)
           response.tableDescription().tableName()
         }
       )(tableName => IO(deleteTable(client)(tableName)))
@@ -70,6 +77,21 @@ trait IntegrationComponents {
     } yield (addressToContext, testDb)
 }
 object IntegrationComponents {
+  /**
+   * Runs the effect after players are read, to simulate a concurrent request between a read and a write.
+   */
+  def afterGetPlayers(db: Database[IO])(effect: List[PlayerDb] => IO[Unit]): Database[IO] =
+    new Database[IO] {
+      override def getGame(gameId: GameId): IO[Option[GameDb]] = db.getGame(gameId)
+      override def lookupGame(gameCode: String): IO[Option[GameDb]] = db.lookupGame(gameCode)
+      override def searchGameCode(gameCode: String): IO[List[GameDb]] = db.searchGameCode(gameCode)
+      override def getPlayers(gameId: GameId): IO[List[PlayerDb]] = db.getPlayers(gameId).flatTap(effect)
+      override def writeGame(gameDb: GameDb): IO[Unit] = db.writeGame(gameDb)
+      override def writePlayer(playerDb: PlayerDb): IO[Unit] = db.writePlayer(playerDb)
+      override def putConnection(connection: ConnectionDb): IO[Unit] = db.putConnection(connection)
+      override def getConnections(gameId: GameId): IO[List[ConnectionDb]] = db.getConnections(gameId)
+    }
+
   def betRequest(betAmount: Int, welcome: Welcome): String = {
     val request = Bet(welcome.gameId, welcome.playerKey, welcome.playerId, betAmount)
     encodeRequest(request).noSpaces

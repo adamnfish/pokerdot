@@ -23,4 +23,13 @@ object DevServerDB {
       )
     }
   }
+
+  def createConnectionsTable(client: DynamoDbAsyncClient): IO[Unit] = {
+    IO.blocking {
+      LocalDynamoDB.createTable(client)("connections")(
+        "gameId" -> S,
+        "address" -> S
+      )
+    }
+  }
 }
