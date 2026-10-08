@@ -6,7 +6,7 @@ import cats.implicits.*
 import cats.syntax.all.*
 import io.adamnfish.pokerdot.logic.{Games, PlayerActions, Representations, Responses}
 import io.adamnfish.pokerdot.models.*
-import io.adamnfish.pokerdot.services.Database
+import io.adamnfish.pokerdot.services.{Database, Messaging}
 import io.adamnfish.pokerdot.validation.Validation.*
 import io.circe.Json
 
@@ -52,11 +52,7 @@ object PokerDot {
             )
           }
       }
-      // send messages
-      allMessages = response.messages.toList ++ response.statuses.toList
-      _ <- allMessages.traverse { case (address, msg: Message) =>
-        appContext.messaging.sendMessage(address, msg)
-      }
+      _ <- sendResponse(response, appContext.messaging)
     } yield operation)
       .onError {
         case failures: Failures =>
@@ -70,6 +66,29 @@ object PokerDot {
               appContext.messaging.sendError(appContext.playerAddress, failures.externalOnly)
           }
       }
+  }
+
+  /**
+   * Attempts every send, so one failed connection doesn't stop the others receiving their messages.
+   */
+  def sendResponse[F[_] : MonadThrow](response: Response[Message], messaging: Messaging[F]): F[Unit] = {
+    val allMessages = response.messages.toList ++ response.statuses.toList
+    for {
+      results <- allMessages.traverse { case (address, msg: Message) =>
+        messaging.sendMessage(address, msg).attempt
+      }
+      _ <- results.collect { case Left(e) => e } match {
+        case Nil =>
+          MonadThrow[F].unit
+        case errors =>
+          MonadThrow[F].raiseError(Failures(errors.flatMap {
+            case failures: Failures =>
+              failures.failures
+            case e =>
+              List(Failure(s"Unexpected error sending message: ${e.getMessage}", "unable to send message", exception = Some(e), internal = true))
+          }))
+      }
+    } yield ()
   }
 
   // OPERATIONS
