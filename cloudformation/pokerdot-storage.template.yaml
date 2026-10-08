@@ -111,6 +111,34 @@ Resources:
         - Key: "resource"
           Value: "players"
 
+  ConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "pokerdot-connections-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: True
+      TimeToLiveSpecification:
+        AttributeName: "expiry"
+        Enabled: true
+      AttributeDefinitions:
+        - AttributeName: "gameId"
+          AttributeType: "S"
+        - AttributeName: "address"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "gameId"
+          KeyType: "HASH"
+        - AttributeName: "address"
+          KeyType: "RANGE"
+      Tags:
+        - Key: "app"
+          Value: "pokerdot"
+        - Key: "stage"
+          Value: !Ref Stage
+        - Key: "resource"
+          Value: "connections"
+
   # GitHub Actions OIDC role for CI/CD deployments
   GitHubActionsRole:
     Type: AWS::IAM::Role
@@ -189,6 +217,10 @@ Outputs:
   PlayersTableName:
     Description: "Players table name"
     Value: !Ref PlayersTable
+
+  ConnectionsTableName:
+    Description: "Connections table name"
+    Value: !Ref ConnectionsTable
 
   WebrootBucketName:
     Description: "Webroot bucket's name"
