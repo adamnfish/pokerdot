@@ -28,7 +28,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
       val player = newPlayer(rawGame.gameId, "player", true, PlayerAddress("player-address"), 0L)
       val spectator = newSpectator(rawGame.gameId, "spectator", false, PlayerAddress("spectator-address"), 0L)
       val game = rawGame.copy(players = List(player), spectators = List(spectator))
-      val gameDb = gameToDb(game)
+      val gameDb = gameToDb(game, revision = 0)
       val playerDbs = List(playerToDb(player), spectatorToDb(spectator))
       val reconstructedGame = gameFromDb[Try](gameDb, playerDbs).success.value
       reconstructedGame shouldEqual game
