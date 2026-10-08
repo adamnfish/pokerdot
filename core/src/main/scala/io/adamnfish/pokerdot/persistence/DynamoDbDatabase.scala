@@ -9,8 +9,16 @@ import io.adamnfish.pokerdot.models.*
 import io.adamnfish.pokerdot.services.Database
 import org.scanamo.*
 import org.scanamo.generic.auto.*
+import org.scanamo.query.{ConditionExpression, UniqueKey}
 import org.scanamo.syntax.*
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import software.amazon.awssdk.services.dynamodb.model.{
+  ConditionCheck,
+  Put,
+  TransactWriteItem,
+  TransactWriteItemsRequest,
+  TransactionCanceledException
+}
 
 import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
@@ -176,4 +184,72 @@ class DynamoDbDatabase[F[_]: Async](
           exception = Some(err)
         )
     }
+}
+
+/**
+ * Scanamo's transactions drop the conditions on puts, so we build transaction items ourselves.
+ */
+object DynamoDbDatabase {
+  val concurrentChangeFailure: Failure = Failure(
+    "Transaction conflicted with a concurrent change",
+    "someone else changed the game at the same time, please check and try again.",
+  )
+
+  def put[V: DynamoFormat](tableName: String, item: V): TransactWriteItem = {
+    TransactWriteItem.builder().put(
+      Put.builder()
+        .tableName(tableName)
+        .item(DynamoFormat[V].write(item).asObject.get.toJavaMap)
+        .build()
+    ).build()
+  }
+
+  def conditionalPut[V: DynamoFormat, C: ConditionExpression](tableName: String, item: V, condition: C): TransactWriteItem = {
+    val requestCondition = ConditionExpression[C].apply(condition).runEmptyA.value
+    TransactWriteItem.builder().put(
+      Put.builder()
+        .tableName(tableName)
+        .item(DynamoFormat[V].write(item).asObject.get.toJavaMap)
+        .conditionExpression(requestCondition.expression)
+        .expressionAttributeNames(requestCondition.attributes.names.asJava)
+        .expressionAttributeValues(requestCondition.attributes.values.toExpressionAttributeValues.orNull)
+        .build()
+    ).build()
+  }
+
+  def conditionCheck[C: ConditionExpression](tableName: String, key: UniqueKey[?], condition: C): TransactWriteItem = {
+    val requestCondition = ConditionExpression[C].apply(condition).runEmptyA.value
+    TransactWriteItem.builder().conditionCheck(
+      ConditionCheck.builder()
+        .tableName(tableName)
+        .key(key.toDynamoObject.toJavaMap)
+        .conditionExpression(requestCondition.expression)
+        .expressionAttributeNames(requestCondition.attributes.names.asJava)
+        .expressionAttributeValues(requestCondition.attributes.values.toExpressionAttributeValues.orNull)
+        .build()
+    ).build()
+  }
+
+  /**
+   * Each write is paired with the failure to report if its condition isn't met.
+   */
+  def runTransaction[F[_]: Async](client: DynamoDbAsyncClient, writes: (TransactWriteItem, Failure)*): F[Unit] = {
+    val request = TransactWriteItemsRequest.builder().transactItems(writes.map(_._1).asJava).build()
+    Async[F].fromCompletableFuture(Async[F].delay(client.transactWriteItems(request))).void
+      .adaptError {
+        case e: TransactionCanceledException =>
+          transactionFailure(e, writes.map(_._2))
+      }
+  }
+
+  /**
+   * Cancellation reasons line up with the transaction's items.
+   * Unrecognised cancellations are returned unchanged.
+   */
+  def transactionFailure(e: TransactionCanceledException, conditionFailures: Seq[Failure]): Throwable = {
+    val codes = e.cancellationReasons.asScala.map(reason => Option(reason.code)).toList
+    codes.zip(conditionFailures).collectFirst { case (Some("ConditionalCheckFailed"), failure) => failure }
+      .orElse(Option.when(codes.contains(Some("TransactionConflict")))(concurrentChangeFailure))
+      .fold[Throwable](e)(_.copy(exception = Some(e)).asFailures)
+  }
 }
