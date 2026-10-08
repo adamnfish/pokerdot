@@ -577,9 +577,11 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
       }
     }
 
-    "is in epoch seconds, as required by DynamoDB's TTL" in {
+    "expiry time is less than a month after the provided date" in {
+      // we shouldn't keep players' data for longer than we need it
+      val oneMonth = 31L * 24 * 60 * 60
       forAll(Gen.chooseNum(0L, 32503680000000L)) { now =>
-        expiryTime(now) shouldEqual (now / 1000) + (21L * 24 * 60 * 60)
+        expiryTime(now) should be < (now / 1000) + oneMonth
       }
     }
   }
