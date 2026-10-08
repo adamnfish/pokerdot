@@ -83,12 +83,6 @@ object Representations {
     players.map(playerToDb)
   }
 
-  def activePlayerDbs(players: List[Player]): List[PlayerDb] = {
-    players.map(playerToDb).filterNot { pdb =>
-      pdb.folded || pdb.busted
-    }
-  }
-
   def filteredPlayerDbs[F[_] : MonadThrow](players: List[Player], allowlist: Set[PlayerId]): F[List[PlayerDb]] = {
     val filtered = allPlayerDbs(players.filter(p => allowlist.contains(p.playerId)))
     if (filtered.isEmpty) {

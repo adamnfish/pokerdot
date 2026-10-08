@@ -72,36 +72,6 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
     }
   }
 
-  "activePlayerDbs" - {
-    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0L)
-    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0L)
-    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0L)
-
-    "includes active players" in {
-      activePlayerDbs(List(
-        p1,
-        p2,
-        p3,
-      )).map(_.screenName) should contain.allOf("player-1", "player-2", "player-3")
-    }
-
-    "does not include a folded player" in {
-      activePlayerDbs(List(
-        p1,
-        p2,
-        p3.copy(folded = true),
-      )).map(_.screenName).toSet should not contain("player-3")
-    }
-
-    "does not include a busted player" in {
-      activePlayerDbs(List(
-        p1,
-        p2.copy(busted = true),
-        p3,
-      )).map(_.screenName) should not contain("player-2")
-    }
-  }
-
   "filteredPlayerDbs" - {
     val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0L)
     val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0L)

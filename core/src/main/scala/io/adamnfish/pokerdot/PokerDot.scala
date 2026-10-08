@@ -197,9 +197,9 @@ object PokerDot {
       rawPlayer <- Games.ensurePlayerKey(rawGame.players, bet.playerId, bet.playerKey)
       _ <- Games.ensureActive(rawGame.inTurn, bet.playerId)
       betResult <- PlayerActions.bet(rawGame, bet.betAmount, rawPlayer)
-      (newGame, action) = betResult
+      (newGame, updatedPlayerIds, action) = betResult
       // obtain DB representations for persistence
-      updatedPlayerDbs = Representations.activePlayerDbs(newGame.players)
+      updatedPlayerDbs <- Representations.filteredPlayerDbs(newGame.players, updatedPlayerIds)
       newGameDb = Representations.gameToDb(newGame)
       // save this player
       _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
