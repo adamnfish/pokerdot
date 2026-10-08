@@ -8,6 +8,7 @@ import io.adamnfish.pokerdot.models.*
 import io.adamnfish.pokerdot.services.Database
 import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
 import org.scalatest.OptionValues
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -63,7 +64,12 @@ class PingIntegrationTest
       result <- db.updatePlayerAddress(welcome.gameId, PlayerId("not-a-player"), newHostAddress).attempt
       playerDbs <- db.getPlayers(welcome.gameId)
     } yield {
-      result.isLeft shouldEqual true
+      result match {
+        case Left(failures: Failures) =>
+          failures.exception.value shouldBe a[ConditionalCheckFailedException]
+        case other =>
+          fail(s"expected the update to fail, got $other")
+      }
       playerDbs.map(_.playerId) should not contain "not-a-player"
     }
   }

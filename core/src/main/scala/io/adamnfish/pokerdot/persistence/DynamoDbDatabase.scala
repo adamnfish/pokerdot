@@ -11,6 +11,7 @@ import org.scanamo.*
 import org.scanamo.generic.auto.*
 import org.scanamo.syntax.*
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
 
 import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
@@ -144,10 +145,11 @@ class DynamoDbDatabase[F[_]: Async](
             )
         )
       )
-      playerDb <- handleConditionalWriteErr(result) {
+      playerDb <- handleConditionalWriteErr(result) { e =>
         Failures(
           s"Cannot update address for player ${playerId.pid} that does not exist in game ${gameId.gid}",
-          "couldn't find you in the game."
+          "couldn't find you in the game.",
+          exception = Some(e)
         )
       }
     } yield playerDb
@@ -157,33 +159,32 @@ class DynamoDbDatabase[F[_]: Async](
       result: Either[DynamoReadError, A]
   ): F[A] = {
     Async[F].fromEither {
-      result.left.map { dre =>
-        Failures(
-          s"DynamoReadError: $dre",
-          "error reading saved data",
-          None,
-          None
-        )
-      }
+      result.left.map(dynamoReadFailure)
     }
   }
 
   private def handleConditionalWriteErr[A](
       result: Either[ScanamoError, A]
-  )(conditionNotMet: => Failures): F[A] = {
+  )(conditionNotMet: ConditionalCheckFailedException => Failures): F[A] = {
     Async[F].fromEither {
       result.left.map {
-        case ConditionNotMet(_) =>
-          conditionNotMet
-        case scanamoError =>
-          Failures(
-            s"ScanamoError: $scanamoError",
-            "error saving data",
-            None,
-            None
-          )
+        case ConditionNotMet(e) =>
+          conditionNotMet(e)
+        case dre: DynamoReadError =>
+          dynamoReadFailure(dre)
       }
     }
+  }
+
+  private def dynamoReadFailure(dre: DynamoReadError): Failures = {
+    Failures(
+      s"DynamoReadError: ${DynamoReadError.describe(dre)}",
+      "error reading saved data",
+      exception = dre match {
+        case TypeCoercionError(t) => Some(t)
+        case _ => None
+      }
+    )
   }
 
   private def handleDbErr[A](fa: F[A]): F[A] =
