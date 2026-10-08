@@ -1,6 +1,6 @@
 package io.adamnfish.pokerdot.services
 
-import io.adamnfish.pokerdot.models.{GameDb, GameId, PlayerDb}
+import io.adamnfish.pokerdot.models.{ConnectionDb, GameDb, GameId, PlayerDb}
 import cats.Monad
 import cats._
 import cats.data._
@@ -19,6 +19,10 @@ trait Database[F[_]] {
   def writeGame(gameDB: GameDb): F[Unit]
 
   def writePlayer(playerDB: PlayerDb): F[Unit]
+
+  def putConnection(connection: ConnectionDb): F[Unit]
+
+  def getConnections(gameId: GameId): F[List[ConnectionDb]]
 }
 
 object Database {

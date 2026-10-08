@@ -25,8 +25,8 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
 
     "round trips a game with players and spectators correctly" in {
       val rawGame = newGame("game name", trackStacks = false, 0L, 1)
-      val player = newPlayer(rawGame.gameId, "player", true, PlayerAddress("player-address"), 0L)
-      val spectator = newSpectator(rawGame.gameId, "spectator", false, PlayerAddress("spectator-address"), 0L)
+      val player = newPlayer(rawGame.gameId, "player", true, 0L)
+      val spectator = newSpectator(rawGame.gameId, "spectator", false, 0L)
       val game = rawGame.copy(players = List(player), spectators = List(spectator))
       val gameDb = gameToDb(game)
       val playerDbs = List(playerToDb(player), spectatorToDb(spectator))
@@ -38,7 +38,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "players" - {
     "round trips a player correctly" in {
       val gameId = GameId("game-id")
-      val player = newPlayer(gameId, "player", false, PlayerAddress("player-address"), 0L)
+      val player = newPlayer(gameId, "player", false, 0L)
       val playerDb = playerToDb(player)
       val reconstructedPlayer = playerFromDb(playerDb)
       reconstructedPlayer shouldEqual player
@@ -48,7 +48,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "spectators" - {
     "round trips a spectator correctly" in {
       val gameId = GameId("game-id")
-      val spectator = newSpectator(gameId, "spectator", false, PlayerAddress("player-address"), 0L)
+      val spectator = newSpectator(gameId, "spectator", false, 0L)
       val spectatorDb = spectatorToDb(spectator)
       val reconstructedSpectator = spectatorFromDb(spectatorDb)
       reconstructedSpectator shouldEqual spectator
@@ -59,23 +59,23 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
     "returns player db for each provided player" in {
       forAll(Gen.choose(1, 10)) { n =>
         val players = (0 until n).map { i =>
-          newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
+          newPlayer(GameId("game-id"), s"player-$i", false, 0L)
         }.toList
         allPlayerDbs(players).length shouldEqual n
       }
     }
 
     "returns correct player db for provided player" in {
-      val player = newPlayer(GameId("game-id"), s"player", false, PlayerAddress(s"pa"), 0L)
+      val player = newPlayer(GameId("game-id"), s"player", false, 0L)
       val expected = playerToDb(player)
       allPlayerDbs(List(player)) shouldEqual List(expected)
     }
   }
 
   "filteredPlayerDbs" - {
-    val p1 = newPlayer(GameId("game-id"), "player-1", false, PlayerAddress("pa-1"), 0L)
-    val p2 = newPlayer(GameId("game-id"), "player-2", false, PlayerAddress("pa-2"), 0L)
-    val p3 = newPlayer(GameId("game-id"), "player-3", false, PlayerAddress("pa-3"), 0L)
+    val p1 = newPlayer(GameId("game-id"), "player-1", false, 0L)
+    val p2 = newPlayer(GameId("game-id"), "player-2", false, 0L)
+    val p3 = newPlayer(GameId("game-id"), "player-3", false, 0L)
 
     "includes players in the provided set" in {
       val result = filteredPlayerDbs[Try](List(p1, p2, p3), Set(p2.playerId, p3.playerId)).success.value.map(_.playerId)
@@ -119,7 +119,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "summariseSelf" - {
     "hole" - {
       val hole = Hole(Queen of Clubs, Ace of Spades)
-      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), 0L)
+      val player = newPlayer(GameId("game-id"), "screen name", false, 0L)
 
       "is included if present, even if the hole is not visible" in {
         summariseSelf(
@@ -155,7 +155,7 @@ class RepresentationsTest extends AnyFreeSpec with Matchers with ScalaCheckDrive
   "summarisePlayer" - {
     "hole" - {
       val hole = Hole(Queen of Clubs, Ace of Spades)
-      val player = newPlayer(GameId("game-id"), "screen name", false, PlayerAddress("player-address"), 0L)
+      val player = newPlayer(GameId("game-id"), "screen name", false, 0L)
         .copy(
           hole = Some(hole),
         )

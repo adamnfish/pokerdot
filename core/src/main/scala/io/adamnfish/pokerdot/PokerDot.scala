@@ -100,13 +100,14 @@ object PokerDot {
       rawGame = Games.newGame(createGame.gameName, trackStacks = false, now, initialSeed)
       uniqueGameCode <- Games.makeUniquePrefix(rawGame.gameId, appContext.db, Database.checkUniquePrefix)
       game = rawGame.copy(gameCode = uniqueGameCode)
-      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, appContext.playerAddress, now)
+      host = Games.newPlayer(game.gameId, createGame.screenName, isHost = true, now)
       gameWithHost = Games.addPlayer(game, host)
       gameDb = Representations.gameToDb(gameWithHost)
       hostDb = Representations.playerToDb(host)
-      response = Responses.welcome(gameWithHost, host, appContext.playerAddress)
+      response = Responses.welcome(gameWithHost, host, appContext.playerAddress, Map(host.playerId -> Set(appContext.playerAddress)))
       _ <- appContext.db.writeGame(gameDb)
       _ <- appContext.db.writePlayer(hostDb)
+      _ <- appContext.db.putConnection(connectionDb(gameWithHost, host.playerId, appContext.playerAddress))
     } yield response
   }
 
@@ -133,15 +134,18 @@ object PokerDot {
       gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
       game <- Representations.gameFromDb(gameDb, playerDbs)
       _ <- Games.ensureNotStarted(game)
-      _ <- Games.ensureNotAlreadyPlaying(game.players, appContext.playerAddress)
+      connections <- appContext.db.getConnections(game.gameId)
+      _ <- Games.ensureNotAlreadyPlaying(connections, appContext.playerAddress)
       _ <- Games.ensureNoDuplicateScreenName(game, joinGame.screenName)
       _ <- Games.ensurePlayerCount(game.players.length)
       now <- appContext.time.now
-      player = Games.newPlayer(game.gameId, joinGame.screenName, false, appContext.playerAddress, now)
+      player = Games.newPlayer(game.gameId, joinGame.screenName, false, now)
       newGame = Games.addPlayer(game, player)
-      response = Responses.welcome(newGame, player, appContext.playerAddress)
+      addresses = Responses.playerAddresses(connections, player.playerId, appContext.playerAddress)
+      response = Responses.welcome(newGame, player, appContext.playerAddress, addresses)
       playerDb = Representations.playerToDb(player)
       _ <- appContext.db.writePlayer(playerDb)
+      _ <- appContext.db.putConnection(connectionDb(newGame, player.playerId, appContext.playerAddress))
     } yield response
   }
 
@@ -168,7 +172,7 @@ object PokerDot {
       gameDb = Games.addPlayerIds(rawGameDb, playerDbs)
       rawGame <- Representations.gameFromDb(gameDb, playerDbs)
       _ <- Games.ensureNotStarted(rawGame)
-      _ <- Games.ensureHost(rawGame.players, startGame.playerKey)
+      host <- Games.ensureHost(rawGame.players, startGame.playerKey)
       _ <- Games.ensureStartingPlayerCount(rawGame.players.length)
       now <- appContext.time.now
       startedGame = Games.start(rawGame, now, startGame.initialSmallBlind, startGame.timerConfig, startGame.startingStack, startGame.playerOrder)
@@ -178,7 +182,8 @@ object PokerDot {
       _ <- playerDbs.traverse(appContext.db.writePlayer)
       // persist started game
       _ <- appContext.db.writeGame(startedGameDb)
-    } yield Responses.gameStatuses(startedGame, GameStartedSummary(), startGame.playerId, appContext.playerAddress)
+      addresses <- requesterConnection(startedGame, host.playerId, appContext)
+    } yield Responses.gameStatuses(startedGame, GameStartedSummary(), addresses)
   }
 
   def bet[F[_] : MonadThrow](requestJson: Json, appContext: AppContext[F]): F[Response[GameStatus]] = {
@@ -205,7 +210,8 @@ object PokerDot {
       _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(newGame, action, bet.playerId, appContext.playerAddress)
+      addresses <- requesterConnection(newGame, bet.playerId, appContext)
+    } yield Responses.gameStatuses(newGame, action, addresses)
   }
 
   def check[F[_] : MonadThrow](requestJson: Json, appContext: AppContext[F]): F[Response[GameStatus]] = {
@@ -231,7 +237,8 @@ object PokerDot {
       _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(newGame, CheckSummary(check.playerId), check.playerId, appContext.playerAddress)
+      addresses <- requesterConnection(newGame, check.playerId, appContext)
+    } yield Responses.gameStatuses(newGame, CheckSummary(check.playerId), addresses)
   }
 
   def fold[F[_] : MonadThrow](requestJson: Json, appContext: AppContext[F]): F[Response[GameStatus]] = {
@@ -257,7 +264,8 @@ object PokerDot {
       _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
       // save game
       _ <- appContext.db.writeGame(newGameDb)
-    } yield Responses.gameStatuses(newGame, FoldSummary(fold.playerId), fold.playerId, appContext.playerAddress)
+      addresses <- requesterConnection(newGame, fold.playerId, appContext)
+    } yield Responses.gameStatuses(newGame, FoldSummary(fold.playerId), addresses)
   }
 
   /**
@@ -285,7 +293,7 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs)
       _ <- Games.ensureStarted(game)
-      _ <- Games.ensureAdmin(game.players, advancePhase.playerKey)
+      admin <- Games.ensureAdmin(game.players, advancePhase.playerKey)
       now <- appContext.time.now
       // TODO: recursively call this operation if we are auto-advancing?
       // TODO: move rng's application here - get next state and pass it into pure functions.
@@ -296,13 +304,14 @@ object PokerDot {
       updatedPlayerDbs <- Representations.filteredPlayerDbs(updatedGame.players, updatedPlayers)
       _ <- updatedPlayerDbs.traverse(appContext.db.writePlayer)
       _ <- appContext.db.writeGame(newGameDb)
+      addresses <- requesterConnection(updatedGame, admin.playerId, appContext)
     } yield {
       // TODO: this is too much logic for the controller
       winnings match {
         case Some((playerWinnings, potWinnings)) =>
-          Responses.roundWinnings(updatedGame, potWinnings, playerWinnings, advancePhase.playerId, appContext.playerAddress)
+          Responses.roundWinnings(updatedGame, potWinnings, playerWinnings, addresses)
         case None =>
-          Responses.gameStatuses(updatedGame, AdvancePhaseSummary(), advancePhase.playerId, appContext.playerAddress)
+          Responses.gameStatuses(updatedGame, AdvancePhaseSummary(), addresses)
       }
     }
   }
@@ -328,14 +337,15 @@ object PokerDot {
       playerDbs <- appContext.db.getPlayers(GameId(rawGameDb.gameId))
       game <- Representations.gameFromDb(rawGameDb, playerDbs)
       _ <- Games.ensureStarted(game)
-      _ <- Games.ensureAdmin(game.players, updateBlind.playerKey)
+      admin <- Games.ensureAdmin(game.players, updateBlind.playerKey)
       now <- appContext.time.now
       updatedGame <- PlayerActions.updateBlind(game, updateBlind, now)
       newGameDb = Representations.gameToDb(updatedGame)
       action <- Games.updateBlindAction(updateBlind)
       _ <- appContext.db.writeGame(newGameDb)
       // this endpoint won't update players so there's no need to save them
-    } yield Responses.gameStatuses(updatedGame, action, updateBlind.playerId, appContext.playerAddress)
+      addresses <- requesterConnection(updatedGame, admin.playerId, appContext)
+    } yield Responses.gameStatuses(updatedGame, action, addresses)
   }
 
   /**
@@ -358,15 +368,26 @@ object PokerDot {
       // TODO: handle players or spectators here
       //       maybe check if requester is a player / spectator and delegate accordingly?
       player <- Games.ensurePlayerKey(game.players, pingRequest.playerId, pingRequest.playerKey)
-      // update the player's address, if it has changed
-      updatedPlayerOpt = Games.updatePlayerAddress(player, appContext.playerAddress)
-      updatedPlayer <- updatedPlayerOpt.fold[F[Player]](MonadThrow[F].pure(player)) { updatedPlayer =>
-        // if player's address has changed, persist change to DB
-        val updatedPlayerDb = Representations.playerToDb(updatedPlayer)
-        appContext.db.writePlayer(updatedPlayerDb).map(_ => updatedPlayer)
-      }
-      message = Representations.gameStatus(game, updatedPlayer, NoActionSummary())
+      _ <- requesterConnection(game, player.playerId, appContext)
+      message = Representations.gameStatus(game, player, NoActionSummary())
     } yield Responses.justRespond(message, appContext.playerAddress)
+  }
+
+  /**
+   * Saves the requester's connection if the game doesn't already have it, and returns every player's addresses.
+   */
+  private def requesterConnection[F[_] : MonadThrow](game: Game, playerId: PlayerId, appContext: AppContext[F]): F[Map[PlayerId, Set[PlayerAddress]]] = {
+    for {
+      connections <- appContext.db.getConnections(game.gameId)
+      alreadyConnected = connections.exists(c => c.address == appContext.playerAddress.address && c.playerId == playerId.pid)
+      _ <-
+        if (alreadyConnected) MonadThrow[F].unit
+        else appContext.db.putConnection(connectionDb(game, playerId, appContext.playerAddress))
+    } yield Responses.playerAddresses(connections, playerId, appContext.playerAddress)
+  }
+
+  private def connectionDb(game: Game, playerId: PlayerId, playerAddress: PlayerAddress): ConnectionDb = {
+    ConnectionDb(game.gameId.gid, playerAddress.address, playerId.pid, game.expiry)
   }
 
   // TODO: split logic for players / spectators

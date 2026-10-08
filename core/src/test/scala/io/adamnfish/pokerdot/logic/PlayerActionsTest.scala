@@ -50,11 +50,11 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
     "changed players" - {
       val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
-      val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), 0L)
+      val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, 0L)
         .copy(stack = 1000)
-      val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), 0L)
+      val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, 0L)
         .copy(stack = 1000, blind = SmallBlind, bet = 5, checked = true)
-      val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), 0L)
+      val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, 0L)
         .copy(stack = 1000, blind = BigBlind, bet = 10)
       val game = rawGame.copy(
         inTurn = Some(p1.playerId),
@@ -86,11 +86,11 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "fold" - {
     val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, PlayerAddress("p1-address"), 0L)
+    val p1 = newPlayer(rawGame.gameId, "p1", isHost = false, 0L)
       .copy(stack = 1000)
-    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, PlayerAddress("p2-address"), 0L)
+    val p2 = newPlayer(rawGame.gameId, "p2", isHost = false, 0L)
       .copy(stack = 1000)
-    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, PlayerAddress("p3-address"), 0L)
+    val p3 = newPlayer(rawGame.gameId, "p3", isHost = false, 0L)
       .copy(stack = 1000)
 
     "updates player's folded status" in {
@@ -172,13 +172,13 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
       val (p1, p2, p3, p4) = Play.dealHoles(
         List(
-          newPlayer(game.gameId, "p1", isHost = false, PlayerAddress("p1-address"), 0L)
+          newPlayer(game.gameId, "p1", isHost = false, 0L)
             .copy(stack = 1000),
-          newPlayer(game.gameId, "p2", isHost = false, PlayerAddress("p2-address"), 0L)
+          newPlayer(game.gameId, "p2", isHost = false, 0L)
             .copy(stack = 1000),
-          newPlayer(game.gameId, "p3", isHost = false, PlayerAddress("p3-address"), 0L)
+          newPlayer(game.gameId, "p3", isHost = false, 0L)
             .copy(stack = 1000),
-          newPlayer(game.gameId, "p4", isHost = false, PlayerAddress("p4-address"), 0L)
+          newPlayer(game.gameId, "p4", isHost = false, 0L)
             .copy(stack = 1000),
         ),
         Play.deckOrder(game.seed),
@@ -553,9 +553,9 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "advanceFromRiver" - {
     val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
-    val p1 = newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), 0L)
-    val p2 = newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), 0L)
-    val p3 = newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), 0L)
+    val p1 = newPlayer(rawGame.gameId, "p1", false, 0L)
+    val p2 = newPlayer(rawGame.gameId, "p2", false, 0L)
+    val p3 = newPlayer(rawGame.gameId, "p3", false, 0L)
     val round = Play.generateRound(River, 5, rawGame.seed)
 
     "excludes folded players from the player hands" in {
@@ -587,9 +587,9 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
     val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
     val (p1, p2, p3) = Play.dealHoles(
       List(
-        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), 0L),
-        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), 0L),
-        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), 0L),
+        newPlayer(rawGame.gameId, "p1", false, 0L),
+        newPlayer(rawGame.gameId, "p2", false, 0L),
+        newPlayer(rawGame.gameId, "p3", false, 0L),
       ),
       Play.deckOrder(rawGame.seed),
     ) match {
@@ -637,9 +637,9 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
     val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
     val (p1, p2, p3) = Play.dealHoles(
       List(
-        newPlayer(rawGame.gameId, "p1", false, PlayerAddress("p1-address"), 0L),
-        newPlayer(rawGame.gameId, "p2", false, PlayerAddress("p2-address"), 0L),
-        newPlayer(rawGame.gameId, "p3", false, PlayerAddress("p3-address"), 0L),
+        newPlayer(rawGame.gameId, "p1", false, 0L),
+        newPlayer(rawGame.gameId, "p2", false, 0L),
+        newPlayer(rawGame.gameId, "p3", false, 0L),
       ),
       Play.deckOrder(rawGame.seed),
     ) match {
@@ -739,9 +739,9 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "updateBlind" - {
     val rawGame = newGame("Game name", trackStacks = true, 0L, 1L)
-    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), 0L)
-    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), 0L)
-    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), 0L)
+    val p1 = newPlayer(rawGame.gameId, "player 1", isHost = false, 0L)
+    val p3 = newPlayer(rawGame.gameId, "player 2", isHost = false, 0L)
+    val p2 = newPlayer(rawGame.gameId, "player 3", isHost = false, 0L)
     val game = rawGame.copy(
       players = List(p1, p2, p3),
       started = true,
@@ -1173,13 +1173,13 @@ class PlayerActionsTest extends AnyFreeSpec with Matchers with TestHelpers with 
 
   "ensurePlayersHaveFinishedActing" - {
     val game = newGame("Game name", trackStacks = true, 0L, 1L)
-    val p1 = newPlayer(game.gameId, "player 1", isHost = false, PlayerAddress("p1-address"), 0L).copy(
+    val p1 = newPlayer(game.gameId, "player 1", isHost = false, 0L).copy(
       stack = 1000
     )
-    val p3 = newPlayer(game.gameId, "player 2", isHost = false, PlayerAddress("p2-address"), 0L).copy(
+    val p3 = newPlayer(game.gameId, "player 2", isHost = false, 0L).copy(
       stack = 1000
     )
-    val p2 = newPlayer(game.gameId, "player 3", isHost = false, PlayerAddress("p3-address"), 0L).copy(
+    val p2 = newPlayer(game.gameId, "player 3", isHost = false, 0L).copy(
       stack = 1000
     )
 

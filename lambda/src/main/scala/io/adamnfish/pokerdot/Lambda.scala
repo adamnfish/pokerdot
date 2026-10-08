@@ -32,6 +32,7 @@ class Lambda:
   private val appContextBuilder: (PlayerAddress, TraceId) => AppContext[IO] = {
     val gamesTableName = Properties.envOrElse("GAMES_TABLE", throw new RuntimeException("GAMES_TABLE not set"))
     val playersTableName = Properties.envOrElse("PLAYERS_TABLE", throw new RuntimeException("PLAYERS_TABLE not set"))
+    val connectionsTableName = Properties.envOrElse("CONNECTIONS_TABLE", throw new RuntimeException("CONNECTIONS_TABLE not set"))
     val region = Region.of(Properties.envOrElse("REGION", throw new RuntimeException("REGION not set")))
     val apiGatewayEndpoint = URI.create(
       s"https://${Properties.envOrElse("API_ORIGIN_LOCATION", throw new RuntimeException("API_ORIGIN_LOCATION not set"))}"
@@ -56,7 +57,7 @@ class Lambda:
       .endpointOverride(apiGatewayEndpoint)
       .build()
 
-    val database = new DynamoDbDatabase[IO](dynamoDbClient, gamesTableName, playersTableName)
+    val database = new DynamoDbDatabase[IO](dynamoDbClient, gamesTableName, playersTableName, connectionsTableName)
     val time = new RealTime[IO]
     val rng = new RandomRng[IO]
 

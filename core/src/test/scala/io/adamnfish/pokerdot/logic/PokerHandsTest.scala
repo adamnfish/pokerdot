@@ -298,7 +298,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
+              newPlayer(GameId("game-id"), s"player-$i", false, 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -317,7 +317,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
+              newPlayer(GameId("game-id"), s"player-$i", false, 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -336,7 +336,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
               Two of Clubs, f1, f2, f3, Two of Spades, t, Two of Diamonds, r
             )
             val players = (1 to 10).toList.map { i =>
-              newPlayer(GameId("game-id"), s"player-$i", false, PlayerAddress(s"pa-$i"), 0L)
+              newPlayer(GameId("game-id"), s"player-$i", false, 0L)
                 .copy(hole = Some(Hole(h1, h2)))
             }
             val playerHands = bestHands(round, players)
@@ -361,7 +361,7 @@ class PokerHandsTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenProp
     def testPlayerHand(pot: Int, card1: Card, card2: Card, id: String, folded: Boolean = false): PlayerHand = {
       PlayerHand(
         Player(
-          gameId, PlayerId(s"player-$id"), 0, PlayerAddress(s"player-$id-address"), PlayerKey(s"$id"), s"Player $id", 1000,
+          gameId, PlayerId(s"player-$id"), 0, PlayerKey(s"$id"), s"Player $id", 1000,
           pot = pot, 0, false,
           folded = folded, false,
           hole = Some(Hole(card1, card2)), true, false, false, NoBlind

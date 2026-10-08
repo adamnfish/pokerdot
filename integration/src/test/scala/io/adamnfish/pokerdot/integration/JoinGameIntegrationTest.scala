@@ -115,10 +115,22 @@ class JoinGameIntegrationTest
         } yield playerDb should have(
           "gameId" as welcomeMessage.gameId.gid,
           "playerId" as welcomeMessage.playerId.pid,
-          "playerAddress" as playerAddress.address,
           "playerKey" as welcomeMessage.playerKey.key,
           "screenName" as welcomeMessage.screenName
         )
+    }
+
+    "persists the new player's connection" in appContextRes.use {
+      (context, db) =>
+        for {
+          hostWelcomeMessage <- createGameFixture(context)
+          response <- performJoinGame(
+            joinGameRequest(hostWelcomeMessage.gameCode),
+            context(playerAddress)
+          )
+          welcomeMessage = response.messages.get(playerAddress).value
+          connections <- db.getConnections(welcomeMessage.gameId)
+        } yield connections.find(_.address == playerAddress.address).value.playerId shouldEqual welcomeMessage.playerId.pid
     }
 
     "does not persist player to the game's database entry" in appContextRes

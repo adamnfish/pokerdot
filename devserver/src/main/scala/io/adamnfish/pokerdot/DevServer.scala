@@ -75,7 +75,8 @@ object CatsDevServer extends IOApp:
       })(client => IO.blocking(client.close()))
       _ <- DevServerDB.createGamesTable(client).toResource
       _ <- DevServerDB.createPlayersTable(client).toResource
-      db = new DynamoDbDatabase[IO](client, "games", "players")
+      _ <- DevServerDB.createConnectionsTable(client).toResource
+      db = new DynamoDbDatabase[IO](client, "games", "players", "connections")
       time = new RealTime[IO]
 
       appContextBuilder =

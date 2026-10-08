@@ -38,7 +38,7 @@ object Games {
     )
   }
 
-  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, now: Long): Player = {
+  def newPlayer(gameId: GameId, screenName: String, isHost: Boolean, now: Long): Player = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Player(
@@ -46,7 +46,6 @@ object Games {
       playerId = playerId,
       expiry = expiryTime(now),
       screenName = screenName,
-      playerAddress = playerAddress,
       playerKey = playerKey,
       stack = 0,
       pot = 0,
@@ -62,27 +61,18 @@ object Games {
     )
   }
 
-  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, playerAddress: PlayerAddress, now: Long): Spectator = {
+  def newSpectator(gameId: GameId, screenName: String, isHost: Boolean, now: Long): Spectator = {
     val playerId = PlayerId(UUID.randomUUID().toString)
     val playerKey = PlayerKey(UUID.randomUUID().toString)
     Spectator(
       gameId = gameId,
       playerId = playerId,
       expiry = expiryTime(now),
-      playerAddress = playerAddress,
       playerKey = playerKey,
       screenName = screenName,
       isHost = isHost,
       isAdmin = isHost,
     )
-  }
-
-  def updatePlayerAddress(player: Player, playerAddress: PlayerAddress): Option[Player] = {
-    if (player.playerAddress != playerAddress) Some {
-      player.copy(
-        playerAddress = playerAddress
-      )
-    } else None
   }
 
   def addPlayerIds(gameDb: GameDb, playerDbs: List[PlayerDb]): GameDb = {
@@ -347,8 +337,8 @@ object Games {
     }
   }
 
-  def ensureNotAlreadyPlaying[F[_] : MonadThrow](players: List[Player], playerAddress: PlayerAddress): F[Unit] = {
-    if (players.exists(_.playerAddress == playerAddress))
+  def ensureNotAlreadyPlaying[F[_] : MonadThrow](connections: List[ConnectionDb], playerAddress: PlayerAddress): F[Unit] = {
+    if (connections.exists(_.address == playerAddress.address))
       MonadThrow[F].raiseError {
         Failures(
           "Duplicate player address, joining game failed",
