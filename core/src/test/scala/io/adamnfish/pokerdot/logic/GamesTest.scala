@@ -96,6 +96,16 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
   }
 
   "newPlayer" - {
+    "makes the host an admin" in {
+      val host = newPlayer(GameId("game-id"), "host", isHost = true, PlayerAddress("address"), 0L)
+      host.isAdmin shouldEqual true
+    }
+
+    "does not make other players admins" in {
+      val player = newPlayer(GameId("game-id"), "player", isHost = false, PlayerAddress("address"), 0L)
+      player.isAdmin shouldEqual false
+    }
+
     "initialises basic fields correctly" in {
       forAll(dateGen) { now =>
         forAll { (gid: String, screenName: String, isHost: Boolean, address: String) =>
