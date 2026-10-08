@@ -143,6 +143,10 @@ class DynamoDbDatabase[F[_]: Async](
     } yield connections
   }
 
+  override def removeConnection(gameId: GameId, address: PlayerAddress): F[Unit] = {
+    handleDbErr(scanamo.exec(connections.delete("gameId" === gameId.gid and "address" === address.address)))
+  }
+
   private def handleDbReadErr[A](
       result: Either[DynamoReadError, A]
   ): F[A] = {

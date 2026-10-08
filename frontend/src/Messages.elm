@@ -136,350 +136,12 @@ update msg model =
 
         ServerMessage json ->
             case Json.Decode.decodeValue (messageDecoder model.now) json of
-                Ok (WelcomeMessage welcome self game) ->
-                    let
-                        newLibrary =
-                            if List.member welcome model.library then
-                                model.library
+                Ok message ->
+                    if isForAnotherGame model.ui message then
+                        ( model, Cmd.none )
 
-                            else
-                                welcome :: model.library
-
-                        savedGameJson =
-                            welcomeEncoder welcome
-
-                        gameRoute =
-                            GameRoute welcome.gameCode (getPlayerCode welcome.playerId)
-                    in
-                    case model.ui of
-                        CreateGameScreen gameNameInput _ ->
-                            if gameNameInput.value == welcome.gameName then
-                                ( { model
-                                    | library = newLibrary
-                                    , ui = LobbyScreen game.players defaultChipSettings self game welcome
-                                    , loadingStatus = NotLoading
-                                  }
-                                , Cmd.batch
-                                    [ navigate model.navKey False gameRoute
-                                    , persistNewGame savedGameJson
-                                    ]
-                                )
-
-                            else
-                                -- different game, background update
-                                ( { model | library = newLibrary }
-                                , persistNewGame savedGameJson
-                                )
-
-                        JoinGameScreen external gameCodeInput _ ->
-                            if gameCodeInput.value == welcome.gameCode then
-                                ( { model
-                                    | library = newLibrary
-                                    , ui = LobbyScreen game.players defaultChipSettings self game welcome
-                                    , loadingStatus = NotLoading
-                                  }
-                                , Cmd.batch
-                                    [ navigate model.navKey False gameRoute
-                                    , persistNewGame savedGameJson
-                                    ]
-                                )
-
-                            else
-                                -- different game, background update
-                                ( { model | library = newLibrary }
-                                , persistNewGame savedGameJson
-                                )
-
-                        _ ->
-                            ( { model | library = newLibrary }
-                            , persistNewGame savedGameJson
-                            )
-
-                Ok (PlayerGameStatusMessage self game action) ->
-                    case model.ui of
-                        WelcomeScreen ->
-                            -- must have left the game before the server responded
-                            ( registerEvent model action
-                            , Cmd.none
-                            )
-
-                        HelpScreen ->
-                            -- must have navigated away from the game before the server responded
-                            ( registerEvent model action
-                            , Cmd.none
-                            )
-
-                        CreateGameScreen _ _ ->
-                            -- must have left the game before the server responded
-                            ( registerEvent model action
-                            , Cmd.none
-                            )
-
-                        JoinGameScreen _ _ _ ->
-                            -- must have left the game before the server responded
-                            ( registerEvent model action
-                            , Cmd.none
-                            )
-
-                        LobbyScreen oldPlayers chipsSettings oldSelf oldGame welcome ->
-                            if game.gameId == oldGame.gameId then
-                                case action of
-                                    GameStartedAction ->
-                                        ( { model
-                                            | ui = GameScreen NoAct self game welcome
-                                            , events = addAction model action
-                                            , loadingStatus = NotLoading
-                                            , peeking = False
-                                          }
-                                        , Cmd.none
-                                        )
-
-                                    PlayerJoinedAction newPlayerId ->
-                                        let
-                                            players =
-                                                includeAllPlayers oldPlayers game.players
-                                        in
-                                        ( { model
-                                            | ui = LobbyScreen players chipsSettings self game welcome
-                                            , events = addAction model action
-                                          }
-                                        , Cmd.none
-                                        )
-
-                                    _ ->
-                                        ( registerEvent model action
-                                        , Cmd.none
-                                        )
-
-                            else
-                                ( registerEvent model action
-                                , Cmd.none
-                                )
-
-                        RejoinScreen welcome ->
-                            let
-                                modelWithEvent =
-                                    registerEvent model action
-
-                                ui =
-                                    if game.started then
-                                        -- TODO: work out correct ui from game state
-                                        GameScreen NoAct self game welcome
-
-                                    else
-                                        LobbyScreen game.players defaultChipSettings self game welcome
-                            in
-                            ( { modelWithEvent
-                                | ui = ui
-                                , loadingStatus = NotLoading
-                                , peeking = False
-                              }
-                            , Cmd.none
-                            )
-
-                        GameScreen actSelection oldSelf oldGame welcome ->
-                            let
-                                updatedModel =
-                                    -- Ignore message if it isn't for the current game
-                                    if oldGame.gameId == game.gameId then
-                                        { model
-                                            | ui = GameScreen actSelection self game welcome
-                                            , loadingStatus = NotLoading
-                                            , peeking =
-                                                -- new hole is dealt face-down
-                                                if self.hole /= oldSelf.hole then
-                                                    False
-
-                                                else
-                                                    model.peeking
-                                        }
-
-                                    else
-                                        model
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
-                        RoundResultScreen potResults playerWinnings oldSelf _ welcome blindsSettings ->
-                            let
-                                updatedModel =
-                                    case game.inTurn of
-                                        -- new round
-                                        Just _ ->
-                                            { model
-                                                | ui = GameScreen NoAct self game welcome
-                                                , loadingStatus = NotLoading
-                                                , peeking =
-                                                    -- new hole is dealt face-down
-                                                    if self.hole /= oldSelf.hole then
-                                                        False
-
-                                                    else
-                                                        model.peeking
-                                            }
-
-                                        -- stay on results if a status message happens to come in while the round results are being displayed
-                                        Nothing ->
-                                            -- if we've successfully updated the blinds, then we can close the blinds editor
-                                            let
-                                                newUi =
-                                                    case action of
-                                                        TimerStatusAction _ ->
-                                                            RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
-
-                                                        EditTimerAction ->
-                                                            RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
-
-                                                        EditBlindAction ->
-                                                            RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
-
-                                                        _ ->
-                                                            RoundResultScreen potResults playerWinnings self game welcome blindsSettings
-                                            in
-                                            { model
-                                                | ui = newUi
-                                                , loadingStatus = NotLoading
-                                            }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
-                        CommunityCardsScreen _ welcome ->
-                            let
-                                newUi =
-                                    CommunityCardsScreen game welcome
-
-                                updatedModel =
-                                    { model | ui = newUi }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
-                        TimerScreen timerStatus _ welcome ->
-                            let
-                                newUi =
-                                    TimerScreen timerStatus game welcome
-
-                                updatedModel =
-                                    { model | ui = newUi }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
-                        ChipSummaryScreen _ welcome ->
-                            let
-                                newUi =
-                                    ChipSummaryScreen game welcome
-
-                                updatedModel =
-                                    { model | ui = newUi }
-                            in
-                            ( registerEvent updatedModel action
-                            , Cmd.none
-                            )
-
-                        UIElementsScreen _ _ ->
-                            ( registerEvent model action
-                            , Cmd.none
-                            )
-
-                Ok (SpectatorGameStatusMessage spectator game action) ->
-                    ( registerEvent model action
-                    , Cmd.none
-                    )
-
-                Ok (PlayerRoundWinningsMessage self game pots playerWinnings) ->
-                    let
-                        newUi =
-                            case welcomeFromUi model.ui of
-                                Nothing ->
-                                    model.ui
-
-                                Just welcome ->
-                                    RoundResultScreen pots playerWinnings self game welcome DoNotEditBlinds
-                    in
-                    ( registerEvent
-                        { model
-                            | ui = newUi
-                            , loadingStatus = NotLoading
-                        }
-                        AdvancePhaseAction
-                    , Cmd.none
-                    )
-
-                Ok (SpectatorRoundWinningsMessage spectator game pots players) ->
-                    ( model, Cmd.none )
-
-                Ok (StatusMessage message) ->
-                    ( model
-                    , Cmd.none
-                    )
-
-                Ok (FailureMessage newFailures) ->
-                    let
-                        ( globalFailures, newUi ) =
-                            case model.ui of
-                                CreateGameScreen gameNameInput screenNameInput ->
-                                    let
-                                        ( gameNameFailures, remaining1 ) =
-                                            List.partition
-                                                (\failure ->
-                                                    maybeContains "gameName" failure.context
-                                                )
-                                                newFailures
-
-                                        ( screenNameFailures, nonUiFailures ) =
-                                            List.partition
-                                                (\failure ->
-                                                    maybeContains "screenName" failure.context
-                                                )
-                                                remaining1
-
-                                        newGameNameInput =
-                                            withFailures gameNameInput gameNameFailures
-
-                                        newScreenNameInput =
-                                            withFailures screenNameInput screenNameFailures
-                                    in
-                                    ( nonUiFailures, CreateGameScreen newGameNameInput newScreenNameInput )
-
-                                JoinGameScreen external gameCodeInput screenNameInput ->
-                                    let
-                                        ( gameCodeFailures, remaining1 ) =
-                                            List.partition
-                                                (\failure ->
-                                                    maybeContains "gameCode" failure.context
-                                                )
-                                                newFailures
-
-                                        ( screenNameFailures, nonUiFailures ) =
-                                            List.partition
-                                                (\failure ->
-                                                    maybeContains "screenName" failure.context
-                                                )
-                                                remaining1
-
-                                        newGameCodeInput =
-                                            withFailures gameCodeInput gameCodeFailures
-
-                                        newScreenNameInput =
-                                            withFailures screenNameInput screenNameFailures
-                                    in
-                                    ( nonUiFailures, JoinGameScreen external newGameCodeInput newScreenNameInput )
-
-                                _ ->
-                                    ( newFailures, model.ui )
-
-                        modelWithFailures =
-                            displayFailures model globalFailures
-                    in
-                    ( { modelWithFailures | ui = newUi }
-                    , Cmd.none
-                    )
+                    else
+                        handleServerMessage message model
 
                 Err error ->
                     ( displayFailure
@@ -1616,3 +1278,374 @@ sendPing welcome =
 sendWake : () -> Cmd Msg
 sendWake _ =
     sendMessage <| wakeRequestEncoder ()
+
+
+handleServerMessage : Message -> Model -> ( Model, Cmd Msg )
+handleServerMessage serverMessage model =
+    case serverMessage of
+        WelcomeMessage welcome self game ->
+            let
+                newLibrary =
+                    if List.member welcome model.library then
+                        model.library
+
+                    else
+                        welcome :: model.library
+
+                savedGameJson =
+                    welcomeEncoder welcome
+
+                gameRoute =
+                    GameRoute welcome.gameCode (getPlayerCode welcome.playerId)
+            in
+            case model.ui of
+                CreateGameScreen gameNameInput _ ->
+                    if gameNameInput.value == welcome.gameName then
+                        ( { model
+                            | library = newLibrary
+                            , ui = LobbyScreen game.players defaultChipSettings self game welcome
+                            , loadingStatus = NotLoading
+                          }
+                        , Cmd.batch
+                            [ navigate model.navKey False gameRoute
+                            , persistNewGame savedGameJson
+                            ]
+                        )
+
+                    else
+                        -- different game, background update
+                        ( { model | library = newLibrary }
+                        , persistNewGame savedGameJson
+                        )
+
+                JoinGameScreen external gameCodeInput _ ->
+                    if gameCodeInput.value == welcome.gameCode then
+                        ( { model
+                            | library = newLibrary
+                            , ui = LobbyScreen game.players defaultChipSettings self game welcome
+                            , loadingStatus = NotLoading
+                          }
+                        , Cmd.batch
+                            [ navigate model.navKey False gameRoute
+                            , persistNewGame savedGameJson
+                            ]
+                        )
+
+                    else
+                        -- different game, background update
+                        ( { model | library = newLibrary }
+                        , persistNewGame savedGameJson
+                        )
+
+                _ ->
+                    ( { model | library = newLibrary }
+                    , persistNewGame savedGameJson
+                    )
+
+        PlayerGameStatusMessage self game action ->
+            case model.ui of
+                WelcomeScreen ->
+                    -- must have left the game before the server responded
+                    ( registerEvent model action
+                    , Cmd.none
+                    )
+
+                HelpScreen ->
+                    -- must have navigated away from the game before the server responded
+                    ( registerEvent model action
+                    , Cmd.none
+                    )
+
+                CreateGameScreen _ _ ->
+                    -- must have left the game before the server responded
+                    ( registerEvent model action
+                    , Cmd.none
+                    )
+
+                JoinGameScreen _ _ _ ->
+                    -- must have left the game before the server responded
+                    ( registerEvent model action
+                    , Cmd.none
+                    )
+
+                LobbyScreen oldPlayers chipsSettings oldSelf oldGame welcome ->
+                    if game.gameId == oldGame.gameId then
+                        case action of
+                            GameStartedAction ->
+                                ( { model
+                                    | ui = GameScreen NoAct self game welcome
+                                    , events = addAction model action
+                                    , loadingStatus = NotLoading
+                                    , peeking = False
+                                  }
+                                , Cmd.none
+                                )
+
+                            PlayerJoinedAction newPlayerId ->
+                                let
+                                    players =
+                                        includeAllPlayers oldPlayers game.players
+                                in
+                                ( { model
+                                    | ui = LobbyScreen players chipsSettings self game welcome
+                                    , events = addAction model action
+                                  }
+                                , Cmd.none
+                                )
+
+                            _ ->
+                                ( registerEvent model action
+                                , Cmd.none
+                                )
+
+                    else
+                        ( registerEvent model action
+                        , Cmd.none
+                        )
+
+                RejoinScreen welcome ->
+                    let
+                        modelWithEvent =
+                            registerEvent model action
+
+                        ui =
+                            if game.started then
+                                -- TODO: work out correct ui from game state
+                                GameScreen NoAct self game welcome
+
+                            else
+                                LobbyScreen game.players defaultChipSettings self game welcome
+                    in
+                    ( { modelWithEvent
+                        | ui = ui
+                        , loadingStatus = NotLoading
+                        , peeking = False
+                      }
+                    , Cmd.none
+                    )
+
+                GameScreen actSelection oldSelf oldGame welcome ->
+                    let
+                        updatedModel =
+                            -- Ignore message if it isn't for the current game
+                            if oldGame.gameId == game.gameId then
+                                { model
+                                    | ui = GameScreen actSelection self game welcome
+                                    , loadingStatus = NotLoading
+                                    , peeking =
+                                        -- new hole is dealt face-down
+                                        if self.hole /= oldSelf.hole then
+                                            False
+
+                                        else
+                                            model.peeking
+                                }
+
+                            else
+                                model
+                    in
+                    ( registerEvent updatedModel action
+                    , Cmd.none
+                    )
+
+                RoundResultScreen potResults playerWinnings oldSelf _ welcome blindsSettings ->
+                    let
+                        updatedModel =
+                            case game.inTurn of
+                                -- new round
+                                Just _ ->
+                                    { model
+                                        | ui = GameScreen NoAct self game welcome
+                                        , loadingStatus = NotLoading
+                                        , peeking =
+                                            -- new hole is dealt face-down
+                                            if self.hole /= oldSelf.hole then
+                                                False
+
+                                            else
+                                                model.peeking
+                                    }
+
+                                -- stay on results if a status message happens to come in while the round results are being displayed
+                                Nothing ->
+                                    -- if we've successfully updated the blinds, then we can close the blinds editor
+                                    let
+                                        newUi =
+                                            case action of
+                                                TimerStatusAction _ ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+
+                                                EditTimerAction ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+
+                                                EditBlindAction ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome DoNotEditBlinds
+
+                                                _ ->
+                                                    RoundResultScreen potResults playerWinnings self game welcome blindsSettings
+                                    in
+                                    { model
+                                        | ui = newUi
+                                        , loadingStatus = NotLoading
+                                    }
+                    in
+                    ( registerEvent updatedModel action
+                    , Cmd.none
+                    )
+
+                CommunityCardsScreen _ welcome ->
+                    let
+                        newUi =
+                            CommunityCardsScreen game welcome
+
+                        updatedModel =
+                            { model | ui = newUi }
+                    in
+                    ( registerEvent updatedModel action
+                    , Cmd.none
+                    )
+
+                TimerScreen timerStatus _ welcome ->
+                    let
+                        newUi =
+                            TimerScreen timerStatus game welcome
+
+                        updatedModel =
+                            { model | ui = newUi }
+                    in
+                    ( registerEvent updatedModel action
+                    , Cmd.none
+                    )
+
+                ChipSummaryScreen _ welcome ->
+                    let
+                        newUi =
+                            ChipSummaryScreen game welcome
+
+                        updatedModel =
+                            { model | ui = newUi }
+                    in
+                    ( registerEvent updatedModel action
+                    , Cmd.none
+                    )
+
+                UIElementsScreen _ _ ->
+                    ( registerEvent model action
+                    , Cmd.none
+                    )
+
+        SpectatorGameStatusMessage spectator game action ->
+            ( registerEvent model action
+            , Cmd.none
+            )
+
+        PlayerRoundWinningsMessage self game pots playerWinnings ->
+            let
+                newUi =
+                    case welcomeFromUi model.ui of
+                        Nothing ->
+                            model.ui
+
+                        Just welcome ->
+                            RoundResultScreen pots playerWinnings self game welcome DoNotEditBlinds
+            in
+            ( registerEvent
+                { model
+                    | ui = newUi
+                    , loadingStatus = NotLoading
+                }
+                AdvancePhaseAction
+            , Cmd.none
+            )
+
+        SpectatorRoundWinningsMessage spectator game pots players ->
+            ( model, Cmd.none )
+
+        StatusMessage message ->
+            ( model
+            , Cmd.none
+            )
+
+        FailureMessage newFailures ->
+            let
+                ( globalFailures, newUi ) =
+                    case model.ui of
+                        CreateGameScreen gameNameInput screenNameInput ->
+                            let
+                                ( gameNameFailures, remaining1 ) =
+                                    List.partition
+                                        (\failure ->
+                                            maybeContains "gameName" failure.context
+                                        )
+                                        newFailures
+
+                                ( screenNameFailures, nonUiFailures ) =
+                                    List.partition
+                                        (\failure ->
+                                            maybeContains "screenName" failure.context
+                                        )
+                                        remaining1
+
+                                newGameNameInput =
+                                    withFailures gameNameInput gameNameFailures
+
+                                newScreenNameInput =
+                                    withFailures screenNameInput screenNameFailures
+                            in
+                            ( nonUiFailures, CreateGameScreen newGameNameInput newScreenNameInput )
+
+                        JoinGameScreen external gameCodeInput screenNameInput ->
+                            let
+                                ( gameCodeFailures, remaining1 ) =
+                                    List.partition
+                                        (\failure ->
+                                            maybeContains "gameCode" failure.context
+                                        )
+                                        newFailures
+
+                                ( screenNameFailures, nonUiFailures ) =
+                                    List.partition
+                                        (\failure ->
+                                            maybeContains "screenName" failure.context
+                                        )
+                                        remaining1
+
+                                newGameCodeInput =
+                                    withFailures gameCodeInput gameCodeFailures
+
+                                newScreenNameInput =
+                                    withFailures screenNameInput screenNameFailures
+                            in
+                            ( nonUiFailures, JoinGameScreen external newGameCodeInput newScreenNameInput )
+
+                        _ ->
+                            ( newFailures, model.ui )
+
+                modelWithFailures =
+                    displayFailures model globalFailures
+            in
+            ( { modelWithFailures | ui = newUi }
+            , Cmd.none
+            )
+
+
+isForAnotherGame : UI -> Message -> Bool
+isForAnotherGame ui message =
+    let
+        messageGameId =
+            case message of
+                PlayerGameStatusMessage _ game _ ->
+                    Just game.gameId
+
+                PlayerRoundWinningsMessage _ game _ _ ->
+                    Just game.gameId
+
+                _ ->
+                    Nothing
+    in
+    case ( welcomeFromUi ui, messageGameId ) of
+        ( Just welcome, Just gameId ) ->
+            welcome.gameId /= gameId
+
+        _ ->
+            False

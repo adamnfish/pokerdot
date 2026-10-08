@@ -8,6 +8,7 @@ import io.adamnfish.pokerdot.integration.IntegrationComponents.afterGetPlayers
 import io.adamnfish.pokerdot.integration.JoinGameIntegrationTest.{joinGameRequest, performJoinGame}
 import io.adamnfish.pokerdot.integration.StartGameIntegrationTest.{performStartGame, startGameRequest}
 import io.adamnfish.pokerdot.models.*
+import io.adamnfish.pokerdot.services.{Gone, Messaging, SendResult, Sent}
 import io.adamnfish.pokerdot.{PokerDot, TestHelpers}
 import org.scalatest.OptionValues
 import org.scalatest.freespec.AsyncFreeSpec
@@ -86,6 +87,21 @@ class ConnectionsIntegrationTest
         response <- performStartGame(startRequest(hostWelcome, playerWelcome), context(secondHostAddress))
       } yield response.statuses.keySet shouldEqual Set(hostAddress, secondHostAddress, playerAddress)
     }
+  }
+
+  "a gone connection is removed when sending to it" in appContextRes.use { (context, db) =>
+    val goneMessaging = new Messaging[IO] {
+      override def sendMessage(address: PlayerAddress, message: Message): IO[SendResult] =
+        IO.pure(if (address == hostAddress) Gone else Sent)
+      override def sendError(address: PlayerAddress, message: Failures): IO[SendResult] = IO.pure(Sent)
+    }
+    for {
+      welcome <- createGameFixture(context)
+      _ <- ping(welcome, context(secondHostAddress))
+      response <- performJoinGame(joinGameRequest(welcome.gameCode), context(playerAddress))
+      _ <- PokerDot.sendResponse(response, goneMessaging, db)
+      connections <- db.getConnections(welcome.gameId)
+    } yield connections.map(_.address).toSet shouldEqual Set(secondHostAddress.address, playerAddress.address)
   }
 
   private def createGameFixture(contextBuilder: PlayerAddress => AppContext[IO]): IO[Welcome] = {

@@ -183,6 +183,7 @@ case class Wake(
 case class Response[+M <: Message](
   messages: Map[PlayerAddress, M],
   statuses: Map[PlayerAddress, GameStatus],
+  gameId: Option[GameId] = None,
 )
 
 // Data sent to clients
