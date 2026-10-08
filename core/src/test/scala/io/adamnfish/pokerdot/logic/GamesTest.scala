@@ -96,6 +96,16 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
   }
 
   "newPlayer" - {
+    "makes the host an admin" in {
+      val host = newPlayer(GameId("game-id"), "host", isHost = true, PlayerAddress("address"), 0L)
+      host.isAdmin shouldEqual true
+    }
+
+    "does not make other players admins" in {
+      val player = newPlayer(GameId("game-id"), "player", isHost = false, PlayerAddress("address"), 0L)
+      player.isAdmin shouldEqual false
+    }
+
     "initialises basic fields correctly" in {
       forAll(dateGen) { now =>
         forAll { (gid: String, screenName: String, isHost: Boolean, address: String) =>
@@ -872,17 +882,27 @@ class GamesTest extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyC
     val player1 = newPlayer(gameId, "player-1", false, PlayerAddress("player-1-address"), 0L)
     val players = List(admin, player1)
 
-    "succeeds if the provided player is the host" in {
+    "succeeds if the provided player is an admin" in {
       ensureAdmin[Try](players, admin.playerKey).success.value shouldEqual admin
     }
 
-    "fails if the provided player is not the host" in {
+    "fails if the provided player is not an admin" in {
       ensureAdmin[Try](players, player1.playerKey).isFailure shouldEqual true
     }
 
     "fails if the provided player does not exist in the game" in {
       val nonPlayerKey = PlayerKey("not-in-the-game")
       ensureAdmin[Try](players, nonPlayerKey).isFailure shouldEqual true
+    }
+
+    "succeeds for an admin who is not the host" in {
+      val nonHostAdmin = player1.copy(isAdmin = true)
+      ensureAdmin[Try](List(admin, nonHostAdmin), nonHostAdmin.playerKey).success.value shouldEqual nonHostAdmin
+    }
+
+    "fails for a host who is not an admin" in {
+      val nonAdminHost = admin.copy(isAdmin = false)
+      ensureAdmin[Try](List(nonAdminHost, player1), nonAdminHost.playerKey).isFailure shouldEqual true
     }
   }
 

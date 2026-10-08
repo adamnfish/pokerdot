@@ -122,6 +122,22 @@ class CreateGameIntegrationTest
         )
       }
 
+      "as a host and admin" in appContextRes.use { (context, db) =>
+        for {
+          response <- performCreateGame(
+            createGameRequest,
+            context(hostAddress),
+            initialSeed
+          )
+          welcomeMessage = response.messages.get(hostAddress).value
+          dbPlayers <- db.getPlayers(welcomeMessage.gameId)
+          hostDb = dbPlayers.head
+        } yield hostDb should have(
+          "isHost" as true,
+          "isAdmin" as true
+        )
+      }
+
       "with an appropriate expiry" in appContextRes.use { (context, db) =>
         val appContext = context(hostAddress)
         for {
