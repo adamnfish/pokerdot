@@ -100,7 +100,11 @@ class CreateGameIntegrationTest
           welcomeMessage = response.messages.get(hostAddress).value
           gameDbOpt <- db.getGame(welcomeMessage.gameId)
           now <- appContext.time.now
-        } yield gameDbOpt.value.expiry should be > now
+        } yield {
+          // DynamoDB's TTL is in epoch seconds
+          gameDbOpt.value.expiry should be > now / 1000
+          gameDbOpt.value.expiry should be < (now / 1000) + (22L * 24 * 60 * 60)
+        }
       }
     }
 
@@ -134,7 +138,11 @@ class CreateGameIntegrationTest
           dbPlayers <- db.getPlayers(welcomeMessage.gameId)
           hostDb = dbPlayers.head
           now <- appContext.time.now
-        } yield hostDb.expiry should be > now
+        } yield {
+          // DynamoDB's TTL is in epoch seconds
+          hostDb.expiry should be > now / 1000
+          hostDb.expiry should be < (now / 1000) + (22L * 24 * 60 * 60)
+        }
       }
     }
   }
